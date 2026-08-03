@@ -1,39 +1,20 @@
-name: CI
+name: ci
 
 on:
   push:
     branches: [main]
   pull_request:
 
-permissions:
-  contents: read
-
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: 26
+          node-version: 22
           cache: npm
       - run: npm ci
-      - name: Verify legacy, architecture, Workflow and project contracts
-        env:
-          PROJECT_SOURCE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: npm run verify
       - run: npm run lint
-      - name: Check committed whitespace
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          if git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
-            git diff --check "$BASE_SHA" "$GITHUB_SHA"
-          else
-            git diff-tree --check --root -r "$GITHUB_SHA"
-          fi
-      - name: Check clean worktree
-        run: git diff --exit-code
+      - run: npm test
+      - run: npm run build

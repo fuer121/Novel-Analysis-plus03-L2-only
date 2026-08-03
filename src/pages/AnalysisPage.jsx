@@ -13,25 +13,17 @@ import {
 import { apiDelete, apiGet, formatTime } from "../api.js";
 import { IconButton, Panel, ResultActions, StatusPill, TaskBox } from "../ui.jsx";
 import { analysisIndexCoverageText, factIndexName } from "../analysisCoverage.js";
-import {
-  normalizePrompt,
-  outputSchemaForPrompt,
-  parseJsonLike,
-  tableViewsFromJson
-} from "../schemaTools.js";
+import { parseJsonLike, tableViewsFromJson } from "../schemaTools.js";
 
 const initialAnalysisForm = {
   book_id: "",
   start_chapter: "1",
-  end_chapter: "20",
-  analysis_mode: "fast_index"
+  end_chapter: "20"
 };
 
 export function AnalysisPage({
   books,
   config,
-  prompts,
-  onLoadPromptGroups,
   onLoadBookIndexGroups,
   analysisTask,
   analysisBusy,
@@ -49,11 +41,7 @@ export function AnalysisPage({
     ...initialAnalysisForm,
     book_id: books[0]?.book_id || ""
   });
-  const [promptDraft, setPromptDraft] = useState(() => normalizePrompt(prompts));
-  const defaultPrompt = useMemo(() => normalizePrompt(prompts), [prompts]);
-  const [bookPromptGroups, setBookPromptGroups] = useState([]);
   const [indexGroups, setIndexGroups] = useState([]);
-  const [selectedPromptGroupId, setSelectedPromptGroupId] = useState("");
   const [selectedL2QueryIndexKeys, setSelectedL2QueryIndexKeys] = useState([]);
   const [l2QueryText, setL2QueryText] = useState("");
   const [selectedIndexes, setSelectedIndexes] = useState([]);
@@ -77,7 +65,7 @@ export function AnalysisPage({
 
   useEffect(() => {
     void loadChapters(analysisForm.book_id);
-    void loadBookPromptGroups(analysisForm.book_id);
+    void loadBookIndexGroups(analysisForm.book_id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analysisForm.book_id]);
 
@@ -106,23 +94,12 @@ export function AnalysisPage({
     () => books.find((book) => book.book_id === analysisForm.book_id) || null,
     [books, analysisForm.book_id]
   );
-  const selectedPromptGroupEntry = useMemo(
-    () => selectedPromptGroup(bookPromptGroups, selectedPromptGroupId),
-    [bookPromptGroups, selectedPromptGroupId]
-  );
-  const isL2QueryMode = analysisForm.analysis_mode === "l2_query";
-  const analysisProvider = config.analysisProvider || "dify";
-  const analysisProviderReady = analysisProvider === "dify"
-    ? Boolean(isL2QueryMode ? config.difyAnalysisSummaryConfigured : config.difyAnalysisChapterConfigured && config.difyAnalysisSummaryConfigured)
-    : Boolean(config.openaiConfigured && config.retentionConfirmed);
+  const analysisProviderReady = Boolean(config.difyAnalysisSummaryConfigured);
   const selectedL2QueryEnabledIndexKeys = useMemo(
     () => filterEnabledIndexKeys(selectedL2QueryIndexKeys, indexGroups),
     [selectedL2QueryIndexKeys, indexGroups]
   );
-  const activeIndexGroupKeys = isL2QueryMode
-    ? selectedL2QueryEnabledIndexKeys
-    : selectedPromptGroupEntry?.index_group_keys || [];
-  const hasBoundIndexGroups = activeIndexGroupKeys.length > 0;
+  const hasBoundIndexGroups = selectedL2QueryEnabledIndexKeys.length > 0;
 
   const chaptersInRange = useMemo(
     () => {
@@ -138,7 +115,7 @@ export function AnalysisPage({
     }
     void loadL2Coverage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analysisForm.book_id, analysisForm.start_chapter, analysisForm.end_chapter, selectedPromptGroupId, bookPromptGroups, selectedL2QueryEnabledIndexKeys, isL2QueryMode]);
+  }, [analysisForm.book_id, analysisForm.start_chapter, analysisForm.end_chapter, selectedL2QueryEnabledIndexKeys]);
 
   async function loadAnalyses() {
     setBusy((state) => ({ ...state, list: true }));
@@ -172,27 +149,17 @@ export function AnalysisPage({
     }
   }
 
-  async function loadBookPromptGroups(bookId) {
+  async function loadBookIndexGroups(bookId) {
     if (!bookId) {
-      setBookPromptGroups([]);
       setIndexGroups([]);
-      setSelectedPromptGroupId("");
-      setPromptDraft(defaultPrompt);
+      setSelectedL2QueryIndexKeys([]);
       return;
     }
     setError("");
     try {
-      const groups = await onLoadPromptGroups(bookId);
       const indexGroupRows = await onLoadBookIndexGroups(bookId);
-      setBookPromptGroups(groups);
       setIndexGroups(indexGroupRows);
       setSelectedL2QueryIndexKeys(defaultL2QueryIndexKeys(indexGroupRows));
-      if (selectionOverrideRef.current) return;
-      const first = groups[0] || null;
-      setSelectedPromptGroupId(first?.id || "");
-      setPromptDraft(first
-        ? { ...defaultPrompt, name: first.name, summary_prompt: first.summary_prompt, index_group_keys: first.index_group_keys || [] }
-        : defaultPrompt);
     } catch (error) {
       setError(error.message);
     }
@@ -203,7 +170,7 @@ export function AnalysisPage({
       return;
     }
     try {
-      const groupKeys = activeIndexGroupKeys;
+      const groupKeys = selectedL2QueryEnabledIndexKeys;
       if (!groupKeys.length) {
         setL2CoveragesByGroup({});
         return;
@@ -229,44 +196,27 @@ export function AnalysisPage({
       setError("请至少选择一个已导入章节。");
       return;
     }
-    if (isL2QueryMode && !l2QueryText.trim()) {
-      setError("L2 提问模式必须填写查询问题。");
-      return;
-    }
-    if (!isL2QueryMode && !selectedPromptGroupId) {
-      setError("当前书籍还没有分析模板，请先到模板管理中创建。");
+    if (!l2QueryText.trim()) {
+      setError("L2 提问必须填写查询问题。");
       return;
     }
     if (!hasBoundIndexGroups) {
-      setError("分析模板必须绑定至少一个事实索引，请先到模板管理中选择并保存。");
+      setError("请至少选择一个事实索引。");
       return;
     }
     if (!analysisProviderReady) {
-      setError(analysisProvider === "dify"
-        ? isL2QueryMode
-          ? "分析执行器未就绪：请配置 DIFY_ANALYSIS_SUMMARY_WORKFLOW_API_KEY。"
-          : "分析执行器未就绪：请配置 DIFY_ANALYSIS_CHAPTER_WORKFLOW_API_KEY 与 DIFY_ANALYSIS_SUMMARY_WORKFLOW_API_KEY。"
-        : "分析执行器未就绪：请配置 OPENAI_API_KEY 并确认 OPENAI_RETENTION_MODE。");
+      setError("分析执行器未就绪：请配置 DIFY_ANALYSIS_SUMMARY_WORKFLOW_API_KEY。");
       return;
     }
 
     setError("");
     setSelectedAnalysis(null);
     const task = await onStartAnalysis({
-      ...analysisForm,
-      name: analysisTaskName(promptDraft, selectedBook, { ...analysisForm, query: l2QueryText }),
-      start_chapter: Number(analysisForm.start_chapter),
-      end_chapter: Number(analysisForm.end_chapter),
-      chapter_indexes: chapterIndexes,
-      use_l1_context: false,
-      analysis_mode: analysisForm.analysis_mode,
-      query: isL2QueryMode ? l2QueryText.trim() : "",
-      index_group_keys: isL2QueryMode ? selectedL2QueryEnabledIndexKeys : undefined,
-      prompt: {
-        ...promptDraft,
-        output_schema: outputSchemaForPrompt(promptDraft)
-      },
-      prompt_group_id: isL2QueryMode ? "" : selectedPromptGroupId
+      book_id: analysisForm.book_id,
+      name: analysisTaskName(l2QueryText, selectedBook, analysisForm),
+      query: l2QueryText.trim(),
+      index_group_keys: selectedL2QueryEnabledIndexKeys,
+      chapter_indexes: chapterIndexes
     }, {
       onTerminal: async (task) => {
         await loadAnalyses();
@@ -312,7 +262,7 @@ export function AnalysisPage({
   }
 
   async function deleteAnalysis(id) {
-    const confirmed = window.confirm("删除这条分析任务和本地加密结果？");
+    const confirmed = window.confirm("删除这条分析任务和本地结果？");
     if (!confirmed) return;
     setError("");
     try {
@@ -328,14 +278,11 @@ export function AnalysisPage({
     const analysis = await loadAnalysisResult(id);
     if (!analysis) return;
     const rawPrompt = analysis.prompt || {};
-    const analysisPrompt = normalizePrompt(rawPrompt || prompts);
-    const copiedMode = rawPrompt.analysis_mode || analysis.source_stats?.analysis_mode || initialAnalysisForm.analysis_mode;
     setAnalysisForm({
       ...initialAnalysisForm,
       book_id: analysis.book_id,
       start_chapter: String(analysis.start_chapter),
-      end_chapter: String(analysis.end_chapter),
-      analysis_mode: copiedMode
+      end_chapter: String(analysis.end_chapter)
     });
     setL2QueryText(rawPrompt.l2_query || analysis.source_stats?.query || "");
     const copiedIndexKeys = rawPrompt.index_group_keys || analysis.source_stats?.index_group_keys || [];
@@ -343,18 +290,6 @@ export function AnalysisPage({
     setSelectedL2QueryIndexKeys(availableIndexKeys.length ? availableIndexKeys : defaultL2QueryIndexKeys(indexGroups));
     selectionOverrideRef.current = analysis.chapter_indexes || [];
     setSelectionOverrideToken((value) => value + 1);
-    setSelectedPromptGroupId(copiedMode === "l2_query" ? "" : "__snapshot__");
-    setPromptDraft(analysisPrompt);
-  }
-
-  function applyPromptGroup(groupId) {
-    setSelectedPromptGroupId(groupId);
-    const group = bookPromptGroups.find((entry) => entry.id === groupId);
-    setPromptDraft((current) => (
-      group
-        ? { ...current, name: group.name, summary_prompt: group.summary_prompt, index_group_keys: group.index_group_keys || [] }
-        : current
-    ));
   }
 
   function updateAnalysisForm(patch) {
@@ -362,14 +297,11 @@ export function AnalysisPage({
     if (patch.book_id !== undefined || patch.start_chapter !== undefined || patch.end_chapter !== undefined) {
       setL2CoveragesByGroup({});
     }
-    if (patch.analysis_mode === "l2_query" && !selectedL2QueryEnabledIndexKeys.length) {
-      setSelectedL2QueryIndexKeys(defaultL2QueryIndexKeys(indexGroups));
-    }
   }
 
-  function openPromptManager() {
+  function openIndexManager() {
     if (!analysisForm.book_id) return;
-    window.history.pushState({}, "", `/prompts?book_id=${encodeURIComponent(analysisForm.book_id)}&section=analysis`);
+    window.history.pushState({}, "", `/prompts?book_id=${encodeURIComponent(analysisForm.book_id)}`);
     window.dispatchEvent(new PopStateEvent("popstate"));
   }
 
@@ -378,13 +310,13 @@ export function AnalysisPage({
       <header className="page-hero">
         <div>
           <span>分析工作台</span>
-          <h2>分析任务</h2>
-          <p>选择书籍、分析模板和章节范围，基于已准备的章节线索与事实索引生成结构化结果。</p>
+          <h2>L2 提问</h2>
+          <p>选择书籍、事实索引和章节范围，召回 L2 事实并汇总生成结构化结果。</p>
         </div>
         <div className="page-hero-actions">
-          <button className="secondary inline" type="button" onClick={openPromptManager} disabled={!analysisForm.book_id}>
+          <button className="secondary inline" type="button" onClick={openIndexManager} disabled={!analysisForm.book_id}>
             <ClipboardList size={16} />
-            管理模板
+            管理索引
           </button>
         </div>
       </header>
@@ -410,20 +342,6 @@ export function AnalysisPage({
                 ))}
               </select>
             </label>
-            {!isL2QueryMode ? (
-              <label>
-                <span>分析模板</span>
-                <select value={selectedPromptGroupId} onChange={(event) => applyPromptGroup(event.target.value)}>
-                  <option value="">选择分析模板</option>
-                  {selectedPromptGroupId === "__snapshot__" ? (
-                    <option value="__snapshot__">历史任务模板快照</option>
-                  ) : null}
-                  {bookPromptGroups.map((group) => (
-                    <option key={group.id} value={group.id}>{group.name}</option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
             <label>
               <span>起始章节</span>
               <input
@@ -444,65 +362,44 @@ export function AnalysisPage({
                 onChange={(event) => updateAnalysisForm({ end_chapter: sanitizeChapterInput(event.target.value) })}
               />
             </label>
+          </div>
+
+          <div className="l2-query-box">
             <label>
-              <span>分析模式</span>
-              <select
-                value={analysisForm.analysis_mode}
-                onChange={(event) => updateAnalysisForm({ analysis_mode: event.target.value })}
-              >
-                <option value="l2_query">L2 提问</option>
-                <option value="balanced">平衡推荐</option>
-                <option value="fast_index">快速探索</option>
-                <option value="precision">精准复核</option>
-                <option value="full_text">全文精读</option>
-              </select>
+              <span>事实索引</span>
+              <div className="index-checkbox-list">
+                {indexGroups.map((group) => (
+                  <label key={group.group_key} className="inline-check">
+                    <input
+                      type="checkbox"
+                      checked={selectedL2QueryIndexKeys.includes(group.group_key)}
+                      onChange={() => setSelectedL2QueryIndexKeys((keys) => toggleListValue(keys, group.group_key))}
+                    />
+                    <span>{factIndexName(group)}</span>
+                  </label>
+                ))}
+              </div>
+            </label>
+            <label>
+              <span>查询问题 / 输出要求</span>
+              <textarea
+                className="l2-query-textarea"
+                value={l2QueryText}
+                placeholder="例如：帮我查找剑来飞剑专项 L2 中关于初一（早期外形是银锭，原文中称之为小银锭）的内容，并整理成初一外形演化时间线"
+                onChange={(event) => setL2QueryText(event.target.value)}
+              />
             </label>
           </div>
 
-          {isL2QueryMode ? (
-            <div className="l2-query-box">
-              <label>
-                <span>事实索引</span>
-                <div className="index-checkbox-list">
-                  {indexGroups.map((group) => (
-                    <label key={group.group_key} className="inline-check">
-                      <input
-                        type="checkbox"
-                        checked={selectedL2QueryIndexKeys.includes(group.group_key)}
-                        onChange={() => setSelectedL2QueryIndexKeys((keys) => toggleListValue(keys, group.group_key))}
-                      />
-                      <span>{factIndexName(group)}</span>
-                    </label>
-                  ))}
-                </div>
-              </label>
-              <label>
-                <span>查询问题 / 输出要求</span>
-                <textarea
-                  className="l2-query-textarea"
-                  value={l2QueryText}
-                  placeholder="例如：帮我查找剑来飞剑专项 L2 中关于初一（早期外形是银锭，原文中称之为小银锭）的内容，并整理成初一外形演化时间线"
-                  onChange={(event) => setL2QueryText(event.target.value)}
-                />
-              </label>
-            </div>
-          ) : null}
-
           <div className="command-footer">
             <div className="index-route-note">
-              {analysisRouteNote(
-                analysisForm.analysis_mode,
-                l2CoveragesByGroup,
-                selectedIndexes.length,
-                isL2QueryMode ? { index_group_keys: selectedL2QueryEnabledIndexKeys } : selectedPromptGroupEntry,
-                indexGroups
-              )}
+              {analysisRouteNote(l2CoveragesByGroup, selectedL2QueryEnabledIndexKeys, indexGroups)}
             </div>
             <button
               className="primary inline command-primary"
               type="button"
               onClick={startAnalysis}
-              disabled={analysisBusy || !analysisProviderReady || !analysisForm.book_id || !selectedIndexes.length || !hasBoundIndexGroups || (!isL2QueryMode && !selectedPromptGroupId) || (isL2QueryMode && !l2QueryText.trim())}
+              disabled={analysisBusy || !analysisProviderReady || !analysisForm.book_id || !selectedIndexes.length || !hasBoundIndexGroups || !l2QueryText.trim()}
             >
               {analysisBusy ? <Loader2 className="spin" size={18} /> : <Play size={18} />}
               {analysisBusy ? "分析中" : "开始分析"}
@@ -572,9 +469,9 @@ function validChapterNumber(value) {
   return Number.isInteger(number) && number > 0;
 }
 
-function analysisTaskName(prompt, book, form) {
-  if (form?.analysis_mode === "l2_query" && form?.query) return `L2 提问 · ${String(form.query).trim().slice(0, 24)}`;
-  if (prompt?.name) return prompt.name;
+function analysisTaskName(query, book, form) {
+  const text = String(query || "").trim();
+  if (text) return `L2 提问 · ${text.slice(0, 24)}`;
   const bookName = book?.book_name || book?.book_id || "分析任务";
   return `${bookName} ${form.start_chapter}-${form.end_chapter}`;
 }
@@ -584,20 +481,9 @@ function sanitizeChapterInput(value) {
   return digits.replace(/^0+(?=\d)/, "").replace(/^0$/, "");
 }
 
-function analysisRouteNote(mode, coveragesByGroup, selectedCount, promptGroup, indexGroups) {
-  const groupText = analysisIndexCoverageText({ promptGroup, indexGroups, coveragesByGroup });
-  if (mode === "l2_query") return `L2 提问 · 只查询事实索引，不跑逐章分析，不复核原文 · ${groupText}`;
-  if (mode === "full_text") return `全文精读 · 最完整 · 逐章读取原文 · ${groupText}`;
-  if (mode === "fast_index") return `快速探索 · 只用已准备事实索引 · ${groupText}`;
-  const reviewBudget = mode === "precision"
-    ? Math.min(30, Math.max(5, Math.ceil(selectedCount * 0.03)))
-    : Math.min(10, Math.max(3, Math.ceil(selectedCount * 0.01)));
-  const label = mode === "precision" ? "精准复核 · 更稳" : "平衡推荐 · 速度较快";
-  return `${label} · 最多复核 ${reviewBudget} 章 · ${groupText}`;
-}
-
-function selectedPromptGroup(groups, groupId) {
-  return groups.find((group) => group.id === groupId) || null;
+function analysisRouteNote(coveragesByGroup, indexGroupKeys, indexGroups) {
+  const groupText = analysisIndexCoverageText({ indexGroupKeys, indexGroups, coveragesByGroup });
+  return `L2 提问 · 只查询事实索引，不跑逐章分析，不复核原文 · ${groupText}`;
 }
 
 function defaultL2QueryIndexKeys(groups = []) {
@@ -784,16 +670,9 @@ function AnalysisIdentity({ analysis }) {
 
 function SourceStats({ stats }) {
   if (!stats) return null;
-  const modeLabel = {
-    l2_query: "L2 提问",
-    fast_index: "快速探索",
-    balanced: "平衡推荐",
-    precision: "精准复核",
-    full_text: "全文精读"
-  }[stats.analysis_mode] || stats.analysis_mode || "未知模式";
   return (
     <div className="source-stats">
-      <span>{modeLabel}</span>
+      <span>L2 提问</span>
       <span>召回事实 {Number(stats.recalled_facts || 0)} 条</span>
       <span>涉及章节 {Number(stats.recalled_chapters || 0)} 章</span>
       {stats.l1_route_enabled ? <span>章节线索命中 {stats.l1_matched_chapters?.length || 0} 章</span> : null}

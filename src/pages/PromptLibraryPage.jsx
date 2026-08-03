@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   BookPlus,
-  ClipboardList,
   Copy,
   Database,
   Folder,
@@ -12,21 +11,10 @@ import {
   Plus,
   RefreshCcw,
   Save,
-  Sparkles,
-  X,
   Trash2
 } from "lucide-react";
-import { apiDelete, apiGet, apiPost, apiPut, formatTime } from "../api.js";
+import { formatTime } from "../api.js";
 import { IconButton, Panel } from "../ui.jsx";
-
-const emptyDraft = {
-  id: "",
-  book_id: "",
-  name: "",
-  category: "书籍分析",
-  summary_prompt: "",
-  index_group_keys: []
-};
 
 const emptyIndexGroupDraft = {
   group_key: "",
@@ -66,18 +54,12 @@ export function PromptLibraryPage({
   onDeleteBookIndexGroup,
   onStartL1Index,
   onStartL2Index,
-  onLoadPromptGroups,
-  onPromptGroupsChanged,
   setError
 }) {
   const [selectedBookId, setSelectedBookId] = useState(() => bookIdFromUrl() || books[0]?.book_id || "");
   const [bookForm, setBookForm] = useState(emptyBookForm);
   const [showBookForm, setShowBookForm] = useState(false);
   const [creatingBook, setCreatingBook] = useState(false);
-  const [bookPromptGroups, setBookPromptGroups] = useState([]);
-  const [selectedId, setSelectedId] = useState("");
-  const [draft, setDraft] = useState(emptyDraft);
-  const [busy, setBusy] = useState(false);
   const [indexData, setIndexData] = useState(null);
   const [indexGroups, setIndexGroups] = useState([]);
   const [selectedIndexGroupKey, setSelectedIndexGroupKey] = useState("");
@@ -85,18 +67,12 @@ export function PromptLibraryPage({
   const [indexGroupBusy, setIndexGroupBusy] = useState(false);
   const [indexSaving, setIndexSaving] = useState({ l1: false, l2: false });
   const [rebuildPrompt, setRebuildPrompt] = useState(null);
-  const [guideTemplates, setGuideTemplates] = useState(null);
-  const [guideRequest, setGuideRequest] = useState(null);
 
   const selectedBook = useMemo(
     () => books.find((book) => book.book_id === selectedBookId) || null,
     [books, selectedBookId]
   );
 
-  const dirty = useMemo(
-    () => !samePromptGroup(draft, bookPromptGroups.find((group) => group.id === selectedId) || emptyDraft),
-    [draft, bookPromptGroups, selectedId]
-  );
   const editableIndexGroups = useMemo(
     () => indexGroups.filter((group) => group.group_key !== "base"),
     [indexGroups]
@@ -118,11 +94,9 @@ export function PromptLibraryPage({
   async function loadBookPromptState(bookId) {
     setError("");
     try {
-      const [indexResponse, groups, indexGroupRows, templatesResponse] = await Promise.all([
+      const [indexResponse, indexGroupRows] = await Promise.all([
         onLoadBookIndexPrompts(bookId),
-        onLoadPromptGroups(bookId),
-        onLoadBookIndexGroups(bookId),
-        guideTemplates ? Promise.resolve({ templates: guideTemplates }) : apiGet("/api/prompt-guides/templates")
+        onLoadBookIndexGroups(bookId)
       ]);
       setIndexData(indexResponse);
       setIndexGroups(indexGroupRows);
@@ -132,11 +106,6 @@ export function PromptLibraryPage({
           : (indexGroupRows.find((group) => group.group_key !== "base")?.group_key || "")
       ));
       setIndexGroupDraft(emptyIndexGroupDraft);
-      setGuideTemplates(templatesResponse.templates || {});
-      setBookPromptGroups(groups);
-      const first = groups[0] || null;
-      setSelectedId(first?.id || "");
-      setDraft(first ? normalizeGroupDraft(first, bookId) : { ...emptyDraft, book_id: bookId });
     } catch (error) {
       setError(error.message);
     }
@@ -163,78 +132,6 @@ export function PromptLibraryPage({
       setError(error.message);
     } finally {
       setCreatingBook(false);
-    }
-  }
-
-  function selectGroup(group) {
-    if (dirty && !window.confirm("当前分析模板有未保存修改，确定切换吗？")) return;
-    setSelectedId(group.id);
-    setDraft(normalizeGroupDraft(group, selectedBookId));
-  }
-
-  function startCreatePrompt() {
-    if (!selectedBookId) {
-      setError("请先选择或新建一本书。");
-      return;
-    }
-    if (dirty && !window.confirm("当前分析模板有未保存修改，确定新建吗？")) return;
-    setSelectedId("");
-    setDraft({ ...emptyDraft, book_id: selectedBookId });
-  }
-
-  async function saveGroup() {
-    if (!selectedBookId) {
-      setError("请先选择一本书。");
-      return;
-    }
-    if (!(draft.index_group_keys || []).length) {
-      setError("分析模板必须绑定至少一个事实索引。");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
-      const payload = {
-        book_id: selectedBookId,
-        name: draft.name,
-        category: selectedBook?.book_name || selectedBookId,
-        summary_prompt: draft.summary_prompt,
-        index_group_keys: draft.index_group_keys || []
-      };
-      const data = draft.id
-        ? await apiPut(`/api/prompt-groups/${encodeURIComponent(draft.id)}`, payload)
-        : await apiPost("/api/prompt-groups", payload);
-      await onPromptGroupsChanged();
-      const groups = await onLoadPromptGroups(selectedBookId);
-      setBookPromptGroups(groups);
-      const saved = groups.find((group) => group.id === data.promptGroup.id) || data.promptGroup;
-      setSelectedId(saved.id);
-      setDraft(normalizeGroupDraft(saved, selectedBookId));
-    } catch (error) {
-      setError(error.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function deleteGroup() {
-    if (!draft.id) return;
-    const confirmed = window.confirm(`删除分析模板《${draft.name}》？`);
-    if (!confirmed) return;
-    setBusy(true);
-    setError("");
-    try {
-      await apiDelete(`/api/prompt-groups/${encodeURIComponent(draft.id)}`);
-      await onPromptGroupsChanged();
-      const groups = await onLoadPromptGroups(selectedBookId);
-      setBookPromptGroups(groups);
-      const next = groups[0] || { ...emptyDraft, book_id: selectedBookId };
-      setSelectedId(next.id || "");
-      setDraft(normalizeGroupDraft(next, selectedBookId));
-    } catch (error) {
-      setError(error.message);
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -345,68 +242,6 @@ export function PromptLibraryPage({
     }
   }
 
-  function updateDraft(patch) {
-    setDraft((current) => ({ ...current, ...patch }));
-  }
-
-  function openGuide(type, currentPrompt = "", mode = "create") {
-    if (!selectedBookId) {
-      setError("请先选择或新建一本书。");
-      return;
-    }
-    if (mode === "optimize" && !String(currentPrompt || "").trim()) {
-      setError("请先选择或填写一条分析模板。");
-      return;
-    }
-    setGuideRequest({
-      type,
-      mode,
-      bookId: selectedBookId,
-      bookName: selectedBook?.book_name || selectedBookId,
-      currentPrompt
-    });
-  }
-
-  function applyGuideSuggestion(type, suggestion) {
-    const prompt = suggestion?.prompt_suggestion || "";
-    if (!prompt) return;
-    if (type === "l1") {
-      setIndexData((current) => current ? {
-        ...current,
-        indexPrompts: {
-          ...current.indexPrompts,
-          l1_index_prompt: prompt
-        }
-      } : current);
-      return;
-    }
-    if (type === "l2") {
-      setIndexData((current) => current ? {
-        ...current,
-        indexPrompts: {
-          ...current.indexPrompts,
-          l2_index_prompt: prompt
-        }
-      } : current);
-      return;
-    }
-    if (type.toLowerCase() === "indexgroup") {
-      setSelectedIndexGroupKey("");
-      setIndexGroupDraft((current) => ({
-        ...current,
-        group_key: current.group_key || slugifyIndexGroupKey(current.name || suggestion.title_suggestion),
-        name: current.name || suggestion.title_suggestion || "事实索引",
-        description: suggestion.rationale || current.description || "",
-        l2_index_prompt: prompt
-      }));
-      return;
-    }
-    updateDraft({
-      name: draft.name || suggestion.title_suggestion || "",
-      summary_prompt: prompt
-    });
-  }
-
   const indexPrompts = indexData?.indexPrompts || null;
   const l1Coverage = indexData?.coverage?.l1 || null;
   const l2Coverage = indexData?.coverage?.l2 || null;
@@ -419,9 +254,9 @@ export function PromptLibraryPage({
     <section className="prompt-workbench">
       <header className="page-hero">
         <div>
-          <span>模板工作台</span>
-          <h2>模板与事实索引</h2>
-          <p>维护书籍的章节线索规则、事实索引规则、多个事实索引和分析模板。普通运营按业务用途管理，高级细节保留在规则内容里。</p>
+          <span>索引工作台</span>
+          <h2>索引与事实库</h2>
+          <p>维护书籍的章节线索规则、事实索引规则和多个事实索引。普通运营按业务用途管理，高级细节保留在规则内容里。</p>
         </div>
         <div className="page-hero-actions">
           <IconButton icon={RefreshCcw} label="刷新" onClick={refreshAll} />
@@ -496,7 +331,6 @@ export function PromptLibraryPage({
                   coverage={l1Coverage}
                   saving={indexSaving.l1}
                   onSave={(prompt) => saveIndexPrompt("l1", prompt)}
-                  onOpenGuide={(currentPrompt) => openGuide("l1", currentPrompt)}
                 />
                 {selectedIndexGroup ? (
                   <IndexPromptEditor
@@ -509,7 +343,6 @@ export function PromptLibraryPage({
                     coverage={l2Coverage}
                     saving={indexSaving.l2}
                     onSave={(prompt) => saveSpecializedL2Prompt(prompt)}
-                    onOpenGuide={(currentPrompt) => openGuide("l2", currentPrompt)}
                   />
                 ) : (
                   <div className="empty-state">先新建事实索引，再编辑对应规则</div>
@@ -531,7 +364,6 @@ export function PromptLibraryPage({
                       l2_index_prompt: indexPrompts?.l2_index_prompt || ""
                     });
                   }}
-                  onOpenGuide={() => openGuide("indexgroup", indexPrompts?.l2_index_prompt || "")}
                   onDraftChange={(patch) => setIndexGroupDraft((current) => ({ ...current, ...patch }))}
                   onSave={saveIndexGroup}
                   onDelete={deleteIndexGroup}
@@ -548,94 +380,7 @@ export function PromptLibraryPage({
             )}
           </Panel>
         </section>
-
-        <section className="prompt-analysis-column">
-          <Panel
-            icon={ClipboardList}
-            title="分析模板"
-            action={
-              <div className="panel-action-row">
-                <IconButton icon={Sparkles} label="创建引导" onClick={() => openGuide("analysis", draft.summary_prompt, "create")} />
-                <IconButton icon={Plus} label="新建" onClick={startCreatePrompt} />
-              </div>
-            }
-          >
-            <div className="prompt-analysis-grid">
-              <div className="prompt-group-list scoped">
-                {bookPromptGroups.length ? bookPromptGroups.map((group) => (
-                  <button
-                    key={group.id}
-                    type="button"
-                    className={group.id === selectedId ? "prompt-group-item active" : "prompt-group-item"}
-                    onClick={() => selectGroup(group)}
-                  >
-                    <strong>{group.name}</strong>
-                    <span>{formatTime(group.updated_at)}</span>
-                  </button>
-                )) : <div className="empty-state">无分析模板</div>}
-              </div>
-
-              <div className="prompt-editor">
-                <div className={dirty ? "draft-banner active" : "draft-banner"}>
-                  {dirty ? "未保存" : "已保存"}
-                </div>
-                <label>
-                  <span>名称</span>
-                  <input
-                    value={draft.name}
-                    placeholder="例如：人物志 / 飞剑设定 / 势力关系"
-                    onChange={(event) => updateDraft({ name: event.target.value })}
-                  />
-                </label>
-                <label>
-                  <span className="label-action-row">
-                    分析模板
-                    <button
-                      className="ghost mini"
-                      type="button"
-                      onClick={() => openGuide("analysis", draft.summary_prompt, "optimize")}
-                      disabled={!draft.summary_prompt.trim()}
-                    >
-                      <Sparkles size={13} />
-                      优化
-                    </button>
-                  </span>
-                  <textarea
-                    className="prompt-library-textarea"
-                    value={draft.summary_prompt}
-                    placeholder="写清楚这次要总结的主体、维度、筛选目标和输出要求。"
-                    onChange={(event) => updateDraft({ summary_prompt: event.target.value })}
-                  />
-                </label>
-                <IndexGroupBinding
-                  groups={editableIndexGroups}
-                  value={draft.index_group_keys || []}
-                  onChange={(indexGroupKeys) => updateDraft({ index_group_keys: indexGroupKeys })}
-                />
-                <div className="form-actions">
-                  <button className="secondary" type="button" onClick={saveGroup} disabled={busy || !selectedBookId}>
-                    {busy ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
-                    保存
-                  </button>
-                  <button className="danger inline" type="button" onClick={deleteGroup} disabled={busy || !draft.id}>
-                    <Trash2 size={16} />
-                    删除
-                  </button>
-                </div>
-              </div>
-            </div>
-          </Panel>
-        </section>
       </div>
-      {guideRequest ? (
-        <PromptGuideDrawer
-          request={guideRequest}
-          templates={guideTemplates || {}}
-          onClose={() => setGuideRequest(null)}
-          onApply={(suggestion) => applyGuideSuggestion(guideRequest.type, suggestion)}
-          setError={setError}
-        />
-      ) : null}
     </section>
   );
 }
@@ -650,7 +395,7 @@ function PromptBookMeta({ book }) {
   );
 }
 
-function IndexPromptEditor({ type, title, description, value, updatedAt, coverage, saving, onSave, onOpenGuide }) {
+function IndexPromptEditor({ type, title, description, value, updatedAt, coverage, saving, onSave }) {
   const [locked, setLocked] = useState(true);
   const [draftState, setDraftState] = useState({ source: value, draft: value });
   const syncedDraftState = draftState.source === value ? draftState : { source: value, draft: value };
@@ -712,17 +457,11 @@ function IndexPromptEditor({ type, title, description, value, updatedAt, coverag
           </button>
         </div>
       ) : null}
-      <div className="index-prompt-guide-row">
-        <button className="ghost" type="button" onClick={() => onOpenGuide?.(draft)}>
-          <Sparkles size={14} />
-          {type === "l1" ? "章节线索引导" : "事实索引引导"}
-        </button>
-      </div>
     </div>
   );
 }
 
-function IndexGroupManager({ groups, selectedKey, draft, busy, onSelect, onNew, onOpenGuide, onDraftChange, onSave, onDelete }) {
+function IndexGroupManager({ groups, selectedKey, draft, busy, onSelect, onNew, onDraftChange, onSave, onDelete }) {
   const isCreating = !selectedKey;
   const previewRawKey = draft.group_key || slugifyIndexGroupKey(draft.name);
   const previewKey = resolveAvailableIndexGroupKey(previewRawKey, groups);
@@ -779,10 +518,6 @@ function IndexGroupManager({ groups, selectedKey, draft, busy, onSelect, onNew, 
             <textarea value={draft.l2_index_prompt} placeholder="写清楚这个事实索引只提取哪些可复用事实。" onChange={(event) => onDraftChange({ l2_index_prompt: event.target.value })} />
           </label>
           <div className="index-group-actions">
-            <button className="ghost inline" type="button" onClick={onOpenGuide}>
-              <Sparkles size={14} />
-              创建引导
-            </button>
             <div className="action-row wrap">
               <button className="secondary inline index-group-save-button" type="button" onClick={onSave} disabled={busy}>
                 {busy ? <Loader2 className="spin" size={15} /> : <Save size={15} />}
@@ -800,234 +535,6 @@ function IndexGroupManager({ groups, selectedKey, draft, busy, onSelect, onNew, 
       ) : null}
     </div>
   );
-}
-
-function IndexGroupBinding({ groups, value, onChange }) {
-  const selected = new Set(value || []);
-  function toggle(groupKey) {
-    const next = new Set(selected);
-    if (next.has(groupKey)) next.delete(groupKey);
-    else next.add(groupKey);
-    onChange([...next]);
-  }
-  return (
-    <div className="index-group-binding">
-      <span>使用事实索引</span>
-      <div className="index-group-checks">
-        {groups.map((group) => (
-          <button
-            key={group.group_key}
-            type="button"
-            className={selected.has(group.group_key) ? "active" : ""}
-            onClick={() => toggle(group.group_key)}
-          >
-            {factIndexName(group)}
-          </button>
-        ))}
-      </div>
-      <small>{value?.length ? "分析时只召回已绑定事实索引。" : "请至少选择一个事实索引后再保存模板。"}</small>
-    </div>
-  );
-}
-
-function PromptGuideDrawer({ request, templates, onClose, onApply, setError }) {
-  const mode = request.mode || "create";
-  const isOptimize = mode === "optimize";
-  const template = isOptimize ? templates.analysisOptimization : templates[request.type] || null;
-  const steps = template?.steps || [];
-  const [activeStep, setActiveStep] = useState(0);
-  const [answers, setAnswers] = useState(() => defaultGuideAnswers(steps));
-  const [showRules, setShowRules] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [suggestion, setSuggestion] = useState(null);
-  const [applied, setApplied] = useState(false);
-  const currentStep = steps[activeStep] || null;
-  const answeredCount = steps.filter((step) => String(answers[step.id] || "").trim()).length;
-  const canGenerate = answeredCount > 0 && !generating;
-  const guideKind = request.type === "analysis" ? "analysis" : request.type === "indexgroup" ? "indexGroup" : "index";
-
-  function updateAnswer(stepId, value) {
-    setAnswers((current) => ({ ...current, [stepId]: value }));
-  }
-
-  async function generateSuggestion() {
-    setGenerating(true);
-    setError("");
-    setSuggestion(null);
-    setApplied(false);
-    try {
-      const data = await apiPost("/api/prompt-guides/generate", {
-        type: request.type,
-        book_id: request.bookId,
-        current_prompt: request.currentPrompt,
-        answers: steps.map((step) => ({ id: step.id, answer: answers[step.id] || "" }))
-      });
-      setSuggestion(data.suggestion);
-    } catch (error) {
-      setError(error.message);
-    } finally {
-      setGenerating(false);
-    }
-  }
-
-  async function optimizeSuggestion() {
-    setGenerating(true);
-    setError("");
-    setSuggestion(null);
-    setApplied(false);
-    try {
-      const data = await apiPost("/api/prompt-guides/optimize", {
-        book_id: request.bookId,
-        current_prompt: request.currentPrompt,
-        optimization_request: answers[steps[0]?.id] || ""
-      });
-      setSuggestion(data.suggestion);
-    } catch (error) {
-      setError(error.message);
-    } finally {
-      setGenerating(false);
-    }
-  }
-
-  async function copySuggestion() {
-    if (!suggestion?.prompt_suggestion) return;
-    await navigator.clipboard?.writeText(suggestion.prompt_suggestion);
-  }
-
-  function applySuggestion() {
-    if (!suggestion?.prompt_suggestion) return;
-    onApply(suggestion);
-    setApplied(true);
-  }
-
-  return (
-    <div className="guide-drawer-overlay" role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
-      <aside className="guide-drawer" aria-label="模板创建引导">
-        <div className="guide-drawer-head">
-          <div>
-            <span>{request.bookName}</span>
-            <h2>{template?.label || "模板创建引导"}</h2>
-            <p>{template?.positioning}</p>
-          </div>
-          <button className="icon-only" type="button" onClick={onClose} aria-label="关闭">
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className={`guide-scope-card ${guideKind}`}>
-          <strong>{guideKind === "index" ? "书籍级索引规则" : guideKind === "indexGroup" ? "书籍级事实索引" : "书籍级分析模板"}</strong>
-          <span>
-            {guideKind === "index"
-              ? "绑定当前书籍，准备索引后不轻易调整；修改会影响索引过期判断。"
-              : guideKind === "indexGroup"
-                ? "只负责一类稳定分析诉求；生成后会套用到新建事实索引草稿。"
-                : isOptimize
-                  ? "基于当前分析模板进行打磨；生成后可套用到草稿，仍需手动保存。"
-                  : "绑定当前书籍，可为不同分析任务创建多条；创建任务时选择使用。"}
-          </span>
-        </div>
-
-        <div className="guide-step-tabs">
-          {steps.map((step, index) => (
-            <button
-              key={step.id}
-              type="button"
-              className={index === activeStep ? "active" : ""}
-              onClick={() => setActiveStep(index)}
-            >
-              <span>{index + 1}</span>
-              {step.title}
-            </button>
-          ))}
-        </div>
-
-        {currentStep ? (
-          <section className="guide-question-card">
-            <div className="guide-question-top">
-              <span>{currentStep.title}</span>
-              <small>{activeStep + 1}/{steps.length}</small>
-            </div>
-            <h3>{currentStep.question}</h3>
-            {currentStep.helper ? <p className="guide-question-help">{currentStep.helper}</p> : null}
-            <textarea
-              value={answers[currentStep.id] || ""}
-              placeholder={currentStep.placeholder}
-              onChange={(event) => updateAnswer(currentStep.id, event.target.value)}
-            />
-            <div className="guide-nav-row">
-              <button className="secondary inline" type="button" onClick={() => setActiveStep(Math.max(0, activeStep - 1))} disabled={activeStep === 0}>
-                上一步
-              </button>
-              <button className="secondary inline" type="button" onClick={() => setActiveStep(Math.min(steps.length - 1, activeStep + 1))} disabled={activeStep >= steps.length - 1}>
-                下一步
-              </button>
-            </div>
-          </section>
-        ) : null}
-
-        <section className="guide-rules-card">
-          <button className="guide-rules-toggle" type="button" onClick={() => setShowRules((state) => !state)}>
-            <span>{isOptimize ? "内置优化规则" : "内置生成规则"}</span>
-            <strong>{showRules ? "收起" : "查看"}</strong>
-          </button>
-          {showRules ? <pre>{template?.builtInPrompt || ""}</pre> : null}
-        </section>
-
-        <div className="guide-generate-row">
-          <button className="primary" type="button" onClick={isOptimize ? optimizeSuggestion : generateSuggestion} disabled={!canGenerate}>
-            {generating ? <Loader2 className="spin" size={16} /> : <Sparkles size={16} />}
-            {isOptimize ? "生成优化参考" : "生成模板参考"}
-          </button>
-          <span>{answeredCount}/{steps.length} 段已填写</span>
-        </div>
-
-        {suggestion ? (
-          <section className="guide-result-card">
-            <div className="guide-result-head">
-              <div>
-                <span>参考结果</span>
-                <h3>{suggestion.title_suggestion || "模板建议"}</h3>
-              </div>
-              <div className="guide-result-actions">
-                <button className="ghost" type="button" onClick={copySuggestion}>
-                  <Copy size={14} />
-                  复制
-                </button>
-                <button className="secondary inline" type="button" onClick={applySuggestion}>
-                  套用到编辑器
-                </button>
-              </div>
-            </div>
-            {applied ? <div className="draft-banner active">已套用到当前草稿，仍需手动保存。</div> : null}
-            <textarea readOnly value={suggestion.prompt_suggestion || ""} />
-            {suggestion.rationale ? <p>{suggestion.rationale}</p> : null}
-            {suggestion.usage_notes?.length ? (
-              <div className="guide-note-list">
-                <strong>使用提示</strong>
-                <ul>
-                  {suggestion.usage_notes.map((note) => <li key={note}>{note}</li>)}
-                </ul>
-              </div>
-            ) : null}
-            {suggestion.quality_checklist?.length ? (
-              <div className="guide-note-list">
-                <strong>检查清单</strong>
-                <ul>
-                  {suggestion.quality_checklist.map((note) => <li key={note}>{note}</li>)}
-                </ul>
-              </div>
-            ) : null}
-          </section>
-        ) : null}
-      </aside>
-    </div>
-  );
-}
-
-function defaultGuideAnswers(steps) {
-  return Object.fromEntries((steps || []).map((step) => [step.id, step.placeholder || ""]));
 }
 
 function slugifyIndexGroupKey(value) {
@@ -1159,32 +666,6 @@ function RebuildConfirm({ type, book, onCancel, onStart }) {
       </div>
     </div>
   );
-}
-
-function normalizeGroupDraft(group, bookId) {
-  return {
-    ...emptyDraft,
-    ...group,
-    book_id: group?.book_id || bookId || "",
-    summary_prompt: group?.summary_prompt || "",
-    index_group_keys: Array.isArray(group?.index_group_keys)
-      ? group.index_group_keys.filter((key) => key !== "base")
-      : []
-  };
-}
-
-function samePromptGroup(left, right) {
-  return JSON.stringify({
-    book_id: left?.book_id || "",
-    name: left?.name || "",
-    summary_prompt: left?.summary_prompt || "",
-    index_group_keys: left?.index_group_keys || []
-  }) === JSON.stringify({
-    book_id: right?.book_id || "",
-    name: right?.name || "",
-    summary_prompt: right?.summary_prompt || "",
-    index_group_keys: right?.index_group_keys || []
-  });
 }
 
 function groupToDraft(group) {

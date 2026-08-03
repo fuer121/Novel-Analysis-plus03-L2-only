@@ -85,10 +85,8 @@ export function LibraryPage({
     () => indexGroups.find((group) => group.group_key === selectedIndexGroupKey) || null,
     [indexGroups, selectedIndexGroupKey]
   );
-  const l1Provider = config?.l1IndexProvider || "openai";
-  const l2Provider = config?.l2IndexProvider || "openai";
-  const l1ProviderReady = l1Provider === "dify" ? Boolean(config?.difyL1Configured) : Boolean(config?.openaiConfigured);
-  const l2ProviderReady = l2Provider === "dify" ? Boolean(config?.difyL2Configured) : Boolean(config?.openaiConfigured);
+  const l1ProviderReady = Boolean(config?.difyL1Configured);
+  const l2ProviderReady = Boolean(config?.difyL2Configured);
 
   const loadL1Data = useCallback(async (bookId, startChapter, endChapter) => {
     if (!validChapterNumber(startChapter) || !validChapterNumber(endChapter)) return;

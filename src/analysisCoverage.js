@@ -1,5 +1,5 @@
-export function analysisIndexCoverageText({ promptGroup, indexGroups = [], coveragesByGroup = {} }) {
-  const keys = Array.isArray(promptGroup?.index_group_keys) ? promptGroup.index_group_keys : [];
+export function analysisIndexCoverageText({ indexGroupKeys = [], indexGroups = [], coveragesByGroup = {} }) {
+  const keys = Array.isArray(indexGroupKeys) ? indexGroupKeys : [];
   if (!keys.length) return "未绑定事实索引";
   const parts = keys.map((key) => {
     const group = indexGroups.find((group) => group.group_key === key);

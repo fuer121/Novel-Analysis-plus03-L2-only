@@ -5,7 +5,6 @@ const root = new URL("../", import.meta.url);
 const manifestUrl = new URL("dify-workflows/manifest.json", root);
 
 const workflows = {
-  analysis_chapter: "dify-workflows/analysis-chapter.workflow.yml",
   analysis_summary: "dify-workflows/analysis-summary.workflow.yml",
   chapter_import: "dify-workflows/minimal-chapter-fetch.workflow.yml",
   l1_index: "dify-workflows/l1-route-index.workflow.yml",
