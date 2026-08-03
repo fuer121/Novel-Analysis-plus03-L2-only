@@ -17,7 +17,6 @@ export default function App() {
   const [route, setRoute] = useState(currentRoute);
   const [config, setConfig] = useState(null);
   const [books, setBooks] = useState([]);
-  const [prompts, setPrompts] = useState(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const [importTask, setImportTask] = useState(null);
@@ -129,14 +128,12 @@ export default function App() {
     setBusy(true);
     setError("");
     try {
-      const [configData, booksData, promptsData] = await Promise.all([
+      const [configData, booksData] = await Promise.all([
         apiGet("/api/config"),
-        apiGet("/api/books"),
-        apiGet("/api/prompts")
+        apiGet("/api/books")
       ]);
       setConfig(configData.runtime);
       setBooks(booksData.books || []);
-      setPrompts(promptsData.prompts);
     } catch (loadError) {
       setError(loadError.message);
     } finally {
@@ -186,17 +183,6 @@ export default function App() {
     const data = await apiGet("/api/books");
     setBooks(data.books || []);
     return data.books || [];
-  }
-
-  async function reloadPromptGroups() {
-    const data = await apiGet("/api/prompt-groups");
-    return data.promptGroups || [];
-  }
-
-  async function loadPromptGroupsForBook(bookId) {
-    const query = bookId ? `?book_id=${encodeURIComponent(bookId)}` : "?book_id=";
-    const data = await apiGet(`/api/prompt-groups${query}`);
-    return data.promptGroups || [];
   }
 
   async function createBook(payload) {
@@ -430,7 +416,7 @@ export default function App() {
     ? `${(analysisProgress.completed || 0) + (analysisProgress.failed || 0) + (analysisProgress.skipped || 0)}/${analysisProgress.total} · ${analysisProgress.current || "后台分析中"}`
     : analysisProgress.current || "后台分析中";
 
-  if (busy || !config || !prompts) {
+  if (busy || !config) {
     return <LoadingScreen />;
   }
 
@@ -496,10 +482,10 @@ export default function App() {
             className={route === "prompts" ? "active" : ""}
             aria-current={route === "prompts" ? "page" : undefined}
             onClick={() => navigate("prompts")}
-            title="模板库"
+            title="索引"
           >
             <ClipboardList size={18} />
-            <span>模板</span>
+            <span>索引</span>
           </button>
           <button
             type="button"
@@ -575,8 +561,6 @@ export default function App() {
             onDeleteBookIndexGroup={deleteBookIndexGroup}
             onStartL1Index={startL1Index}
             onStartL2Index={startL2Index}
-            onLoadPromptGroups={loadPromptGroupsForBook}
-            onPromptGroupsChanged={reloadPromptGroups}
             setError={setError}
           />
         ) : route === "diagnostics" ? (
@@ -588,8 +572,6 @@ export default function App() {
           <AnalysisPage
             books={books}
             config={config}
-            prompts={prompts}
-            onLoadPromptGroups={loadPromptGroupsForBook}
             onLoadBookIndexGroups={loadBookIndexGroups}
             analysisTask={analysisTask}
             analysisBusy={analysisBusy}

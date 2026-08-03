@@ -1,10 +1,6 @@
 {
   "schemaVersion": 1,
   "workflows": {
-    "analysis_chapter": {
-      "file": "dify-workflows/analysis-chapter.workflow.yml",
-      "sha256": "828378e17489a9bbdcfea061a264eb2e4e4d1c54d1ef3afcb2eea25b4e45fb22"
-    },
     "analysis_summary": {
       "file": "dify-workflows/analysis-summary.workflow.yml",
       "sha256": "dcdf0de57bba12f30be516fb7df1f97b33e7c233ca63002a493c591bdf0fdde7"

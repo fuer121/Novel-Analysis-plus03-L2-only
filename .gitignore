@@ -9,20 +9,17 @@ lerna-debug.log*
 
 node_modules
 dist
-dist-preview/
 dist-ssr
 *.local
 .env
 .env.*
 !.env.example
-!.env.phase1.example
 data/*
 data/*.sqlite
 data/*.sqlite-*
 data/*.db
 data/*.db-*
 data/exports/
-data-preview/
 *.log
 
 # Editor directories and files

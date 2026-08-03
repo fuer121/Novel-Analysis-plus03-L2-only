@@ -2,8 +2,6 @@ import {
   Clipboard,
   Database,
   Download,
-  KeyRound,
-  Monitor,
   Pause,
   Play
 } from "lucide-react";
@@ -12,24 +10,8 @@ import { downloadFile, downloadJson, formatTime } from "./api.js";
 import { excelWorkbookXmlFromJson } from "./schemaTools.js";
 
 export function RuntimeGrid({ config }) {
-  const l1Provider = config.l1IndexProvider || "openai";
-  const l2Provider = config.l2IndexProvider || "openai";
-  const analysisProvider = config.analysisProvider || "dify";
-  const l1Ready = l1Provider === "dify" ? config.difyL1Configured : config.openaiConfigured;
-  const l2Ready = l2Provider === "dify" ? config.difyL2Configured : config.openaiConfigured;
-  const analysisReady = analysisProvider === "dify"
-    ? Boolean(config.difyAnalysisChapterConfigured && config.difyAnalysisSummaryConfigured)
-    : Boolean(config.openaiConfigured && config.retentionConfirmed);
   return (
     <div className="runtime-grid">
-      {config.isPreview ? (
-        <RuntimeItem
-          icon={Monitor}
-          label="环境"
-          ok
-          value={`${config.appLabel || "本机预览"} · 数据副本`}
-        />
-      ) : null}
       <RuntimeItem
         icon={Database}
         label="Dify"
@@ -40,26 +22,20 @@ export function RuntimeGrid({ config }) {
       <RuntimeItem
         icon={Database}
         label="L1 索引"
-        ok={l1Ready}
-        value={`${providerLabel(l1Provider)} · ${l1Ready ? "已配置" : "未配置"}`}
+        ok={Boolean(config.difyL1Configured)}
+        value={config.difyL1Configured ? "已配置" : "未配置"}
       />
       <RuntimeItem
         icon={Database}
         label="L2 索引"
-        ok={l2Ready}
-        value={`${providerLabel(l2Provider)} · ${l2Ready ? "已配置" : "未配置"}`}
+        ok={Boolean(config.difyL2Configured)}
+        value={config.difyL2Configured ? "已配置" : "未配置"}
       />
       <RuntimeItem
         icon={Database}
-        label="分析执行"
-        ok={analysisReady}
-        value={`${providerLabel(analysisProvider)} · ${analysisReady ? "已配置" : "未配置"}`}
-      />
-      <RuntimeItem
-        icon={KeyRound}
-        label="OpenAI"
-        ok={config.openaiConfigured && config.retentionConfirmed}
-        value={`${config.openaiModel} · ${config.openaiRetentionMode}`}
+        label="分析汇总"
+        ok={Boolean(config.difyAnalysisSummaryConfigured)}
+        value={config.difyAnalysisSummaryConfigured ? "已配置" : "未配置"}
       />
     </div>
   );
@@ -212,10 +188,6 @@ function formatDuration(ms) {
   if (hours) return `${hours}小时${String(minutes).padStart(2, "0")}分`;
   if (minutes) return `${minutes}分${String(seconds).padStart(2, "0")}秒`;
   return `${seconds}秒`;
-}
-
-function providerLabel(provider) {
-  return provider === "dify" ? "Dify" : "OpenAI";
 }
 
 export function BookList({ books, selectedBookId, onSelect }) {

@@ -6,33 +6,24 @@ import {
   deleteBook,
   deleteAnalysisRun,
   createBookIndexGroup,
-  createPromptGroup,
   deleteBookIndexGroup,
-  deletePromptGroup,
   disableBookIndexGroup,
   ensureBook,
   getBookIndexPrompts,
   getDatabaseDiagnostics,
-  getPromptGroup,
-  getPromptSettings,
   getIndexPromptSettings,
   listBookIndexGroups,
   listL1ChapterIndexes,
-  listL1WindowIndexes,
   listAnalysisRuns,
   listBooks,
   listChapterMetadata,
-  listPromptGroups,
   updateBookIndexGroup,
   updateBookIndexPrompts,
-  updatePromptGroup,
-  saveIndexPromptSettings,
-  savePromptSettings
+  saveIndexPromptSettings
 } from "./db.js";
 import { cancelTask, getTask, listTasks, pauseTask, publicTask, resumeTask, subscribeTask, taskDiagnostics } from "./tasks.js";
 import { sanitizeError } from "./sanitize.js";
 import { testDifyConnection } from "./dify.js";
-import { generatePromptGuideSuggestion, getPromptGuideTemplates, optimizeAnalysisPromptSuggestion } from "./promptGuides.js";
 import {
   getL1IndexCoverageForBook,
   publicAnalysisRunWithResult,
@@ -44,7 +35,6 @@ import {
   startAnalysisTask,
   startImportTask
 } from "./workflows.js";
-import { testOpenAIConnection } from "./openai.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -75,22 +65,12 @@ app.get("/api/diagnostics", (_request, response) => {
   });
 });
 
-app.get("/api/openai/test", async (_request, response, next) => {
-  try {
-    response.json({ ok: true, openai: await testOpenAIConnection() });
-  } catch (error) {
-    next(error);
-  }
-});
-
 app.get("/api/dify/test", async (_request, response, next) => {
   try {
     const target = normalizeDifyTestTarget(_request.query.target);
     const targets = target === "all"
-      ? ["import", "l1", "l2", "analysis_chapter", "analysis_summary"]
-      : target === "analysis"
-        ? ["analysis_chapter", "analysis_summary"]
-        : [target];
+      ? ["import", "l1", "l2", "analysis_summary"]
+      : [target];
     const results = {};
     for (const key of targets) {
       try {
@@ -105,7 +85,7 @@ app.get("/api/dify/test", async (_request, response, next) => {
         };
       }
     }
-    if (target === "all" || target === "analysis") {
+    if (target === "all") {
       const allOk = targets.every((key) => Boolean(results[key]?.ok));
       response.json({
         ok: allOk,
@@ -268,8 +248,7 @@ app.get("/api/books/:bookId/l1-indexes/coverage", (request, response, next) => {
       coverage: getL1IndexCoverageForBook({
         bookId: request.params.bookId,
         startChapter: request.query.start_chapter || request.query.startChapter || 1,
-        endChapter: request.query.end_chapter || request.query.endChapter || 1,
-        includeWindows: false
+        endChapter: request.query.end_chapter || request.query.endChapter || 1
       })
     });
   } catch (error) {
@@ -282,21 +261,6 @@ app.get("/api/books/:bookId/l1-indexes/chapters", (request, response, next) => {
     response.json({
       ok: true,
       chapters: listL1ChapterIndexes(
-        request.params.bookId,
-        request.query.start_chapter || request.query.startChapter || 1,
-        request.query.end_chapter || request.query.endChapter || 1
-      )
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/books/:bookId/l1-indexes/windows", (request, response, next) => {
-  try {
-    response.json({
-      ok: true,
-      windows: listL1WindowIndexes(
         request.params.bookId,
         request.query.start_chapter || request.query.startChapter || 1,
         request.query.end_chapter || request.query.endChapter || 1
@@ -432,7 +396,7 @@ app.get("/api/books/:bookId/l2-facts", async (request, response, next) => {
   try {
     response.json({
       ok: true,
-      facts: await listL2FactsForBook({
+      facts: listL2FactsForBook({
         bookId: request.params.bookId,
         startChapter: request.query.start_chapter || request.query.startChapter || 1,
         endChapter: request.query.end_chapter || request.query.endChapter || 1,
@@ -462,8 +426,7 @@ app.get("/api/books/:bookId/index-prompts", (request, response, next) => {
         l1: getL1IndexCoverageForBook({
           bookId: request.params.bookId,
           startChapter,
-          endChapter,
-          includeWindows: false
+          endChapter
         }),
         l2: getL2IndexCoverageForBook({
           bookId: request.params.bookId,
@@ -504,7 +467,7 @@ app.get("/api/analyses", (request, response) => {
 
 app.get("/api/analyses/:id", async (request, response, next) => {
   try {
-    response.json({ ok: true, analysis: await publicAnalysisRunWithResult(request.params.id) });
+    response.json({ ok: true, analysis: publicAnalysisRunWithResult(request.params.id) });
   } catch (error) {
     next(error);
   }
@@ -559,18 +522,6 @@ app.post("/api/analyses/:id/resume", (request, response, next) => {
   }
 });
 
-app.get("/api/prompts", (_request, response) => {
-  response.json({ ok: true, prompts: getPromptSettings() });
-});
-
-app.put("/api/prompts", (request, response, next) => {
-  try {
-    response.json({ ok: true, prompts: savePromptSettings(request.body || {}) });
-  } catch (error) {
-    next(error);
-  }
-});
-
 app.get("/api/index-prompts", (_request, response) => {
   response.json({ ok: true, indexPrompts: getIndexPromptSettings() });
 });
@@ -578,74 +529,6 @@ app.get("/api/index-prompts", (_request, response) => {
 app.put("/api/index-prompts", (request, response, next) => {
   try {
     response.json({ ok: true, indexPrompts: saveIndexPromptSettings(request.body || {}) });
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/prompt-groups", (request, response) => {
-  const hasBookFilter = Object.hasOwn(request.query, "book_id") || Object.hasOwn(request.query, "bookId");
-  response.json({
-    ok: true,
-    promptGroups: listPromptGroups(hasBookFilter
-      ? { bookId: request.query.book_id ?? request.query.bookId ?? "", category: request.query.category }
-      : request.query.category)
-  });
-});
-
-app.post("/api/prompt-groups", (request, response, next) => {
-  try {
-    response.status(201).json({ ok: true, promptGroup: createPromptGroup(request.body || {}) });
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/prompt-groups/:id", (request, response, next) => {
-  try {
-    const promptGroup = getPromptGroup(request.params.id);
-    if (!promptGroup) {
-      const error = new Error("Prompt 组不存在。");
-      error.status = 404;
-      throw error;
-    }
-    response.json({ ok: true, promptGroup });
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.put("/api/prompt-groups/:id", (request, response, next) => {
-  try {
-    response.json({ ok: true, promptGroup: updatePromptGroup(request.params.id, request.body || {}) });
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.delete("/api/prompt-groups/:id", (request, response, next) => {
-  try {
-    response.json({ ok: true, ...deletePromptGroup(request.params.id) });
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/prompt-guides/templates", (_request, response) => {
-  response.json({ ok: true, templates: getPromptGuideTemplates() });
-});
-
-app.post("/api/prompt-guides/generate", async (request, response, next) => {
-  try {
-    response.json({ ok: true, ...(await generatePromptGuideSuggestion(request.body || {})) });
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.post("/api/prompt-guides/optimize", async (request, response, next) => {
-  try {
-    response.json({ ok: true, ...(await optimizeAnalysisPromptSuggestion(request.body || {})) });
   } catch (error) {
     next(error);
   }
@@ -678,8 +561,8 @@ app.listen(config.port, config.host, () => {
 
 function normalizeDifyTestTarget(value) {
   const normalized = String(value || "all").trim().toLowerCase();
-  if (["import", "l1", "l2", "analysis_chapter", "analysis_summary", "analysis", "all"].includes(normalized)) return normalized;
-  const error = new Error("target 只支持 import、l1、l2、analysis_chapter、analysis_summary、analysis、all。");
+  if (["import", "l1", "l2", "analysis_summary", "all"].includes(normalized)) return normalized;
+  const error = new Error("target 只支持 import、l1、l2、analysis_summary、all。");
   error.status = 422;
   throw error;
 }

@@ -15,8 +15,3 @@ test("L2 workflow binds trusted chapter context around model facts", async () =>
   assert.match(outputNode, /- '2000000000101'\n {10}- chapter_index/);
   assert.match(outputNode, /- '2000000000101'\n {10}- chapter_title/);
 });
-
-test("real Dify smoke allows three sequential provider timeouts", async () => {
-  const source = await fs.readFile(new URL("packages/dify/src/http-adapter.test.ts", root), "utf8");
-  assert.match(source, /calls all three targets with synthetic non-sensitive inputs[\s\S]*?\}, 200_000\);/);
-});

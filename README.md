@@ -1,32 +1,21 @@
-# 小说章节安全分析台
+# 小说分析台（plus03 · L2 提问版）
 
-独立本地 Web 服务：用自托管 Dify 分批获取章节原文，只获取一次；章节正文和 GPT 分析结果加密落本地 SQLite；后续不同 Prompt 的 GPT 分析直接读取本地加密章节库。
+独立本地 Web 服务：用自托管 Dify 分批获取小说章节原文（只获取一次），在本地章节库上构建两级索引，并基于索引事实做 GPT 提问式分析。全部内容**明文**存储在本地 SQLite。
 
-## 项目基线
+## 核心功能
 
-当前重构状态、有效决策、任务进度、风险和下一验收闸门统一维护在 `docs/project/PROJECT.md`
+1. **章节导入** — 通过自托管 Dify 工作流分批拉取章节原文，只拉一次；重复导入自动跳过已有章节。
+2. **L1 路由索引** — 章节级"导航信号"：路由实体/别名、关键词、类别分数。回答"这类分析该看哪些章节"。元数据明文，供检索路由；不是深度摘要、不是事实库。
+3. **L2 事实索引** — 章节级"类型化事实库"：按索引组（如人物外貌、法宝、势力）抽取可复用事实（category/entity/fact_type/importance/confidence + fact/evidence），回答"这些章节里有哪些可召回的证据"。一本书可建多个索引组。
+4. **L2 提问（l2_query）** — 唯一的分析模式：输入一个问题并选定索引组与章节范围，后端在本地 L2 事实库中打分召回（纯本地、无 LLM 调用），把召回事实交给 Dify analysis-summary 工作流汇总成回答；事实量超预算时自动分块汇总再合并，Dify 不可用时降级为本地事实摘录。
 
-该文件是项目级唯一信源
+L1/L2 是**可复用的导航与证据层，不是最终分析结果**。索引新鲜度由章节 `content_hash`（sha256）+ 执行签名（`dify:<target>:<工作流版本>`）判定，章节或工作流版本变化后对应索引自动视为过期。
 
-旧单机实现细节保留在 `docs/PROJECT_CONTROL_BASELINE.md`，不能用于判断当前重构阶段
+## 安全说明
 
-## 工作区约定
-
-- 当前重构仓库：`/Users/staff/Desktop/Vibe coding/小说分析-重构`
-- 当前项目状态以 `docs/project/PROJECT.md` 为准
-- `docs/PROJECT_CONTROL_BASELINE.md` 仅供参考旧单机实现，不能作为当前项目状态依据
-
-## 安全边界
-
-- 章节正文不写明文文件、不进浏览器 localStorage、不出现在普通日志。
-- SQLite 只明文保存元数据：`book_id`、章节号、标题、长度、HMAC、状态、时间。
-- 正文和分析结果使用 AES-256-GCM 加密。
-- HMAC-SHA256 用主密钥计算，不保存普通明文 hash。
-- 主密钥默认存 macOS Keychain：`novel-chapter-gpt-service / master-key`。
-- OpenAI Responses API 调用强制 `store: false`。
-- 服务不使用 OpenAI Files、Vector Stores、Assistants、Threads、Batch、background mode。
-
-严格使用真实版权原文前，请确认 OpenAI 项目已启用 ZDR 或 MAM，并把 `OPENAI_RETENTION_MODE` 设置为 `zdr` 或 `mam`。未设置时，后端会阻止真实章节分析。
+- **所有内容明文存储**：SQLite 文件即原文。仅在可信本机/局域网使用，不要暴露公网，妥善保管 `data/` 目录。
+- 章节原文会发送到你自托管 Dify 工作流配置的 LLM 服务商（导入只走 Dify 工具节点不接 LLM；L1/L2/汇总会过 LLM），请自行确认该链路的合规性。
+- 本仓库是 [Novel-Analysis](https://github.com/fuer121/Novel-Analysis) 的精简重构版（加密存储、多分析模式、OpenAI 直连、多人协作重构设施均已移除；历史代码见原仓库）。
 
 ## 准备
 
@@ -34,48 +23,17 @@
 cp .env.example .env
 ```
 
-编辑 `.env`：
+编辑 `.env` 填入自托管 Dify 的地址与四个工作流 API Key（章节导入、L1、L2、分析汇总）。
 
-```bash
-DIFY_API_BASE=http://127.0.0.1:5001/v1
-DIFY_CHAPTER_WORKFLOW_API_KEY=app-你的自托管Dify章节工作流Key
-DIFY_L1_WORKFLOW_API_KEY=app-你的L1工作流Key
-DIFY_L2_WORKFLOW_API_KEY=app-你的L2工作流Key
-DIFY_ANALYSIS_CHAPTER_WORKFLOW_API_KEY=app-你的分析分章工作流Key
-DIFY_ANALYSIS_SUMMARY_WORKFLOW_API_KEY=app-你的分析汇总工作流Key
-DIFY_L1_WORKFLOW_VERSION=v1
-DIFY_L2_WORKFLOW_VERSION=v1
-DIFY_ANALYSIS_CHAPTER_WORKFLOW_VERSION=v1
-DIFY_ANALYSIS_SUMMARY_WORKFLOW_VERSION=v1
-L1_INDEX_PROVIDER=dify
-L2_INDEX_PROVIDER=dify
-ANALYSIS_PROVIDER=dify
-OPENAI_API_KEY=sk-你的OpenAIKey
-OPENAI_MODEL=gpt-5.5
-OPENAI_RETENTION_MODE=zdr
-HOST=0.0.0.0
-PORT=5174
-DATA_DIR=./data
-IMPORT_BATCH_SIZE=10
-OPENAI_CHAPTER_CONCURRENCY=1
-OPENAI_PROXY_URL=
-OPENAI_API_BASE=https://api.openai.com/v1
-```
+把 `dify-workflows/` 下 4 个工作流导入自托管 Dify 并发布为 Workflow API：
 
-如果服务器所在网络不能直连 `api.openai.com`，可把 `OPENAI_PROXY_URL` 设置为本机或 VPN 的 HTTP 代理，例如 `http://127.0.0.1:7897`。如需使用 OpenAI 兼容网关，`OPENAI_API_BASE` 必须指向你确认合规、可承载版权章节内容的地址。
+- `minimal-chapter-fetch.workflow.yml`：只返回章节原文 JSON，不接 LLM
+- `l1-route-index.workflow.yml`、`l2-fact-index.workflow.yml`：索引 prompt 由后端动态传入，不在 Dify 固化
+- `analysis-summary.workflow.yml`：通用 GPT 执行壳，prompt/schema/context 全部由后端传入
 
-把 `dify-workflows/minimal-chapter-fetch.workflow.yml` 导入自托管 Dify，并发布为 Workflow API。该工作流只负责返回章节原文 JSON，不接 LLM。
+工作流文件哈希记录在 `dify-workflows/manifest.json`（`npm run dify:manifest` 重新生成，`npm run dify:manifest:check` 校验）。
 
-L1/L2 索引默认也支持由 Dify Workflow 承接单章执行（后端调度不变）：
-
-- `dify-workflows/l1-route-index.workflow.yml`
-- `dify-workflows/l2-fact-index.workflow.yml`
-- `dify-workflows/analysis-chapter.workflow.yml`
-- `dify-workflows/analysis-summary.workflow.yml`
-
-两者都使用后端动态传入 `index_prompt`，不在 Dify 里固化 Prompt。  
-分析模块同样由后端动态传入 Prompt，不在 Dify 里固化。
-如果需要回退旧执行链，可把 `L1_INDEX_PROVIDER`、`L2_INDEX_PROVIDER` 或 `ANALYSIS_PROVIDER` 改成 `openai`。
+要求 Node.js ≥ 22.5（使用内置 `node:sqlite`）。
 
 ## 启动
 
@@ -84,108 +42,56 @@ npm install
 npm run dev
 ```
 
-前端默认：
+- 前端：`http://127.0.0.1:5173`
+- 后端 API：`http://127.0.0.1:5174`
 
-```text
-http://127.0.0.1:5173
-```
-
-后端 API：
-
-```text
-http://127.0.0.1:5174
-```
-
-## 局域网访问
-
-构建前端后用后端服务托管整个网站：
+局域网访问（构建后由后端托管整个站点，仅在可信局域网/VPN 使用）：
 
 ```bash
 npm run build
 npm run start:lan
+# http://你的局域网IP:5174
 ```
-
-同一局域网设备打开：
-
-```text
-http://你的本机局域网IP:5174
-```
-
-例如本机 IP 是 `172.16.75.46` 时，访问 `http://172.16.75.46:5174`。只在可信局域网/VPN 内使用，不要暴露到公网。
-
-## 本机预览环境
-
-开发新版但不想重启线上局域网服务时，可以启动只绑定本机的预览环境：
-
-```bash
-npm run preview:local
-```
-
-预览地址：
-
-```text
-http://127.0.0.1:5194/
-```
-
-预览环境使用 `data-preview/` 和 `dist-preview/`。`data-preview/` 是从正式 `data/novel-chapters.sqlite` 复制出来的一次性快照，预览里的导入、L1、分析任务不会写入正式数据库，也不会影响 `5184` 线上服务。
-
-如果只想刷新预览数据副本：
-
-```bash
-npm run preview:prepare-data
-```
-
-如果在非交互式环境中确认覆盖预览数据：
-
-```bash
-npm run preview:prepare-data -- --force
-```
-
-## API
-
-- `POST /api/books/imports`：创建章节导入任务，支持 `book_name` 与 `book_id` 绑定；同一 `book_id` 不能绑定不同书名。
-- `GET /api/imports/:id`：查询导入任务。
-- `GET /api/imports/:id/events`：导入任务 SSE。
-- `GET /api/books/:bookId/chapters`：只返回章节元数据。
-- `POST /api/analyses`：创建 GPT 分析任务，支持 `name`、`chapter_indexes` 和任务级 Prompt/Schema。
-- `GET /api/analyses`：读取分析任务列表。
-- `GET /api/analyses/:id`：读取分析结果和任务级 Prompt/Schema 快照。
-- `GET /api/analyses/:id/events`：分析任务 SSE。
-- `DELETE /api/analyses/:id`：删除单个分析任务及其加密结果。
-- `GET/PUT /api/prompts`：读取和保存默认 Prompt/Schema，支持字段表和原始 JSON Schema 双模式。
-- `GET/POST /api/prompt-groups`：读取和新建 Prompt 组，支持名称和分类。
-- `GET/PUT/DELETE /api/prompt-groups/:id`：查看、编辑和删除单个 Prompt 组。
-- `POST /api/books/:bookId/delete`：删除一本书的本地数据。
 
 ## 页面
 
-- `/`：分析任务中心。创建、运行、查看、复制和删除分析任务，可从已导入章节中按范围勾选具体章节。
-- `/library`：书籍章节库。导入书籍章节、查看章节元数据、删除本地书籍数据。
-- `/prompts`：Prompt 库。新建、编辑、删除和分类管理多组逐章 Prompt/汇总 Prompt。
+- `/`：L2 提问。选择书籍、索引组和章节范围，输入问题，创建/跟踪/查看/复制/删除提问任务。
+- `/library`：书籍章节库。导入章节、构建 L1/L2 索引、查看覆盖度与事实、删除本地书籍数据。
+- `/prompts`：索引工作台。管理 L1/L2 索引 Prompt（全局默认 + 书籍级覆盖）与 L2 索引组。
+- `/diagnostics`：运行环境、Dify 各通道配置与数据库诊断。
 
-## 自托管 Dify 建议
+## API（主要）
 
-建议至少检查这些配置：
+- `POST /api/books/imports`：创建章节导入任务（`book_name` 与 `book_id` 绑定）
+- `GET /api/imports/:id`、`GET /api/imports/:id/events`（SSE）
+- `GET /api/books/:bookId/chapters`：章节元数据
+- `POST /api/books/:bookId/l1-indexes`、`GET .../l1-indexes/coverage|chapters`
+- `GET/POST/PUT/DELETE /api/books/:bookId/index-groups[/:groupKey]`：L2 索引组
+- `POST /api/books/:bookId/l2-indexes`、`GET .../l2-indexes/coverage`、`GET /api/books/:bookId/l2-facts`
+- `POST /api/analyses`：创建 L2 提问任务，请求体 `{ book_id, name?, query, index_group_keys, chapter_indexes? }`
+- `GET /api/analyses`、`GET /api/analyses/:id`、`DELETE /api/analyses/:id`、`POST /api/analyses/:id/resume-run`、`GET /api/analyses/:id/events`（SSE）
+- `GET/PUT /api/index-prompts`、`GET/PUT /api/books/:bookId/index-prompts`：L1/L2 索引 Prompt
+- `GET /api/config`、`GET /api/health`、`GET /api/diagnostics`、`GET /api/dify/test?target=import|l1|l2|analysis_summary|all`
 
-```text
-DEBUG=false
-ENABLE_REQUEST_LOGGING=false
-WORKFLOW_LOG_CLEANUP_ENABLED=true
-WORKFLOW_LOG_RETENTION_DAYS=1
+## 从旧加密版迁移数据
+
+旧版（Novel-Analysis 加密版）的本地库可以通过一次性脚本迁移为明文库，保留章节、L1/L2 索引和 L2 提问历史，避免重新消耗 LLM 调用：
+
+```bash
+node scripts/migrate-to-plaintext.mjs --source <旧库路径> --target <新库路径> [--key-file <密钥文件>]
 ```
 
-同时把 Dify Docker/Postgres 数据卷放在 FileVault 或等效磁盘加密分区，只绑定本机、内网或 VPN。
+- 密钥来源优先级：`--key-file` > `NOVEL_MASTER_KEY` 环境变量 > macOS Keychain（`novel-chapter-gpt-service / master-key`）
+- 只迁移 l2_query 模式的分析记录；`analysis_chapters`、`prompt_groups`、`l1_window_indexes` 不迁移
+- `--target` 已存在会报错退出，防止覆盖
 
 ## 测试
 
 ```bash
-npm test
+npm test        # node:test 全量（service + 契约 + manifest + 迁移）
+npm run lint
 npm run build
+npm run verify  # 以上三连
 ```
 
-测试覆盖：
-
-- Dify 分批和章节输出解析。
-- AES-GCM 加密、HMAC、SQLite 明文扫描。
-- OpenAI 请求断言 `store:false` 且不含 `background`。
-- 导入 3 章、二次导入跳过、GPT 分析不重复调用 Dify。
+测试覆盖：Dify 分批与输出解析、明文落库与 content_hash、导入/二次导入跳过、L1/L2 索引与事实准入、l2_query 召回/分块/降级、迁移脚本。

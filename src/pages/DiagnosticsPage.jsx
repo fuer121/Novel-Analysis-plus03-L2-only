@@ -45,19 +45,13 @@ export function DiagnosticsPage({ config, setError }) {
   const l2Status = database.statuses?.l2 || {};
   const analysisStatus = database.statuses?.analyses || {};
 
-  const l1Provider = runtime.l1IndexProvider || "openai";
-  const l2Provider = runtime.l2IndexProvider || "openai";
-  const l1Ready = l1Provider === "dify" ? Boolean(runtime.difyL1Configured) : Boolean(runtime.openaiConfigured);
-  const l2Ready = l2Provider === "dify" ? Boolean(runtime.difyL2Configured) : Boolean(runtime.openaiConfigured);
-
   const healthItems = useMemo(() => [
     { label: "Dify", ok: Boolean(runtime.difyConfigured), value: runtime.difyConfigured ? "已配置" : "未配置" },
-    { label: "L1 Provider", ok: l1Ready, value: `${providerLabel(l1Provider)} · ${l1Ready ? "已配置" : "未配置"}` },
-    { label: "L2 Provider", ok: l2Ready, value: `${providerLabel(l2Provider)} · ${l2Ready ? "已配置" : "未配置"}` },
-    { label: "OpenAI", ok: Boolean(runtime.openaiConfigured), value: runtime.openaiModel || "未配置" },
-    { label: "留存模式", ok: Boolean(runtime.retentionConfirmed), value: runtime.openaiRetentionMode || "unset" },
+    { label: "L1 索引", ok: Boolean(runtime.difyL1Configured), value: runtime.difyL1Configured ? "已配置" : "未配置" },
+    { label: "L2 索引", ok: Boolean(runtime.difyL2Configured), value: runtime.difyL2Configured ? "已配置" : "未配置" },
+    { label: "分析汇总", ok: Boolean(runtime.difyAnalysisSummaryConfigured), value: runtime.difyAnalysisSummaryConfigured ? "已配置" : "未配置" },
     { label: "任务", ok: Number(tasks.live || 0) === 0, value: Number(tasks.live || 0) ? `${tasks.live} 个运行中` : "空闲" }
-  ], [runtime, tasks.live, l1Provider, l1Ready, l2Provider, l2Ready]);
+  ], [runtime, tasks.live]);
 
   return (
     <section className="diagnostics-layout">
@@ -75,7 +69,7 @@ export function DiagnosticsPage({ config, setError }) {
           ))}
         </div>
         <p className="diagnostic-note">
-          只展示运行和索引元数据，不展示密钥、章节正文、L1 内容、L2 加密事实正文或 Prompt 密文。
+          只展示运行和索引元数据，不展示密钥、章节正文、L1 内容或 L2 事实正文。
         </p>
       </Panel>
 
@@ -88,7 +82,6 @@ export function DiagnosticsPage({ config, setError }) {
             <Metric label="L2 章节" value={totals.l2_chapter_statuses} />
             <Metric label="L2 事实" value={totals.l2_facts} />
             <Metric label="分析" value={totals.analyses} />
-            <Metric label="Prompt" value={totals.prompt_groups} />
             <Metric label="汇总分块" value={totals.summary_parts} />
           </div>
         </Panel>
@@ -151,7 +144,6 @@ export function DiagnosticsPage({ config, setError }) {
                   <th>L2 完成</th>
                   <th>L2 事实</th>
                   <th>分析</th>
-                  <th>Prompt</th>
                   <th>更新</th>
                 </tr>
               </thead>
@@ -167,7 +159,6 @@ export function DiagnosticsPage({ config, setError }) {
                     <td>{statusCount(book.l2, "completed")}</td>
                     <td>{book.l2_facts || 0}</td>
                     <td>{statusCount(book.analyses, "completed")}/{sumCounts(book.analyses)}</td>
-                    <td>{book.prompt_groups || 0}</td>
                     <td>{formatTime(book.updated_at)}</td>
                   </tr>
                 ))}
@@ -223,10 +214,6 @@ function formatBytes(value) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
-}
-
-function providerLabel(provider) {
-  return provider === "dify" ? "Dify" : "OpenAI";
 }
 
 function taskTypeLabel(value) {
