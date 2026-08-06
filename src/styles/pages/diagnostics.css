@@ -1,0 +1,100 @@
+/* 诊断页：健康卡片、指标、状态分组、存储与内存任务表 */
+.diagnostics-layout {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.diagnostics-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.82fr) minmax(420px, 1.18fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.diagnostic-hero,
+.diagnostic-metrics,
+.diagnostic-status-grid,
+.diagnostic-storage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.diagnostic-health-card,
+.diagnostic-metric,
+.diagnostic-status-group {
+  min-width: 150px;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-soft);
+}
+
+.diagnostic-health-card span,
+.diagnostic-metric span,
+.diagnostic-status-group span,
+.diagnostic-storage span,
+.muted-cell {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.diagnostic-health-card strong,
+.diagnostic-metric strong,
+.diagnostic-status-group strong {
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.diagnostic-health-card .ok {
+  color: var(--accent-deep);
+}
+
+.diagnostic-health-card .info {
+  color: var(--info);
+}
+
+.diagnostic-health-card .bad {
+  color: var(--danger);
+}
+
+.diagnostic-note {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.diagnostic-metric {
+  min-width: 120px;
+}
+
+.diagnostic-status-group {
+  min-width: 180px;
+}
+
+.diagnostic-storage {
+  margin-bottom: 10px;
+}
+
+.diagnostic-storage span {
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.diagnostic-table td:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+@media (max-width: 1120px) {
+  .diagnostics-grid {
+    grid-template-columns: 1fr;
+  }
+}

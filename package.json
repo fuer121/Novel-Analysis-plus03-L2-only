@@ -15,7 +15,7 @@
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
     "lint": "eslint .",
-    "test": "node --test test/service.test.js test/dify-workflow-manifest.test.js test/migrate-to-plaintext.test.js test/contracts/*.test.js",
+    "test": "node --test test/service.test.js test/dify-workflow-manifest.test.js test/migrate-to-plaintext.test.js test/journey.test.js test/contracts/*.test.js",
     "dify:manifest": "node scripts/generate-dify-workflow-manifest.mjs",
     "dify:manifest:check": "node --test test/dify-workflow-manifest.test.js",
     "verify": "npm run lint && npm test && npm run build"
