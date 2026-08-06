@@ -1,0 +1,319 @@
+/* 工作台层：进度条、角标、工作台书卡片、书籍首页入口卡、管理页通用块 */
+.progress-bar {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+}
+
+.progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 260ms var(--ease);
+}
+
+.progress-bar.info span {
+  background: var(--info);
+}
+
+.badge {
+  margin-left: 5px;
+  padding: 1px 4px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--faint);
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: 2px;
+}
+
+.hero-badge {
+  font-size: 11px;
+  vertical-align: 4px;
+}
+
+/* ===== 工作台：书籍一级卡片 ===== */
+.book-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.book-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease);
+}
+
+.book-card:hover {
+  border-color: var(--accent-a34);
+}
+
+.book-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.book-card-top h3 {
+  font-size: 17px;
+  font-weight: 750;
+}
+
+.book-card-meta {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.book-card-stats {
+  display: grid;
+  grid-template-columns: 1.2fr 1.2fr 1.4fr;
+  gap: 12px;
+}
+
+.stat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 13px;
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.stat-key {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.stat-key .badge {
+  margin-left: 2px;
+}
+
+.stat-value {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.stat-value.ok {
+  color: var(--accent-deep);
+}
+
+.stat-value.info {
+  color: var(--info);
+}
+
+.stat-sub {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.book-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.book-card-next {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.book-card-next b {
+  color: var(--text);
+}
+
+.import-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 22px;
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--faint);
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.import-card:hover {
+  border-color: var(--accent);
+  color: var(--accent-deep);
+}
+
+.empty-guide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 28px 16px;
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--faint);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.empty-guide b {
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+/* ===== 书籍首页：入口卡与下一步 ===== */
+.entry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.entry-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 168px;
+  padding: 16px 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease), transform 0.15s var(--ease);
+}
+
+.entry-card:hover {
+  border-color: var(--accent-a34);
+  transform: translateY(-1px);
+}
+
+.entry-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+.entry-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.entry-desc {
+  flex: 1;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.entry-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.entry-stat {
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.entry-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-deep);
+  font-size: 12.5px;
+  font-weight: 650;
+  flex: none;
+}
+
+.card-panel {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.card-panel-title {
+  margin-bottom: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.row-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line-soft);
+  font-size: 13px;
+}
+
+.row-item:first-of-type {
+  border-top: none;
+}
+
+.row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row-sub {
+  color: var(--faint);
+  font-size: 12px;
+}
+
+/* ===== 管理页 ===== */
+.manage-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.summary-cell {
+  max-width: 640px;
+  color: var(--muted);
+}
+
+.chapter-col {
+  width: 90px;
+}
+
+.status-col {
+  width: 90px;
+}
+
+.book-settings-panel .action-row {
+  margin-top: 10px;
+}
+
+@media (max-width: 860px) {
+  .book-card-stats,
+  .entry-grid {
+    grid-template-columns: 1fr;
+  }
+}

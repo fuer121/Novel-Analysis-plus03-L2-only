@@ -1,3 +1,35 @@
+import { TERMINAL_TASK_STATUSES } from "./constants/taskStatus.js";
+
+export function buildQuery(params = {}) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === null || value === undefined || value === "") return;
+    search.set(key, String(value));
+  });
+  const text = search.toString();
+  return text ? `?${text}` : "";
+}
+
+export function bookChaptersUrl(bookId) {
+  return `/api/books/${encodeURIComponent(bookId)}/chapters`;
+}
+
+export function l1CoverageUrl(bookId, params) {
+  return `/api/books/${encodeURIComponent(bookId)}/l1-indexes/coverage${buildQuery(params)}`;
+}
+
+export function l1ChaptersUrl(bookId, params) {
+  return `/api/books/${encodeURIComponent(bookId)}/l1-indexes/chapters${buildQuery(params)}`;
+}
+
+export function l2CoverageUrl(bookId, params) {
+  return `/api/books/${encodeURIComponent(bookId)}/l2-indexes/coverage${buildQuery(params)}`;
+}
+
+export function l2FactsUrl(bookId, params) {
+  return `/api/books/${encodeURIComponent(bookId)}/l2-facts${buildQuery(params)}`;
+}
+
 export async function apiGet(path) {
   const response = await fetch(path);
   return handleResponse(response);
@@ -26,13 +58,18 @@ export async function apiDelete(path) {
   return handleResponse(response);
 }
 
-export function followTask(url, setTask, onTerminal) {
+export function followTask(url, setTask, onTerminal, onError) {
   const source = new EventSource(url);
   const handle = (event) => {
-    const data = JSON.parse(event.data);
+    let data;
+    try {
+      data = JSON.parse(event.data);
+    } catch {
+      return;
+    }
     if (!data.task) return;
     setTask(data.task);
-    if (["completed", "failed", "cancelled"].includes(data.task.status)) {
+    if (TERMINAL_TASK_STATUSES.includes(data.task.status)) {
       source.close();
       void onTerminal?.(data.task);
     }
@@ -46,7 +83,10 @@ export function followTask(url, setTask, onTerminal) {
   source.addEventListener("completed", handle);
   source.addEventListener("failed", handle);
   source.addEventListener("cancelled", handle);
-  source.onerror = () => source.close();
+  source.onerror = () => {
+    source.close();
+    void onError?.();
+  };
   return source;
 }
 

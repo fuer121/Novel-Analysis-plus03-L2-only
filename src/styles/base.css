@@ -1,0 +1,176 @@
+/* 全局重置与裸元素基础样式（裸元素选择器只随区域搬移，不改样式） */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 247, 245, 0.99) 178px),
+    radial-gradient(circle at 12% -20%, var(--accent-a05), transparent 340px),
+    var(--bg);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  transition:
+    transform 180ms var(--ease),
+    border-color 180ms var(--ease),
+    background 180ms var(--ease),
+    color 180ms var(--ease),
+    box-shadow 180ms var(--ease);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.995);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 20px;
+  line-height: 1.12;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+  background: var(--surface-soft);
+  color: var(--text);
+  transition:
+    border-color 180ms var(--ease),
+    background 180ms var(--ease),
+    box-shadow 180ms var(--ease);
+}
+
+textarea {
+  min-height: 112px;
+  padding: 10px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent-a56);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px var(--accent-a11);
+}
+
+table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  background: var(--surface);
+}
+
+th,
+td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  white-space: nowrap;
+  text-align: left;
+  font-size: 12px;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-soft);
+  color: var(--text);
+  font-weight: 800;
+}
+
+td {
+  color: #46504a;
+}
+
+tbody tr:hover td {
+  background: #fbfcfb;
+}
+
+code,
+.json-preview,
+.text-preview {
+  font-family: var(--font-mono);
+}
+
+code {
+  color: var(--accent-deep);
+}
+
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
