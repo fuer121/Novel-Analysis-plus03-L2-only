@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ShieldCheck, Stethoscope } from "lucide-react";
+import { AlertTriangle, Stethoscope } from "lucide-react";
 import { apiDelete, apiGet, apiPost, apiPut } from "./api.js";
 import { Breadcrumbs } from "./components/layout/Breadcrumbs.jsx";
 import { TaskChip } from "./components/layout/TaskChip.jsx";
@@ -11,6 +11,7 @@ import { BookHomePage } from "./pages/BookHomePage.jsx";
 import { DiagnosticsPage } from "./pages/DiagnosticsPage.jsx";
 import { L1ManagePage } from "./pages/L1ManagePage.jsx";
 import { L2ManagePage } from "./pages/L2ManagePage.jsx";
+import { L2GroupWizardPage } from "./pages/L2GroupWizardPage.jsx";
 import { WorkbenchPage } from "./pages/WorkbenchPage.jsx";
 import { navigate, paths, useRoute } from "./router.js";
 import { breadcrumbParts } from "./utils/breadcrumbs.js";
@@ -158,7 +159,7 @@ export default function App() {
   }
 
   async function loadBookIndexGroups(bookId) {
-    const data = await apiGet(`/api/books/${encodeURIComponent(bookId)}/index-groups`);
+    const data = await apiGet(`/api/books/${encodeURIComponent(bookId)}/index-groups?include_stats=1`);
     return data.indexGroups || [];
   }
 
@@ -255,7 +256,6 @@ export default function App() {
       <a className="skip-link" href="#main-content">跳到主内容</a>
       <header className="topbar">
         <button className="brand brand-button" type="button" onClick={() => navigate(paths.workbench())} title="回到工作台">
-          <span className="brand-logo"><ShieldCheck size={18} /></span>
           <span className="brand-text">
             <h1>小说分析台</h1>
             <p>本地库 · 索引 · 提问</p>
@@ -277,7 +277,6 @@ export default function App() {
               <TaskChip
                 task={l1Task}
                 typeLabel="章节线索"
-                badge="L1"
                 bookName={bookNameOf(l1BookId)}
                 statusText={progressText(l1Task, "章节线索准备中")}
                 onClick={() => l1BookId && navigate(paths.l1(l1BookId))}
@@ -287,7 +286,6 @@ export default function App() {
               <TaskChip
                 task={l2Task}
                 typeLabel="事实索引"
-                badge="L2"
                 bookName={bookNameOf(l2BookId)}
                 statusText={progressText(l2Task, "事实索引准备中")}
                 onClick={() => l2BookId && navigate(paths.l2(l2BookId))}
@@ -375,6 +373,20 @@ export default function App() {
               onCreateBookIndexGroup={createBookIndexGroup}
               onUpdateBookIndexGroup={updateBookIndexGroup}
               onDeleteBookIndexGroup={deleteBookIndexGroup}
+            />
+          ) : activeRoute === "l2-new" ? (
+            <L2GroupWizardPage
+              key={bookId}
+              bookId={bookId}
+              l2Task={l2Task}
+              l2Busy={l2Busy}
+              onStartL2Index={startL2Index}
+              onL2Cancel={() => l2Channel.control("cancel")}
+              onL2Pause={() => l2Channel.control("pause")}
+              onL2Resume={() => l2Channel.control("resume")}
+              onLoadBookIndexGroups={loadBookIndexGroups}
+              onCreateBookIndexGroup={createBookIndexGroup}
+              onUpdateBookIndexGroup={updateBookIndexGroup}
             />
           ) : activeRoute === "ask" ? (
             <AskManagePage

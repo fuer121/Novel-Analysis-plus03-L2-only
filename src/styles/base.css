@@ -73,7 +73,7 @@ textarea {
   min-height: 38px;
   padding: 0 10px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   outline: none;
   background: var(--surface-soft);
   color: var(--text);

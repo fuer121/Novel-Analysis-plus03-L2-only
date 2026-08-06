@@ -22,7 +22,7 @@
   margin-left: 5px;
   padding: 1px 4px;
   border: 1px solid var(--line);
-  border-radius: 5px;
+  border-radius: var(--radius);
   color: var(--faint);
   font-size: 10px;
   font-weight: 700;
@@ -34,126 +34,164 @@
   vertical-align: 4px;
 }
 
-/* ===== 工作台：书籍一级卡片 ===== */
-.book-list {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+/* ===== 工作台：书籍总账表 ===== */
+.ledger {
   margin-top: 14px;
-}
-
-.book-card {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 16px 18px;
-  border: 1px solid var(--line-soft);
-  border-radius: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   background: var(--surface);
-  cursor: pointer;
-  transition: border-color 0.15s var(--ease);
+  overflow: hidden;
 }
 
-.book-card:hover {
-  border-color: var(--accent-a34);
-}
-
-.book-card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.book-card-top h3 {
-  font-size: 17px;
-  font-weight: 750;
-}
-
-.book-card-meta {
-  margin-top: 3px;
-  color: var(--muted);
-  font-size: 12.5px;
-}
-
-.book-card-stats {
+.l-row {
   display: grid;
-  grid-template-columns: 1.2fr 1.2fr 1.4fr;
+  grid-template-columns: minmax(240px, 1.6fr) 1fr 1.2fr 24px;
+  align-items: center;
   gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line-soft);
 }
 
-.stat-box {
+.l-row:first-child {
+  border-top: none;
+}
+
+.l-head {
+  padding: 8px 14px;
+  background: var(--surface-soft);
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.l-book-row {
+  cursor: pointer;
+  transition: background 0.15s var(--ease);
+}
+
+.l-book-row:hover {
+  background: var(--hover);
+}
+
+.l-book {
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 10px 13px;
-  border-radius: 10px;
-  background: var(--surface-soft);
+  gap: 2px;
 }
 
-.stat-key {
-  display: flex;
+.l-title {
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: chip-pulse 1.4s ease-in-out infinite;
+}
+
+.l-meta {
   color: var(--faint);
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
 }
 
-.stat-key .badge {
-  margin-left: 2px;
+.l-cell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 6px 8px;
+  margin: -6px -8px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
 }
 
-.stat-value {
+.l-cell:hover {
+  background: var(--accent-soft);
+}
+
+.l-cell .v {
   font-size: 13px;
   font-weight: 650;
 }
 
-.stat-value.ok {
-  color: var(--accent-deep);
+.l-cell .v.ok {
+  color: var(--ok);
 }
 
-.stat-value.info {
-  color: var(--info);
+.l-cell .v.run {
+  color: var(--accent);
 }
 
-.stat-sub {
+.l-cell .s {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--muted);
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
 }
 
-.book-card-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 12px;
-  border-top: 1px solid var(--line-soft);
+.tickbar {
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--line-strong) 0 2px,
+    transparent 2px 6px
+  );
 }
 
-.book-card-next {
-  color: var(--muted);
-  font-size: 12.5px;
+.tickbar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 260ms var(--ease);
 }
 
-.book-card-next b {
-  color: var(--text);
+.l-go {
+  color: var(--faint);
+  font-size: 16px;
+  text-align: right;
 }
 
-.import-card {
+.l-import {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 22px;
-  border: 1.5px dashed var(--line);
-  border-radius: 12px;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-top: 1px dashed var(--line-strong);
   background: transparent;
   color: var(--faint);
-  font-size: 13.5px;
+  font-size: 12.5px;
   cursor: pointer;
 }
 
-.import-card:hover {
-  border-color: var(--accent);
+.l-import:hover {
+  background: var(--hover);
   color: var(--accent-deep);
 }
 
@@ -163,8 +201,7 @@
   align-items: center;
   gap: 4px;
   padding: 28px 16px;
-  border-radius: 10px;
-  background: var(--surface-soft);
+  border-top: 1px solid var(--line-soft);
   color: var(--faint);
   font-size: 12.5px;
   text-align: center;
@@ -173,6 +210,186 @@
 .empty-guide b {
   color: var(--muted);
   font-size: 13.5px;
+}
+
+/* ===== 任务控制条（L1/L2 构建控制归一） ===== */
+.taskbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.taskbar .t-info {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.taskbar .t-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.taskbar .t-line b {
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.taskbar .t-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.taskbar .bar {
+  width: 100%;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--track);
+}
+
+.taskbar .bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 260ms var(--ease);
+}
+
+.taskbar .ops {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.range-quick {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.range-quick button {
+  padding: 4px 9px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.range-quick button.on {
+  background: var(--accent);
+  color: #fff;
+}
+
+.range-quick button:hover:not(.on) {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+.taskbar .t-custom {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line-soft);
+}
+
+.taskbar .t-custom label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.taskbar .t-custom input[type="number"] {
+  width: 84px;
+}
+
+.taskbar .blocked {
+  flex-basis: 100%;
+  color: var(--warn);
+  font-size: 12px;
+}
+
+/* ===== 规则折叠（L1/L2 规则编辑器） ===== */
+.rule-fold {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.rf-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rf-head:hover {
+  background: var(--hover);
+}
+
+.rf-head h5 {
+  font-family: var(--serif);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.rf-head .tag {
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.rf-meta {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.rf-body {
+  max-height: 220px;
+  overflow: auto;
+  padding: 12px;
+  border-top: 1px solid var(--line);
 }
 
 /* ===== 书籍首页：入口卡与下一步 ===== */
@@ -190,7 +407,7 @@
   min-height: 168px;
   padding: 16px 18px;
   border: 1px solid var(--line-soft);
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: var(--surface);
   text-align: left;
   cursor: pointer;
@@ -207,7 +424,7 @@
   height: 38px;
   display: grid;
   place-items: center;
-  border-radius: 10px;
+  border-radius: var(--radius);
   background: var(--accent-soft);
   color: var(--accent-deep);
 }
@@ -250,7 +467,7 @@
   margin-top: 16px;
   padding: 14px 16px;
   border: 1px solid var(--line-soft);
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: var(--surface);
 }
 
@@ -312,8 +529,61 @@
 }
 
 @media (max-width: 860px) {
-  .book-card-stats,
+  .l-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .l-head {
+    display: none;
+  }
+
+  .l-go {
+    display: none;
+  }
+
   .entry-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ===== 书籍首页 hero 内嵌「当前宜」note 行（v5 viewBook） ===== */
+.note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.note i {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  background: var(--danger);
+}
+
+.note b {
+  color: var(--text);
+}
+
+.hero-note {
+  margin-top: 8px;
+}
+
+.note-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 8px;
+  border: 1px solid var(--accent-a24);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.note-go:hover {
+  border-color: var(--accent-a34);
 }

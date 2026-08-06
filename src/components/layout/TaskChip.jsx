@@ -1,23 +1,26 @@
-import { StatusPill } from "../../ui.jsx";
 import { taskProgressPercent } from "../../utils/taskProgress.js";
-import { ProgressBar } from "../ProgressBar.jsx";
 
 /**
- * 顶栏任务 chip：状态 pill + 任务类型与书名 + 进度文本 + 进度条。
+ * 顶栏任务 chip（墨靛深色）：脉冲点 + 类型·书名 + 细进度条 + 百分比。
  * 点击由调用方传入 onClick（跳转对应管理页）。
  */
-export function TaskChip({ task, typeLabel, badge, bookName, statusText, onClick }) {
+export function TaskChip({ task, typeLabel, bookName, statusText, onClick }) {
   const percent = taskProgressPercent(task);
-  const text = [bookName, statusText, percent ? `${percent}%` : ""].filter(Boolean).join(" · ");
   return (
-    <button className="task-chip" type="button" title={statusText || typeLabel} onClick={onClick}>
-      <span className="task-chip-row">
-        <StatusPill status={task.status} />
-        <b>{typeLabel}</b>
-        {badge ? <span className="badge">{badge}</span> : null}
+    <button
+      className="task-chip"
+      type="button"
+      title={[typeLabel, bookName, statusText].filter(Boolean).join(" · ")}
+      onClick={onClick}
+    >
+      <span className="task-chip-dot" />
+      <span className="task-chip-text">
+        {typeLabel}·《{bookName || "未命名"}》
       </span>
-      <span className="task-chip-text">{text}</span>
-      <ProgressBar percent={percent} tone="info" label={typeLabel} />
+      <span className="task-chip-bar">
+        <span style={{ width: `${percent || 0}%` }} />
+      </span>
+      <span className="task-chip-pct">{percent ? `${percent}%` : "--"}</span>
     </button>
   );
 }

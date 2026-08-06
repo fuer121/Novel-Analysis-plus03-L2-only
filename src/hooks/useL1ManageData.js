@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { apiGet, l1ChaptersUrl, l1CoverageUrl } from "../api.js";
+import { apiGet, bookChaptersUrl, l1ChaptersUrl, l1CoverageUrl } from "../api.js";
 import { TERMINAL_TASK_STATUSES } from "../constants/taskStatus.js";
 import { useAppContext } from "../context/appContext.js";
 import { validChapterNumber } from "../utils/chapterRange.js";
@@ -20,6 +20,7 @@ export function useL1ManageData({
   const { setError } = useAppContext();
   const [l1Coverage, setL1Coverage] = useState(null);
   const [l1Chapters, setL1Chapters] = useState([]);
+  const [chapterMeta, setChapterMeta] = useState([]);
   const [indexPrompts, setIndexPrompts] = useState(null);
   const [saving, setSaving] = useState(false);
   const [rebuildPrompt, setRebuildPrompt] = useState(null);
@@ -42,20 +43,22 @@ export function useL1ManageData({
 
   const l1TerminalTaskId = l1Task && TERMINAL_TASK_STATUSES.includes(l1Task.status) ? l1Task.id : null;
 
-  // 加载覆盖率与线索明细；L1 任务到达终态时重拉一次
+  // 加载覆盖率、线索明细与章节元数据（主从列表需要全量回目标题）；L1 任务到达终态时重拉一次
   useEffect(() => {
     if (!bookId) return;
     let cancelled = false;
     async function load() {
       try {
         const params = { start_chapter: firstChapter, end_chapter: lastChapter };
-        const [coverageData, chaptersData] = await Promise.all([
+        const [coverageData, chaptersData, metaData] = await Promise.all([
           apiGet(l1CoverageUrl(bookId, params)),
-          apiGet(l1ChaptersUrl(bookId, params))
+          apiGet(l1ChaptersUrl(bookId, params)),
+          apiGet(bookChaptersUrl(bookId))
         ]);
         if (cancelled) return;
         setL1Coverage(coverageData.coverage);
         setL1Chapters(chaptersData.chapters || []);
+        setChapterMeta(metaData.chapters || []);
       } catch (error) {
         if (!cancelled) setError(error.message);
       }
@@ -116,12 +119,15 @@ export function useL1ManageData({
   return {
     l1Coverage,
     l1Chapters,
+    chapterMeta,
     indexPrompts,
     saving,
     rebuildPrompt,
     setRebuildPrompt,
     l1Form,
     setL1Form,
+    firstChapter,
+    lastChapter,
     startBuild,
     saveL1Prompt,
     startRebuild

@@ -1,17 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { apiGet, l2CoverageUrl, l2FactsUrl } from "../api.js";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { apiGet, l2CoverageUrl } from "../api.js";
 import { BASE_INDEX_GROUP_KEY, L2_INDEX_MODE_ALL } from "../constants/index.js";
 import { TERMINAL_TASK_STATUSES } from "../constants/taskStatus.js";
 import { useAppContext } from "../context/appContext.js";
+import { navigate, paths, useRoute } from "../router.js";
 import { validChapterNumber } from "../utils/chapterRange.js";
 import { usePromptIndexGroups } from "./usePromptIndexGroups.js";
 
 /**
- * L2 管理页（#/book/:id/l2）的数据层：索引组增删改与规则编辑（复用 usePromptIndexGroups）、
- * 构建面板的覆盖率/事实明细、保存规则后的重建编排。bookId 来自路由（页面按 key 重挂）。
+ * L2 管理页（#/book/:id/l2）的数据层：抽屉主从的组选择（同步 ?g=）、组级统计
+ * （优先 index-groups?include_stats=1，旧服务端无该字段时降级为逐组 coverage 并行拉取）、
+ * 选中组的覆盖率/任务编排、规则保存与新建/删除。bookId 来自路由（页面按 key 重挂）。
  *
- * 构建面板的分组选择（buildGroupKey）与规则编辑的分组选择（usePromptIndexGroups，
- * 不含 base 组）相互独立：构建可以面向任意组（含 base），规则编辑只面向可编辑组。
+ * 选中组是全局唯一状态（usePromptIndexGroups 的 selectedIndexGroupKey，可为 base 组）：
+ * 任务条、规则折叠与事实表都跟随它。
  */
 export function useL2ManageData({
   book,
@@ -25,14 +27,12 @@ export function useL2ManageData({
   onStartL2Index
 }) {
   const { setError } = useAppContext();
+  const { query } = useRoute();
   const [indexGroups, setIndexGroups] = useState([]);
   const [indexPrompts, setIndexPrompts] = useState(null);
-  const [ruleCoverage, setRuleCoverage] = useState(null);
   const [l2Coverage, setL2Coverage] = useState(null);
-  const [l2Facts, setL2Facts] = useState([]);
   const [saving, setSaving] = useState(false);
   const [rebuildPrompt, setRebuildPrompt] = useState(null);
-  const [buildGroupKey, setBuildGroupKey] = useState("");
   const [l2Form, setL2Form] = useState({ start_chapter: "1", end_chapter: "1", force: false });
 
   const handlersRef = useRef(null);
@@ -58,7 +58,6 @@ export function useL2ManageData({
   }
 
   const {
-    editableIndexGroups,
     selectedIndexGroup,
     selectedIndexGroupKey,
     indexGroupDraft,
@@ -90,11 +89,6 @@ export function useL2ManageData({
       setIndexPrompts(promptData?.indexPrompts || null);
       setIndexGroups(groups);
       reconcileAfterLoad(groups);
-      setBuildGroupKey((current) => (
-        groups.some((group) => group.group_key === current)
-          ? current
-          : (groups.find((group) => group.group_key !== BASE_INDEX_GROUP_KEY)?.group_key || groups[0]?.group_key || BASE_INDEX_GROUP_KEY)
-      ));
     } catch (error) {
       setError(error.message);
     }
@@ -104,39 +98,67 @@ export function useL2ManageData({
     void loadGroups();
   }, [loadGroups, l2TerminalTaskId]);
 
-  // 构建面板：选中分组或范围变化、或 L2 任务到达终态时，加载覆盖率与事实明细
+  // ?g= 同步：URL 带有效组 key 时选中它（刷新/分享保持）；选中变化时写回 URL（replace，不滚动）
+  const wantedGroupKey = String(query.g || "");
   useEffect(() => {
-    if (!bookId || !buildGroupKey) return;
+    if (!wantedGroupKey || !indexGroups.length) return;
+    if (!indexGroups.some((group) => group.group_key === wantedGroupKey)) return;
+    if (wantedGroupKey !== selectedIndexGroupKey) selectIndexGroup(wantedGroupKey);
+  }, [wantedGroupKey, indexGroups, selectedIndexGroupKey, selectIndexGroup]);
+
+  function selectGroup(groupKey) {
+    selectIndexGroup(groupKey);
+    if (groupKey && groupKey !== wantedGroupKey) {
+      navigate(`${paths.l2(bookId)}?g=${encodeURIComponent(groupKey)}`, { replace: true, scroll: false });
+    }
+  }
+
+  // 组级统计：响应带 stats 字段（服务端支持 include_stats）就直接用（useMemo 派生）；
+  // 否则降级为逐组 coverage 并行拉取；再失败就只显示名称（stats 缺省）
+  const serverGroupStats = useMemo(() => {
+    if (!indexGroups.length) return null;
+    if (!indexGroups.every((group) => group.stats && typeof group.stats === "object")) return null;
+    const next = {};
+    for (const group of indexGroups) next[group.group_key] = group.stats;
+    return next;
+  }, [indexGroups]);
+
+  const [fetchedGroupStats, setFetchedGroupStats] = useState({});
+  useEffect(() => {
+    if (serverGroupStats || !bookId || !indexGroups.length) return undefined;
     let cancelled = false;
-    async function load() {
+    Promise.all(indexGroups.map(async (group) => {
       try {
-        const params = {
+        const data = await apiGet(l2CoverageUrl(bookId, {
           start_chapter: firstChapter,
           end_chapter: lastChapter,
-          index_group_key: buildGroupKey,
-          limit: 80
-        };
-        const [coverageData, factsData] = await Promise.all([
-          apiGet(l2CoverageUrl(bookId, params)),
-          apiGet(l2FactsUrl(bookId, params))
-        ]);
-        if (cancelled) return;
-        setL2Coverage(coverageData.coverage);
-        setL2Facts(factsData.facts || []);
-      } catch (error) {
-        if (!cancelled) setError(error.message);
+          index_group_key: group.group_key
+        }));
+        const chapters = data.coverage?.chapters || {};
+        return [group.group_key, {
+          facts_count: Number(chapters.facts || 0),
+          built_chapters: Number(chapters.completed || 0),
+          failed_chapters: Array.isArray(data.coverage?.failed_chapters) ? data.coverage.failed_chapters.length : 0
+        }];
+      } catch {
+        return [group.group_key, null];
       }
-    }
-    void load();
+    })).then((entries) => {
+      if (cancelled) return;
+      const next = {};
+      for (const [key, stats] of entries) {
+        if (stats) next[key] = stats;
+      }
+      setFetchedGroupStats(next);
+    });
     return () => {
       cancelled = true;
     };
-  }, [bookId, buildGroupKey, firstChapter, lastChapter, l2TerminalTaskId, setError]);
+  }, [serverGroupStats, bookId, indexGroups, firstChapter, lastChapter]);
 
-  const buildGroup = indexGroups.find((group) => group.group_key === buildGroupKey) || null;
+  const groupStats = serverGroupStats || fetchedGroupStats;
 
-  // 规则编辑面板：覆盖率跟随选中的编辑组（index-prompts 响应的 coverage.l2 固定是
-  // base 组口径，与选中组无关，因此这里按 selectedIndexGroupKey 单独查）
+  // 选中组的覆盖率（任务条与规则折叠共用同一口径）
   useEffect(() => {
     if (!bookId || !selectedIndexGroupKey) return;
     let cancelled = false;
@@ -146,7 +168,7 @@ export function useL2ManageData({
       index_group_key: selectedIndexGroupKey
     }))
       .then((data) => {
-        if (!cancelled) setRuleCoverage(data.coverage || null);
+        if (!cancelled) setL2Coverage(data.coverage || null);
       })
       .catch((error) => {
         if (!cancelled) setError(error.message);
@@ -157,18 +179,53 @@ export function useL2ManageData({
   }, [bookId, selectedIndexGroupKey, firstChapter, lastChapter, l2TerminalTaskId, setError]);
 
   async function startBuild() {
+    if (!selectedIndexGroupKey) return;
     if (!validChapterNumber(l2Form.start_chapter) || !validChapterNumber(l2Form.end_chapter)) {
       setError("事实索引起始章节和结束章节必须填写为大于 0 的整数。");
       return;
     }
     await handlersRef.current.onStartL2Index({
       bookId,
-      indexGroupKey: buildGroupKey,
+      indexGroupKey: selectedIndexGroupKey,
       startChapter: Number(l2Form.start_chapter),
       endChapter: Number(l2Form.end_chapter),
       force: l2Form.force,
       mode: L2_INDEX_MODE_ALL
     });
+  }
+
+  // 只补跑失败章节：服务端 mode=retry_failed 会跳过非失败章节
+  async function startRetryFailed() {
+    if (!selectedIndexGroupKey) return;
+    await handlersRef.current.onStartL2Index({
+      bookId,
+      indexGroupKey: selectedIndexGroupKey,
+      startChapter: firstChapter,
+      endChapter: lastChapter,
+      force: false,
+      mode: "retry_failed"
+    });
+  }
+
+  // 重命名选中组（名称以外的字段原样回传，服务端按 merge 语义保留）
+  async function renameSelectedGroup(name) {
+    const trimmed = String(name || "").trim();
+    if (!selectedIndexGroupKey || selectedIndexGroupKey === BASE_INDEX_GROUP_KEY || !trimmed) return;
+    if (trimmed === selectedIndexGroup?.name) return;
+    setSaving(true);
+    setError("");
+    try {
+      await handlersRef.current.onUpdateBookIndexGroup(bookId, selectedIndexGroupKey, {
+        ...(selectedIndexGroup || {}),
+        name: trimmed
+      });
+      const groups = await handlersRef.current.onLoadBookIndexGroups(bookId);
+      setIndexGroups(groups);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function saveSpecializedL2Prompt(prompt) {
@@ -206,28 +263,28 @@ export function useL2ManageData({
 
   return {
     indexGroups,
-    editableIndexGroups,
     selectedIndexGroup,
     selectedIndexGroupKey,
     indexGroupDraft,
     indexGroupBusy,
-    selectIndexGroup,
+    selectGroup,
     startNewIndexGroup,
     updateIndexGroupDraft,
     saveIndexGroup,
     deleteIndexGroup,
-    buildGroupKey,
-    setBuildGroupKey,
-    buildGroup,
+    renameSelectedGroup,
+    groupStats,
     l2Coverage,
-    l2Facts,
-    l2PromptCoverage: ruleCoverage,
+    indexPrompts,
     saving,
     rebuildPrompt,
     setRebuildPrompt,
     l2Form,
     setL2Form,
+    firstChapter,
+    lastChapter,
     startBuild,
+    startRetryFailed,
     saveSpecializedL2Prompt,
     startRebuild
   };

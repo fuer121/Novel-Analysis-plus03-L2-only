@@ -280,7 +280,8 @@ app.get("/api/books/:bookId/index-groups", (request, response, next) => {
     response.json({
       ok: true,
       indexGroups: listBookIndexGroups(request.params.bookId, {
-        includeDisabled: request.query.include_disabled === "1" || request.query.includeDisabled === "1"
+        includeDisabled: request.query.include_disabled === "1" || request.query.includeDisabled === "1",
+        includeStats: request.query.include_stats === "1" || request.query.includeStats === "1"
       })
     });
   } catch (error) {

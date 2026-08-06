@@ -14,6 +14,13 @@ export function breadcrumbParts({ route, bookId, bookName }) {
       return [workbench, { label: bookName || bookId, path: paths.book(bookId) }, { label: "章节线索", badge: "L1" }];
     case "l2":
       return [workbench, { label: bookName || bookId, path: paths.book(bookId) }, { label: "事实索引", badge: "L2" }];
+    case "l2-new":
+      return [
+        workbench,
+        { label: bookName || bookId, path: paths.book(bookId) },
+        { label: "事实索引", badge: "L2", path: paths.l2(bookId) },
+        { label: "新建索引组" }
+      ];
     case "ask":
       return [workbench, { label: bookName || bookId, path: paths.book(bookId) }, { label: "提问管理" }];
     default:
