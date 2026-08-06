@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { AlignLeft, Database, MessageCircle, Settings } from "lucide-react";
+import { AlignLeft, ArrowRight, Database, MessageCircle, Settings } from "lucide-react";
 import { formatTime } from "../api.js";
 import { EntryCard } from "../components/book/EntryCard.jsx";
 import { BookSettingsPanel } from "../components/book/BookSettingsPanel.jsx";
-import { NextStepPanel } from "../components/book/NextStepPanel.jsx";
 import { taskProgressPercent } from "../utils/taskProgress.js";
 import { useAppContext } from "../context/appContext.js";
 import { liveTasksForBook, useWorkbenchData } from "../hooks/useWorkbenchData.js";
@@ -11,8 +10,8 @@ import { navigate, paths } from "../router.js";
 import { deriveJourney, journeyInputForBook } from "../utils/journey.js";
 
 /**
- * 书籍首页（#/book/:id）：书籍头部 + 三个入口卡（章节线索 L1 / 事实索引 L2 / 提问管理）
- * + 下一步建议 + 书籍设置。
+ * 书籍首页（#/book/:id）：书籍头部（hero 内嵌「当前宜」note 行，v5 viewBook 形态）
+ * + 三个入口卡（章节线索 L1 / 事实索引 L2 / 提问管理）+ 书籍设置。
  */
 export function BookHomePage({
   bookId,
@@ -80,6 +79,18 @@ export function BookHomePage({
           <span>书籍首页</span>
           <h2>{book.book_name || book.book_id}</h2>
           <p>{book.book_id} · {book.chapter_count || 0} 章 · 更新于 {formatTime(book.updated_at)}</p>
+          {journey ? (
+            <div className="note hero-note">
+              <i></i>
+              <span><b>当前宜</b> · {journey.stage}：{journey.note}</span>
+              {journey.page ? (
+                <button type="button" className="note-go" onClick={() => navigate(paths[journey.page](bookId))}>
+                  前往
+                  <ArrowRight size={12} />
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         <div className="page-hero-actions">
           <button className="secondary inline" type="button" onClick={() => setShowSettings((value) => !value)}>
@@ -123,11 +134,6 @@ export function BookHomePage({
           onClick={() => navigate(paths.ask(bookId))}
         />
       </div>
-
-      <NextStepPanel
-        journey={journey}
-        onGo={(page) => navigate(paths[page](bookId))}
-      />
     </section>
   );
 }

@@ -107,7 +107,15 @@ export function TaskBox({ task, onCancel, onPause, onResume }) {
           ) : (
             <IconButton icon={Pause} label="暂停" onClick={onPause} disabled={!onPause} />
           )}
-          <button className="danger inline" type="button" onClick={onCancel} disabled={!onCancel}>
+          <button
+            className="danger inline"
+            type="button"
+            onClick={() => {
+              // 取消是破坏性操作：二次确认（与删除索引组的 window.confirm 口径一致）
+              if (onCancel && window.confirm("确认取消当前任务？已完成的进度会保留。")) onCancel();
+            }}
+            disabled={!onCancel}
+          >
             取消
           </button>
         </div>

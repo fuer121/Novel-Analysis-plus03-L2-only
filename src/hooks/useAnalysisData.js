@@ -216,6 +216,23 @@ export function useAnalysisData({
   );
   const analysisProviderReady = Boolean(config.difyAnalysisSummaryConfigured);
 
+  // 默认范围=全书（v5 B4）：书章节范围到达后把表单从安全初值（1..20）调整为全书；
+  // 每本书只调一次（渲染期与前值比较），此后的手改/范围快捷/copyAnalysis 不被回写
+  const bookFirstChapter = Number(selectedBook?.first_chapter || 1);
+  const bookLastChapter = Number(selectedBook?.last_chapter || selectedBook?.chapter_count || 0);
+  const bookRangeKey = selectedBook && bookLastChapter > 0
+    ? `${selectedBook.book_id}|${bookFirstChapter}|${bookLastChapter}`
+    : "";
+  const [seenBookRangeKey, setSeenBookRangeKey] = useState("");
+  if (bookRangeKey && bookRangeKey !== seenBookRangeKey) {
+    setSeenBookRangeKey(bookRangeKey);
+    setAnalysisForm((form) => ({
+      ...form,
+      start_chapter: String(bookFirstChapter),
+      end_chapter: String(bookLastChapter)
+    }));
+  }
+
   // 章节选择：默认取范围内全部章节；copyAnalysis 直接写入覆盖值；书籍/范围变化时覆盖值失效
   const selectionKey = selectionKeyForForm(analysisForm);
   if (chapterSelectionOverride && chapterSelectionOverride.key !== selectionKey) {

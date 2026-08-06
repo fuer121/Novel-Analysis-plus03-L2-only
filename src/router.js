@@ -11,6 +11,7 @@ export const paths = {
   book: (bookId) => `/book/${encodeURIComponent(bookId)}`,
   l1: (bookId) => `/book/${encodeURIComponent(bookId)}/l1`,
   l2: (bookId) => `/book/${encodeURIComponent(bookId)}/l2`,
+  l2New: (bookId) => `/book/${encodeURIComponent(bookId)}/l2/new`,
   ask: (bookId) => `/book/${encodeURIComponent(bookId)}/ask`,
   diagnostics: () => "/diagnostics"
 };
@@ -26,7 +27,7 @@ function emitLocationChange() {
 window.addEventListener("popstate", emitLocationChange);
 window.addEventListener("hashchange", emitLocationChange);
 
-export function navigate(path, { replace = false } = {}) {
+export function navigate(path, { replace = false, scroll = true } = {}) {
   const url = `#${path}`;
   if (replace) {
     window.history.replaceState({}, "", url);
@@ -34,7 +35,7 @@ export function navigate(path, { replace = false } = {}) {
     window.history.pushState({}, "", url);
   }
   emitLocationChange();
-  window.scrollTo(0, 0);
+  if (scroll) window.scrollTo(0, 0);
 }
 
 function safeDecode(segment) {
@@ -45,23 +46,39 @@ function safeDecode(segment) {
   }
 }
 
+function parseQuery(queryString) {
+  const query = {};
+  if (!queryString) return query;
+  for (const [key, value] of new URLSearchParams(queryString)) {
+    if (!Object.hasOwn(query, key)) query[key] = value;
+  }
+  return query;
+}
+
 function routeFromHash(hash) {
-  const path = String(hash || "").replace(/^#/, "") || "/";
+  const raw = String(hash || "").replace(/^#/, "") || "/";
+  const queryIndex = raw.indexOf("?");
+  const path = queryIndex >= 0 ? raw.slice(0, queryIndex) : raw;
+  const query = parseQuery(queryIndex >= 0 ? raw.slice(queryIndex + 1) : "");
   const segments = path.split("/").filter(Boolean).map(safeDecode);
-  if (!segments.length) return { route: "workbench", bookId: "" };
+  if (!segments.length) return { route: "workbench", bookId: "", query };
   if (segments[0] === "diagnostics" && segments.length === 1) {
-    return { route: "diagnostics", bookId: "" };
+    return { route: "diagnostics", bookId: "", query };
   }
   if (segments[0] === "book" && segments[1]) {
     const bookId = segments[1];
-    if (segments.length === 2) return { route: "book", bookId };
+    if (segments.length === 2) return { route: "book", bookId, query };
     if (segments.length === 3 && MANAGE_SUBROUTES.has(segments[2])) {
-      return { route: segments[2], bookId };
+      return { route: segments[2], bookId, query };
     }
-    return { route: null, bookId };
+    // 新建索引组向导：#/book/:id/l2/new
+    if (segments.length === 4 && segments[2] === "l2" && segments[3] === "new") {
+      return { route: "l2-new", bookId, query };
+    }
+    return { route: null, bookId, query };
   }
   // 旧路由（#/library、#/analysis、#/prompts）与未知路径返回 null，由 App 重定向到 #/
-  return { route: null, bookId: "" };
+  return { route: null, bookId: "", query };
 }
 
 let snapshot = null;
@@ -83,10 +100,11 @@ function subscribe(listener) {
 }
 
 /**
- * 响应式的路由状态：{ route, bookId }。route 为 workbench/book/l1/l2/ask/diagnostics，
- * 未知路径与旧路由返回 null（由 App 重定向到 #/）。bookId 随 URL 变化实时更新。
+ * 响应式的路由状态：{ route, bookId, query }。route 为 workbench/book/l1/l2/ask/diagnostics，
+ * 未知路径与旧路由返回 null（由 App 重定向到 #/）。bookId 与 query（hash 内 ? 后的参数 map）
+ * 随 URL 变化实时更新。
  */
 export function useRoute() {
-  const { route, bookId } = useSyncExternalStore(subscribe, getSnapshot);
-  return { route, bookId };
+  const { route, bookId, query = {} } = useSyncExternalStore(subscribe, getSnapshot);
+  return { route, bookId, query };
 }

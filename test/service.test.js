@@ -1514,6 +1514,70 @@ test("L2 index groups isolate statuses, facts, and prompt bindings", () => {
   assert.equal(db.listBookIndexGroups("book-l2-groups").some((entry) => entry.group_key === "items-forces"), false);
 });
 
+test("L2 index group stats aggregate facts and chapter statuses per group", () => {
+  const bookId = "book-l2-group-stats";
+  db.saveChapter({ bookId, chapterIndex: 1, title: "第一章", content: "云筝得到灵剑。" });
+  db.saveChapter({ bookId, chapterIndex: 2, title: "第二章", content: "云筝加入宗门。" });
+  db.createBookIndexGroup(bookId, {
+    group_key: "items",
+    name: "法宝",
+    l2_index_prompt: "只提取法宝事实。"
+  });
+  const chapter1 = db.getChapterMetadata(bookId, 1);
+  db.saveL2ChapterFacts({
+    bookId,
+    indexGroupKey: "items",
+    chapterIndex: 1,
+    status: "completed",
+    sourceHash: chapter1.content_hash,
+    model: "dify:l2:v1",
+    promptHash: "items-hash",
+    schemaVersion: "l2-facts-v1",
+    facts: [
+      { category: "item", entity: "灵剑", fact_type: "item", fact: "云筝得到灵剑。", evidence: ["灵剑"], importance: 0.8, confidence: 0.9 },
+      { category: "item", entity: "灵剑", fact_type: "item", fact: "灵剑认主。", evidence: ["认主"], importance: 0.7, confidence: 0.8 }
+    ]
+  });
+  db.saveL2ChapterStatus({
+    bookId,
+    indexGroupKey: "items",
+    chapterIndex: 2,
+    status: "failed",
+    sourceHash: "",
+    model: "dify:l2:v1",
+    promptHash: "items-hash",
+    schemaVersion: "l2-facts-v1",
+    errorSummary: "模拟失败"
+  });
+  db.saveL2ChapterFacts({
+    bookId,
+    indexGroupKey: "base",
+    chapterIndex: 1,
+    status: "completed",
+    sourceHash: chapter1.content_hash,
+    model: "dify:l2:v1",
+    promptHash: "base-hash",
+    schemaVersion: "l2-facts-v1",
+    facts: [{ category: "character", entity: "云筝", fact_type: "appearance", fact: "云筝出场。", evidence: ["云筝"], importance: 0.7, confidence: 0.9 }]
+  });
+
+  // 不带 includeStats：不附 stats 字段（保持旧响应形状）
+  const plain = db.listBookIndexGroups(bookId);
+  assert.equal(plain.every((entry) => !("stats" in entry)), true);
+
+  const withStats = db.listBookIndexGroups(bookId, { includeStats: true });
+  const itemsStats = withStats.find((entry) => entry.group_key === "items")?.stats;
+  const baseStats = withStats.find((entry) => entry.group_key === "base")?.stats;
+  assert.deepEqual(itemsStats, { facts_count: 2, built_chapters: 1, failed_chapters: 1 });
+  assert.deepEqual(baseStats, { facts_count: 1, built_chapters: 1, failed_chapters: 0 });
+
+  // 无任何构建记录的组也应拿到零值统计而不是缺字段
+  db.createBookIndexGroup(bookId, { group_key: "empty-group", name: "空组", l2_index_prompt: "暂无" });
+  const emptyStats = db.listBookIndexGroups(bookId, { includeStats: true })
+    .find((entry) => entry.group_key === "empty-group")?.stats;
+  assert.deepEqual(emptyStats, { facts_count: 0, built_chapters: 0, failed_chapters: 0 });
+});
+
 test("L2 index coverage errors include the invalid index group key", () => {
   const bookId = "book-l2-coverage-disabled";
   db.ensureBook(bookId, "覆盖率错误");

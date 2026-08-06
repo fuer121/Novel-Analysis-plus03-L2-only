@@ -1,50 +1,88 @@
-/* 设计令牌：颜色、字体、阴影等全局变量 */
+/* Design tokens — 墨靛纸面 (v5 风格A) */
 :root {
-  color-scheme: light;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-family: var(--font-sans);
-  color: #151b19;
-  background: #f5f7f5;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  --bg: #f5f7f5;
-  --surface: #ffffff;
-  --surface-soft: #f8faf8;
-  --surface-sunken: #eef1ef;
-  --line: #dde5df;
-  --line-soft: #edf0ee;
-  --line-strong: #bac8c0;
-  --track: #edf1ef;
-  --track-alt: #e8edea;
-  --text: #151b19;
-  --muted: #5f6b65;
-  --faint: #839088;
-  --accent: #096b4d;
-  --accent-hover: #07563f;
-  --accent-deep: #064532;
-  --accent-soft: #e5f1ec;
-  --accent-soft-strong: #d3e7de;
-  --accent-a05: rgba(9, 107, 77, 0.05);
-  --accent-a11: rgba(9, 107, 77, 0.11);
-  --accent-a24: rgba(9, 107, 77, 0.24);
-  --accent-a26: rgba(9, 107, 77, 0.26);
-  --accent-a30: rgba(9, 107, 77, 0.3);
-  --accent-a34: rgba(9, 107, 77, 0.34);
-  --accent-a56: rgba(9, 107, 77, 0.56);
-  --accent-a82: rgba(9, 107, 77, 0.82);
-  --danger: #9a3412;
-  --danger-soft: #fff1ed;
-  --danger-line: #f2c8b9;
-  --warn: #8a5a08;
-  --warn-line: #e5c889;
-  --warn-soft: #fff7df;
-  --info: #1d4ed8;
-  --info-soft: #e8eefc;
-  --ring: rgba(9, 107, 77, 0.22);
-  --shadow: 0 18px 48px -38px rgba(15, 23, 19, 0.5);
-  --shadow-soft: 0 10px 28px -26px rgba(15, 23, 19, 0.42);
-  --inset: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  /* 品牌主色（墨蓝） */
+  --accent: #274b73;
+  --accent-hover: #1b3654;
+  --accent-deep: #1b3654;
+  --accent-soft: #e8edf4;
+  --accent-soft-strong: #d6e0ec;
+  --accent-alpha-5: rgba(39, 75, 115, 0.05);
+  --accent-alpha-8: rgba(39, 75, 115, 0.08);
+  --accent-alpha-12: rgba(39, 75, 115, 0.12);
+  --accent-alpha-30: rgba(39, 75, 115, 0.3);
+
+  /* 进度轨道与旧 alpha 系列（沿用变量名，改墨蓝） */
+  --track: #e6e9eb;
+  --track-alt: #e2e6e9;
+  --accent-a05: rgba(39, 75, 115, 0.05);
+  --accent-a11: rgba(39, 75, 115, 0.11);
+  --accent-a24: rgba(39, 75, 115, 0.24);
+  --accent-a26: rgba(39, 75, 115, 0.26);
+  --accent-a30: rgba(39, 75, 115, 0.3);
+  --accent-a34: rgba(39, 75, 115, 0.34);
+  --accent-a56: rgba(39, 75, 115, 0.56);
+  --accent-a82: rgba(39, 75, 115, 0.82);
+
+  /* 语义色 */
+  --ok: #3f7258;
+  --ok-soft: #e9f1ec;
+  --danger: #b3442c;
+  --danger-soft: #f9ece8;
+  --danger-line: #ecc4b6;
+  --danger-alpha-8: rgba(179, 68, 44, 0.08);
+  --danger-alpha-12: rgba(179, 68, 44, 0.12);
+  --danger-alpha-16: rgba(179, 68, 44, 0.16);
+  --danger-alpha-20: rgba(179, 68, 44, 0.2);
+  --warn: #9a6a14;
+  --warn-soft: #f6ecd4;
+  --warn-line: #e6d3a8;
+  --info: #274b73;
+  --info-soft: #e8edf4;
+  --info-alpha-30: rgba(39, 75, 115, 0.3);
+  --info-alpha-40: rgba(39, 75, 115, 0.4);
+
+  /* 纸面与墨色 */
+  --bg: #f4f5f6;
+  --surface: #fbfcfc;
+  --surface-soft: #f4f5f6;
+  --surface-sunken: #eceff1;
+  --hover: #f2f6fa;
+  --text: #1b1e23;
+  --muted: #4a5158;
+  --faint: #8a939b;
+  --line: #e2e4e6;
+  --line-soft: #ecedee;
+  --line-strong: #cdd2d6;
+  --input-border: #cdd2d6;
+  --heading-serif: "Songti SC", "Noto Serif SC", "STSong", serif;
+
+  /* 深色顶栏 */
+  --topbar-bg: #1b1e23;
+  --topbar-text: #e8ebee;
+  --topbar-dim: #9aa3ac;
+  --topbar-line: #39404a;
+  --topbar-chip: #23272e;
+  --topbar-accent: #7fa3d0;
+
+  /* 阴影与焦点 */
+  --shadow-sm: 0 1px 2px rgba(27, 30, 35, 0.05);
+  --shadow-md: 0 2px 8px rgba(27, 30, 35, 0.08);
+  --shadow-lg: 0 4px 16px rgba(27, 30, 35, 0.12);
+  --shadow-xl: 0 8px 32px rgba(27, 30, 35, 0.16);
+  --shadow: 0 18px 48px -38px rgba(27, 30, 35, 0.5);
+  --shadow-soft: 0 10px 28px -26px rgba(27, 30, 35, 0.42);
+  --ring: rgba(39, 75, 115, 0.25);
+
+  /* 字体族 */
+  --serif: "Songti SC", "Noto Serif SC", "STSong", serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue",
+    "Segoe UI", "Microsoft YaHei", sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* 尺寸 */
+  --radius: 3px;
+  --radius-lg: 6px;
+  --topbar-h: 56px;
+  --maxw: 1240px;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }

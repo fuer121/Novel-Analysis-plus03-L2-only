@@ -521,7 +521,7 @@ export function ensureBaseIndexGroup(bookId) {
   return getBookIndexGroup(id, BASE_INDEX_GROUP_KEY);
 }
 
-export function listBookIndexGroups(bookId, { includeDisabled = false } = {}) {
+export function listBookIndexGroups(bookId, { includeDisabled = false, includeStats = false } = {}) {
   const id = normalizeBookId(bookId);
   ensureBaseIndexGroup(id);
   const rows = db.prepare(`
@@ -530,7 +530,49 @@ export function listBookIndexGroups(bookId, { includeDisabled = false } = {}) {
     WHERE book_id = ? ${includeDisabled ? "" : "AND enabled = 1"}
     ORDER BY CASE WHEN group_key = ? THEN 0 ELSE 1 END, updated_at DESC
   `).all(id, BASE_INDEX_GROUP_KEY);
-  return rows.map(publicBookIndexGroup);
+  const groups = rows.map(publicBookIndexGroup);
+  if (!includeStats) return groups;
+  const statsByGroup = listBookIndexGroupStats(id);
+  return groups.map((group) => ({
+    ...group,
+    stats: statsByGroup.get(group.group_key) || { facts_count: 0, built_chapters: 0, failed_chapters: 0 }
+  }));
+}
+
+/**
+ * 按索引组聚合 L2 统计：facts_count 取 l2_facts 完成行计数，
+ * built/failed_chapters 取 l2_chapter_statuses 的组×章状态聚合。
+ * 供 index-groups?include_stats=1 的抽屉列表使用；返回 Map<groupKey, stats>。
+ */
+export function listBookIndexGroupStats(bookId) {
+  const id = normalizeBookId(bookId);
+  const stats = new Map();
+  const ensure = (key) => {
+    const groupKey = normalizeIndexGroupKey(key);
+    if (!stats.has(groupKey)) stats.set(groupKey, { facts_count: 0, built_chapters: 0, failed_chapters: 0 });
+    return stats.get(groupKey);
+  };
+  for (const row of db.prepare(`
+    SELECT index_group_key, COUNT(*) AS facts_count
+    FROM l2_facts
+    WHERE book_id = ? AND status = 'completed'
+    GROUP BY index_group_key
+  `).all(id)) {
+    ensure(row.index_group_key).facts_count = Number(row.facts_count || 0);
+  }
+  for (const row of db.prepare(`
+    SELECT index_group_key,
+      SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS built_chapters,
+      SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed_chapters
+    FROM l2_chapter_statuses
+    WHERE book_id = ?
+    GROUP BY index_group_key
+  `).all(id)) {
+    const entry = ensure(row.index_group_key);
+    entry.built_chapters = Number(row.built_chapters || 0);
+    entry.failed_chapters = Number(row.failed_chapters || 0);
+  }
+  return stats;
 }
 
 export function getBookIndexGroup(bookId, groupKey = BASE_INDEX_GROUP_KEY) {
