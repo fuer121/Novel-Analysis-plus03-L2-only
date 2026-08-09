@@ -8,7 +8,9 @@ import { taskProgressPercent } from "../utils/taskProgress.js";
 /**
  * 任务控制条（L1/L2 构建控制归一）：
  * - 有 live 任务：状态 pill + 进度文案 + 进度条 + 暂停/继续 + 取消
+ *   （空章补跑任务按空章进度展示：空章补跑 x% + 空章总数/已补跑数）
  * - 空闲：覆盖状态 pill + 统计副行 + 重试失败（仅提供 onRetryFailed 且失败数 > 0）
+ *   + 补跑空章（仅提供 onRetryEmpty 且空章数 > 0）
  *   + 范围快选（全部 / 最近100回 / 自定义）+ 启动按钮
  */
 export function Taskbar({
@@ -18,6 +20,8 @@ export function Taskbar({
   coverageReady = true,
   failedCount = 0,
   onRetryFailed = null,
+  emptyCount = 0,
+  onRetryEmpty = null,
   firstChapter = 1,
   lastChapter = 1,
   form,
@@ -35,8 +39,14 @@ export function Taskbar({
   const [customOpen, setCustomOpen] = useState(false);
 
   if (isLiveTask(task)) {
-    const taskPercent = taskProgressPercent(task);
     const paused = task.status === "paused";
+    // 空章补跑：进度按「已处理空章/空章总数」展示，而不是全量章节扫描进度
+    const emptyTotal = task.payload?.mode === "retry_empty" ? Number(task.progress?.empty_total || 0) : 0;
+    const emptyDone = Number(task.progress?.completed || 0);
+    const emptyFailed = Number(task.progress?.failed || 0);
+    const taskPercent = emptyTotal
+      ? Math.min(100, Math.round(((emptyDone + emptyFailed) / emptyTotal) * 100))
+      : taskProgressPercent(task);
     // 取消是破坏性操作：二次确认（与删除索引组的 window.confirm 口径一致）
     function confirmCancel() {
       if (!onCancel) return;
@@ -47,9 +57,14 @@ export function Taskbar({
         <div className="t-info">
           <div className="t-line">
             <StatusPill status={task.status} />
-            <b>{title} {taskPercent}%</b>
+            {emptyTotal ? <b>{title}（空章补跑 {taskPercent}%）</b> : <b>{title} {taskPercent}%</b>}
           </div>
           <span className="t-sub">{task.progress?.current || "准备中"}</span>
+          {emptyTotal ? (
+            <span className="t-sub">
+              空章共 {emptyTotal} 个 · 已补跑 {emptyDone} 个{emptyFailed ? ` · 失败 ${emptyFailed} 个` : ""}
+            </span>
+          ) : null}
           <span className="bar"><i style={{ width: `${taskPercent}%` }} /></span>
         </div>
         <div className="ops">
@@ -98,6 +113,11 @@ export function Taskbar({
         {failedCount > 0 && onRetryFailed ? (
           <button className="action-chip danger-icon" type="button" onClick={onRetryFailed} disabled={busy}>
             重试失败 {failedCount} 回
+          </button>
+        ) : null}
+        {emptyCount > 0 && onRetryEmpty ? (
+          <button className="action-chip" type="button" onClick={onRetryEmpty} disabled={busy}>
+            补跑空章 {emptyCount} 回
           </button>
         ) : null}
         <div className="range-quick">

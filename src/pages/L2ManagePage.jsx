@@ -56,6 +56,7 @@ export function L2ManagePage({
     lastChapter,
     startBuild,
     startRetryFailed,
+    startRetryEmpty,
     saveSpecializedL2Prompt,
     startRebuild
   } = useL2ManageData({
@@ -90,10 +91,12 @@ export function L2ManagePage({
 
   const selectedCoverage = l2Coverage?.chapters || null;
   const failedChapters = l2Coverage?.failed_chapters || [];
+  const emptyChapters = l2Coverage?.empty_chapters || [];
   const coverageSub = !l2Coverage
     ? "覆盖率读取中"
     : `${Number(selectedCoverage?.completed || 0)}/${Number(selectedCoverage?.total || 0)} 章 · ${Number(selectedCoverage?.facts || 0)} 条事实`
-      + (failedChapters.length ? ` · 失败章节 ${failedChapters.slice(0, 12).join(", ")}` : "");
+      + (failedChapters.length ? ` · 失败章节 ${failedChapters.slice(0, 12).join(", ")}` : "")
+      + (emptyChapters.length ? ` · 空章 ${emptyChapters.slice(0, 12).join(", ")}` : "");
   const coveragePercentValue = selectedCoverage?.total
     ? Math.round((Number(selectedCoverage.completed || 0) / Number(selectedCoverage.total)) * 100)
     : 0;
@@ -152,6 +155,8 @@ export function L2ManagePage({
                 coverageReady={Boolean(l2Coverage)}
                 failedCount={failedChapters.length}
                 onRetryFailed={startRetryFailed}
+                emptyCount={emptyChapters.length}
+                onRetryEmpty={startRetryEmpty}
                 firstChapter={firstChapter}
                 lastChapter={lastChapter}
                 form={l2Form}

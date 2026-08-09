@@ -1187,9 +1187,11 @@ export function getL2Coverage({ bookId, indexGroupKey = BASE_INDEX_GROUP_KEY, st
     failed: 0,
     missing: 0,
     outdated: 0,
+    empty: 0,
     facts: 0
   };
   const failed_chapters = [];
+  const empty_chapters = [];
   for (const chapter of chapters) {
     const status = statuses.get(chapter.chapter_index);
     if (!status) {
@@ -1200,9 +1202,17 @@ export function getL2Coverage({ bookId, indexGroupKey = BASE_INDEX_GROUP_KEY, st
       || (model && status.model !== model)
       || (promptHash && status.prompt_hash !== promptHash)
       || (schemaVersion && status.schema_version !== schemaVersion);
+    // 口径过期只是独立信息位：completed/failed/missing 按索引状态分桶，
+    // 默认呈现整本书的索引状态；过期章节的事实仍参与查询与统计
     if (outdated) {
       stats.outdated += 1;
-    } else if (status.status === "completed") {
+    }
+    // 空章：已完成但 0 条事实（completed 的子集），与 retry_empty 的补跑范围一致
+    if (status.status === "completed" && !status.facts_count) {
+      stats.empty += 1;
+      empty_chapters.push(status.chapter_index);
+    }
+    if (status.status === "completed") {
       stats.completed += 1;
       stats.facts += status.facts_count || 0;
     } else if (status.status === "failed") {
@@ -1218,7 +1228,8 @@ export function getL2Coverage({ bookId, indexGroupKey = BASE_INDEX_GROUP_KEY, st
     start_chapter: range.startChapter,
     end_chapter: range.endChapter,
     chapters: stats,
-    failed_chapters
+    failed_chapters,
+    empty_chapters
   };
 }
 

@@ -24,6 +24,7 @@ import {
   listAnalysisSummaryPartMetadata,
   listBookIndexGroups,
   listChapterMetadata,
+  listL2ChapterStatuses,
   listL2Facts,
   listL2Subjects,
   normalizeBookId,
@@ -156,7 +157,7 @@ function resolveAnalysisTaskRange({ bookId, chapterIndexes = [], startChapter, e
 }
 
 function normalizeL2BuildMode(value) {
-  return ["all", "missing", "retry_failed"].includes(value) ? value : "all";
+  return ["all", "missing", "retry_failed", "retry_empty"].includes(value) ? value : "all";
 }
 
 function prepareNewAnalysis(analysisId, { name, bookId, startChapter, endChapter, chapterIndexes = [], indexGroupKeys = [], query = "" }) {
@@ -744,12 +745,18 @@ async function runL2IndexTask(task, { bookId, indexGroupKey, startChapter, endCh
     }
 
     await testDifyConnection({ target: "l2" });
+    // retry_empty：先统计范围内空章总数（与下方跳过判定同口径），供前端展示空章补跑进度
+    const emptyTotal = mode === "retry_empty"
+      ? listL2ChapterStatuses(bookId, startChapter, endChapter, indexGroup.group_key)
+        .filter((entry) => entry.status === "completed" && entry.facts_count === 0).length
+      : 0;
     markTaskRunning(task, {
       progress: {
         total: chapters.length,
         completed: 0,
         failed: 0,
         skipped: 0,
+        ...(mode === "retry_empty" ? { empty_total: emptyTotal } : {}),
         current: `准备构建 ${indexGroup.name || indexGroup.group_key} L2 索引`
       }
     });
@@ -783,6 +790,14 @@ async function runL2IndexTask(task, { bookId, indexGroupKey, startChapter, endCh
         updateTask(task, {
           progress: { ...task.progress, current: `跳过章节 ${chapter.chapter_index}` },
           message: `章节 ${chapter.chapter_index} 不是失败状态，跳过。`
+        });
+        continue;
+      }
+      if (mode === "retry_empty" && !(existing?.status === "completed" && existing.facts_count === 0)) {
+        task.progress.skipped += 1;
+        updateTask(task, {
+          progress: { ...task.progress, current: `跳过章节 ${chapter.chapter_index}` },
+          message: `章节 ${chapter.chapter_index} 不是空章，跳过。`
         });
         continue;
       }
