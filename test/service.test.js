@@ -1784,6 +1784,134 @@ test("L2 targeted modes ignore force and do not rebuild the whole range", async 
   }
 });
 
+test("L2 retry_empty mode only rebuilds completed chapters with zero facts", async () => {
+  for (const chapterIndex of [1, 2, 3, 4, 5]) {
+    db.saveChapter({
+      bookId: "book-l2-retry-empty",
+      chapterIndex,
+      title: `第${chapterIndex}章`,
+      content: `第${chapterIndex}章正文`
+    });
+  }
+  // 第1章：有事实的正常完成章；第2章：空章；第3章：失败；第4章：无记录；第5章：空章且 source_hash 过期
+  const filledChapter = db.getChapterMetadata("book-l2-retry-empty", 1);
+  const emptyChapter = db.getChapterMetadata("book-l2-retry-empty", 2);
+  const failedChapter = db.getChapterMetadata("book-l2-retry-empty", 3);
+  db.saveL2ChapterFacts({
+    bookId: "book-l2-retry-empty",
+    chapterIndex: 1,
+    status: "completed",
+    sourceHash: filledChapter.content_hash,
+    model: "dify:l2:v1",
+    promptHash: "l2-v1-typed-facts",
+    schemaVersion: "l2-facts-v1",
+    facts: [{
+      category: "event",
+      entity: "第一章",
+      fact_type: "existing",
+      fact: "第一章已有索引。",
+      evidence: ["第一章"],
+      importance: 0.8,
+      confidence: 0.9
+    }]
+  });
+  db.saveL2ChapterFacts({
+    bookId: "book-l2-retry-empty",
+    chapterIndex: 2,
+    status: "completed",
+    sourceHash: emptyChapter.content_hash,
+    model: "dify:l2:v1",
+    promptHash: "l2-v1-typed-facts",
+    schemaVersion: "l2-facts-v1",
+    facts: []
+  });
+  db.saveL2ChapterStatus({
+    bookId: "book-l2-retry-empty",
+    chapterIndex: 3,
+    status: "failed",
+    sourceHash: failedChapter.content_hash,
+    model: "dify:l2:v1",
+    promptHash: "l2-v1-typed-facts",
+    schemaVersion: "l2-facts-v1",
+    errorSummary: "previous failure"
+  });
+  db.saveL2ChapterFacts({
+    bookId: "book-l2-retry-empty",
+    chapterIndex: 5,
+    status: "completed",
+    sourceHash: "stale-source-hash",
+    model: "dify:l2:v1",
+    promptHash: "l2-v1-typed-facts",
+    schemaVersion: "l2-facts-v1",
+    facts: []
+  });
+
+  // 覆盖统计按整本书索引状态分桶：completed=3（含过期的第5章），empty=2（completed 子集），outdated=1
+  const coverageBefore = db.getL2Coverage({ bookId: "book-l2-retry-empty", startChapter: 1, endChapter: 5 });
+  assert.equal(coverageBefore.chapters.completed, 3);
+  assert.equal(coverageBefore.chapters.empty, 2);
+  assert.deepEqual(coverageBefore.empty_chapters, [2, 5]);
+  assert.equal(coverageBefore.chapters.outdated, 1);
+
+  const previousFetch = global.fetch;
+  let workflowCalls = 0;
+  global.fetch = async (url, request) => {
+    if (String(url).includes("/parameters")) {
+      return difyParametersResponse();
+    }
+    if (!String(url).includes("/workflows/run")) {
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    }
+    workflowCalls += 1;
+    const body = JSON.parse(request.body);
+    const chapterIndex = Number(body.inputs.chapter_index || workflowCalls);
+    return difyWorkflowResponse({
+      output: JSON.stringify({
+        facts: [{
+          category: "event",
+          entity: `第${chapterIndex}章`,
+          aliases: [],
+          tags: [],
+          related_entities: [],
+          fact_type: "rebuilt",
+          fact: `第${chapterIndex}章被处理。`,
+          evidence: [`第${chapterIndex}章`],
+          importance: 0.8,
+          confidence: 0.9
+        }]
+      })
+    });
+  };
+
+  try {
+    const retryEmptyTask = workflows.startL2IndexTask({
+      book_id: "book-l2-retry-empty",
+      start_chapter: 1,
+      end_chapter: 5,
+      force: true,
+      mode: "retry_empty"
+    });
+    await waitForTask(retryEmptyTask);
+    assert.equal(retryEmptyTask.progress.empty_total, 2);
+    assert.equal(retryEmptyTask.progress.completed, 2);
+    assert.equal(retryEmptyTask.progress.skipped, 3);
+    assert.equal(workflowCalls, 2);
+    for (const chapterIndex of [2, 5]) {
+      const rebuilt = db.getL2ChapterStatus("book-l2-retry-empty", chapterIndex);
+      assert.equal(rebuilt.status, "completed");
+      assert.equal(rebuilt.facts_count, 1);
+    }
+    assert.equal(db.getL2ChapterStatus("book-l2-retry-empty", 3).status, "failed");
+    assert.equal(db.getL2ChapterStatus("book-l2-retry-empty", 4), null);
+    const coverageAfter = db.getL2Coverage({ bookId: "book-l2-retry-empty", startChapter: 1, endChapter: 5 });
+    assert.equal(coverageAfter.chapters.empty, 0);
+    assert.deepEqual(coverageAfter.empty_chapters, []);
+    assert.equal(coverageAfter.chapters.outdated, 0);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
 test("book index prompts are saved, used by L1/L2 tasks, and change freshness hash", async () => {
   const customL1 = "自定义 L1 Prompt：只提炼人物与事件。";
   const customL2 = "自定义 L2 Prompt：只提炼可检索事实。";

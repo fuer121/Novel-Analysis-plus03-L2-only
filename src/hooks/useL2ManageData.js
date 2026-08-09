@@ -207,6 +207,19 @@ export function useL2ManageData({
     });
   }
 
+  // 只补跑空章（已完成但 0 条事实）：服务端 mode=retry_empty 会跳过非空章节
+  async function startRetryEmpty() {
+    if (!selectedIndexGroupKey) return;
+    await handlersRef.current.onStartL2Index({
+      bookId,
+      indexGroupKey: selectedIndexGroupKey,
+      startChapter: firstChapter,
+      endChapter: lastChapter,
+      force: false,
+      mode: "retry_empty"
+    });
+  }
+
   // 重命名选中组（名称以外的字段原样回传，服务端按 merge 语义保留）
   async function renameSelectedGroup(name) {
     const trimmed = String(name || "").trim();
@@ -285,6 +298,7 @@ export function useL2ManageData({
     lastChapter,
     startBuild,
     startRetryFailed,
+    startRetryEmpty,
     saveSpecializedL2Prompt,
     startRebuild
   };
