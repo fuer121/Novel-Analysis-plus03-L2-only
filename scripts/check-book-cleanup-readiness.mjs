@@ -38,7 +38,7 @@ function sha256(file) {
 
 function loadHashManifest(file) {
   return fs.readFileSync(file, 'utf8').trim().split('\n').filter(Boolean).map((line) => {
-    const match = line.match(/^([a-f0-9]{64})  (.+)$/)
+    const match = line.match(/^([a-f0-9]{64}) {2}(.+)$/)
     if (!match) throw new Error(`Invalid hash manifest line in ${file}: ${line}`)
     return { expected: match[1], file: match[2] }
   })
@@ -65,6 +65,34 @@ function verifyEntries(entries) {
   }
 }
 
+const LEGACY_REFERENCE_PATTERN = /(?:["'`]artifacts["'`]|artifacts\/)/
+
+function walkFiles(directory) {
+  if (!fs.existsSync(directory)) return []
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const absolute = path.join(directory, entry.name)
+    return entry.isDirectory() ? walkFiles(absolute) : [absolute]
+  })
+}
+
+export function findActiveLegacyReferences({ root = repoRoot, files = null } = {}) {
+  const candidates = files || [
+    path.join(root, 'scripts', 'check-book-cleanup-readiness.mjs'),
+    path.join(root, 'scripts', 'generate-dify-workflow-manifest.mjs'),
+    path.join(root, 'scripts', 'migrate-to-plaintext.mjs'),
+    ...walkFiles(path.join(root, 'server')),
+    ...walkFiles(path.join(root, 'src')),
+    ...walkFiles(path.join(root, 'books')).filter((file) => file.includes(`${path.sep}scripts${path.sep}active${path.sep}`)),
+  ]
+
+  return candidates.filter((file) => fs.existsSync(file)).flatMap((file) => {
+    const lines = fs.readFileSync(file, 'utf8').split('\n')
+    return lines.flatMap((line, index) => LEGACY_REFERENCE_PATTERN.test(line)
+      ? [{ file: path.relative(root, file), line: index + 1, content: line.trim() }]
+      : [])
+  })
+}
+
 function findMigrations(bookId) {
   const booksRoot = path.join(repoRoot, 'books')
   return fs.readdirSync(booksRoot, { withFileTypes: true })
@@ -77,6 +105,7 @@ function findMigrations(bookId) {
 export function checkCleanupReadiness({ asOf = null, bookId = null } = {}) {
   const reviewDate = asOf || shanghaiDate()
   const migrations = findMigrations(bookId)
+  const activeLegacyReferences = findActiveLegacyReferences()
   if (!migrations.length) throw new Error(bookId ? `No migration found for book ${bookId}` : 'No book migrations found')
 
   const books = migrations.map((migrationDir) => {
@@ -84,7 +113,7 @@ export function checkCleanupReadiness({ asOf = null, bookId = null } = {}) {
     const source = verifyEntries(loadHashManifest(path.join(migrationDir, manifest.source_sha256_manifest)))
     const target = verifyEntries(loadHashManifest(path.join(migrationDir, manifest.target_sha256_manifest)))
     const windowElapsed = reviewDate >= manifest.source_cleanup_after
-    const ready = windowElapsed && source.hashes_match && target.hashes_match
+    const ready = windowElapsed && source.hashes_match && target.hashes_match && activeLegacyReferences.length === 0
     return {
       book_id: manifest.book_id,
       book_name: manifest.book_name,
@@ -94,12 +123,19 @@ export function checkCleanupReadiness({ asOf = null, bookId = null } = {}) {
       window_elapsed: windowElapsed,
       source,
       target,
-      cleanup_status: ready ? 'ready_for_manual_confirmation' : windowElapsed ? 'blocked_by_hash_drift' : 'waiting_for_verification_window',
+      cleanup_status: ready
+        ? 'ready_for_manual_confirmation'
+        : !windowElapsed
+          ? 'waiting_for_verification_window'
+          : !source.hashes_match || !target.hashes_match
+            ? 'blocked_by_hash_drift'
+            : 'blocked_by_active_legacy_references',
     }
   })
 
   return {
     checked_at: reviewDate,
+    active_legacy_references: activeLegacyReferences,
     all_ready_for_manual_confirmation: books.every((book) => book.cleanup_status === 'ready_for_manual_confirmation'),
     books,
   }
@@ -113,6 +149,7 @@ function printHuman(report) {
     console.log(`  target hashes: ${book.target.matched_file_count}/${book.target.expected_file_count}`)
   }
   console.log(`all ready: ${report.all_ready_for_manual_confirmation}`)
+  console.log(`active legacy references: ${report.active_legacy_references.length}`)
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
@@ -121,7 +158,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const report = checkCleanupReadiness(args)
     if (args.json) console.log(JSON.stringify(report, null, 2))
     else printHuman(report)
-    if (report.books.some((book) => book.cleanup_status === 'blocked_by_hash_drift')) process.exitCode = 1
+    if (report.books.some((book) => book.cleanup_status.startsWith('blocked_by_'))) process.exitCode = 1
   } catch (error) {
     console.error(error.message)
     process.exitCode = 1

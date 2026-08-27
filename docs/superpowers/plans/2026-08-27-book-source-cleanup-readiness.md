@@ -12,11 +12,11 @@
 npm run books:cleanup:check
 ```
 
-命令逐项读取每本书的 `source-sha256.txt` 和 `target-sha256.txt`，验证文件是否存在及 SHA-256 是否一致
+命令逐项读取每本书的 `source-sha256.txt` 和 `target-sha256.txt`，验证文件是否存在及 SHA-256 是否一致，同时检查产品级工具、`server/`、`src/` 和 `books/*/scripts/active/` 是否仍引用旧 `artifacts/` 路径
 
 当前预期状态为 `waiting_for_verification_window`
 
-到 `2026-09-10` 当天，只有四本书全部显示 `ready_for_manual_confirmation`，才可以进入人工删除确认
+到 `2026-09-10` 当天，只有四本书全部显示 `ready_for_manual_confirmation` 且 `active legacy references` 为 0，才可以进入人工删除确认
 
 ## 待清理来源
 
@@ -29,9 +29,10 @@ npm run books:cleanup:check
 
 1. 保存 `books:cleanup:check -- --json` 输出
 2. 明确列出准备删除的路径，不使用模糊通配符
-3. 人工确认删除范围
-4. 删除旧来源后再次运行目录契约、全量测试和构建
-5. 将四本书迁移状态更新为 `completed_source_cleaned`
-6. 永久保留迁移 manifest、源目标 SHA-256 和 validation
+3. 根据各书 `scripts-inventory.csv` 生成根脚本原位副本清单，不使用预设数量作为删除依据
+4. 人工确认删除范围
+5. 删除旧来源后再次运行目录契约、全量测试和构建
+6. 将四本书迁移状态更新为 `completed_source_cleaned`
+7. 永久保留迁移 manifest、源目标 SHA-256 和 validation
 
 复核工具不包含删除功能，避免把校验和不可逆清理合并成一个动作

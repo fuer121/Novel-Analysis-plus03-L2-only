@@ -43,7 +43,8 @@ Novel-Analysis-plus03-L2-only/
 │       │   └── batch-inputs/
 │       ├── scripts/
 │       │   ├── README.md
-│       │   └── active/
+│       │   ├── active/
+│       │   └── review/
 │       ├── runs/
 │       │   └── YYYY-MM-DD-<task>-rNN/
 │       │       ├── manifest.json
@@ -55,8 +56,10 @@ Novel-Analysis-plus03-L2-only/
 │       │   ├── characters/
 │       │   ├── indexes/
 │       │   └── exports/
-│       └── archive/
-│           └── YYYY/
+│       ├── archive/
+│       │   └── YYYY/
+│       └── migration/
+│           └── YYYY-MM-DD-<scope>/
 ├── scripts/                   # 产品级工具保持现有稳定路径
 ├── data/
 │   └── novel-chapters.sqlite
@@ -88,6 +91,8 @@ Novel-Analysis-plus03-L2-only/
 
 书籍目录内的 `scripts/active/` 只存放确认仍会继续运行的专项脚本，不再按 build、audit、generate、sync、repair 细分
 
+`scripts/review/` 只存放用途尚未废弃、但仍包含旧路径、线上写入或过期基线假设的脚本。该目录不是稳定执行入口，脚本启用前必须完成人工复核并迁入 `scripts/active/`
+
 - 可以对应到具体执行批次的历史脚本进入 `runs/<batch>/scripts/`
 - 无法对应批次的历史脚本进入 `archive/YYYY/legacy-scripts/`
 - 无法确认是否仍在使用的脚本保持原位并标记为 `review`，不静默移动
@@ -116,6 +121,10 @@ filename,book_id,status,category,last_known_run,dependencies,target_path,notes
 
 过程图片、候选结果、日志和人工审核信息只能进入对应批次，不能直接堆放在书籍根目录
 
+对需要在多次执行间原地续跑的任务，允许使用 `runs/<task>-current/` 作为受控的可变工作区例外。该目录不属于历史批次，可不提供批次 `manifest.json`，其生成内容必须被 Git 忽略，脚本必须从 `BOOK_ROOT` 推导路径
+
+当可变工作区产生需要长期保留的证据时，必须固化为新的 `YYYY-MM-DD-<task>-rNN` 批次并补齐 manifest，不允许通过“自动选择最新日期批次”来修改历史记录
+
 ### `final/`
 
 存放当前认可并可交付、上传或被后续流程消费的唯一版本
@@ -127,6 +136,12 @@ filename,book_id,status,category,last_known_run,dependencies,target_path,notes
 完整保留被替换的历史最终版本、无法准确还原批次的旧实验，以及迁移前目录快照
 
 归档内容默认只读，后续任务需要复用时应复制到新的 `runs/`，不能直接覆盖归档文件
+
+### `migration/`
+
+存放书籍工作区迁移的永久证据，包括迁移 manifest、源目标 SHA-256 清单、脚本分类清单和校验结果
+
+迁移目录按 `YYYY-MM-DD-<scope>` 命名。旧源删除后仍永久保留，不随普通 runs 或 archive 清理
 
 ### 根目录 `tmp/`
 
