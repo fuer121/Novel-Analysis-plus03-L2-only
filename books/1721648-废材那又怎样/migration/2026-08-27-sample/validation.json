@@ -1,0 +1,50 @@
+{
+  "book_id": "1721648",
+  "migration_id": "2026-08-27-sample",
+  "validated_at": "2026-08-27",
+  "official_baseline": {
+    "character_count": 80,
+    "image_reference_count": 83,
+    "all_references_exist": true,
+    "image_manifest_count": 83,
+    "image_hashes_match": true,
+    "image_mismatches": [],
+    "stale_reference_replacements": 1,
+    "tanfu_reference": "谭浮.jpeg",
+    "excluded_images_absent_from_final": true
+  },
+  "groups": {
+    "inputs": {
+      "source_original_preserved": true,
+      "corrected_index_matches_export": true,
+      "intentional_reference_corrections": 1
+    },
+    "final": {
+      "source_file_count": 83,
+      "target_file_count": 83,
+      "hashes_match": true,
+      "mismatches": []
+    },
+    "runs": {
+      "source_file_count": 90,
+      "target_file_count": 90,
+      "hashes_match": true,
+      "mismatches": []
+    },
+    "archive": {
+      "source_file_count": 14,
+      "target_file_count": 14,
+      "hashes_match": true,
+      "mismatches": []
+    }
+  },
+  "scripts": {
+    "source_file_count": 0,
+    "target_file_count": 0
+  },
+  "sensitive_records": {
+    "stored_in_ignored_archive": true,
+    "tracked_by_git": false
+  },
+  "all_checks_passed": true
+}

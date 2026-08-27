@@ -3,7 +3,7 @@
   "book_name": "废材那又怎样",
   "migration_id": "2026-08-27-sample",
   "created_at": "2026-08-27",
-  "status": "planned",
+  "status": "copied_pending_source_cleanup",
   "source": "artifacts/废材又怎么样照样吊打你角色形象 and upper workspace alias index",
   "target": "books/1721648-废材那又怎样",
   "source_cleanup_after": "2026-09-10",
@@ -12,8 +12,9 @@
   "source_file_count": 186,
   "source_total_bytes": 18393615,
   "source_sha256_manifest": "source-sha256.txt",
-  "target_file_count": 0,
-  "target_total_bytes": 0,
+  "target_file_count": 195,
+  "target_total_bytes": 18547371,
   "target_sha256_manifest": "target-sha256.txt",
+  "completed_at": "2026-08-27",
   "notes": "Correct stale 谭浮-立绘-1024x1536.jpeg reference to verified 1024x1536 谭浮.jpeg"
 }

@@ -1,0 +1,10 @@
+{
+  "book_id": "1721648",
+  "book_name": "废材那又怎样",
+  "run_id": "2026-06-23-portrait-import-r01",
+  "task": "portrait-import",
+  "source": "artifacts/废材又怎么样照样吊打你角色形象/_source_downloads and _role_base_source_downloads",
+  "migrated_at": "2026-08-27",
+  "status": "copied_pending_source_cleanup",
+  "source_cleanup_after": "2026-09-10"
+}
