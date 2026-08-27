@@ -832,7 +832,7 @@ bc832e2c974fcf264352afa788c487cf5a5e89e411fbe0f23178b4449c78de5c  books/222767-�
 094f20ce2d4a5175291e53c16680e39ed3b82815c8131af18d547598b2ce14a1  books/222767-离婚后她惊艳了世界/inputs/prompts/l1-index.md
 63f59f183e035a234bc7ebe4cc0b562d0351cef045a019b3d481086b846225b1  books/222767-离婚后她惊艳了世界/inputs/source-excerpts/100章原文抽样.json
 a7a40f42bd8254996586c90f9c018f81afc53c397c48049d7d4f0be69c810578  books/222767-离婚后她惊艳了世界/inputs/source-excerpts/100章原文抽样.md
-0b2dcfa77173cef226a372df0284dcf1c4f33baca71eee46f351ebc9dc4a6fe6  books/222767-离婚后她惊艳了世界/runs/2026-08-13-character-remediation-r01/manifest.json
+de715aaab1a1cf86c635c39fa9726e04ac83b6521d35adeec18ec114c5467318  books/222767-离婚后她惊艳了世界/runs/2026-08-13-character-remediation-r01/manifest.json
 b694fdafcb0bcc5f8bd445ec04099c3d7b32af985da3ca823e3ed17ce2f30490  books/222767-离婚后她惊艳了世界/runs/2026-08-13-character-remediation-r01/outputs/audits/README.md
 747c27b9b1e78af910dfebc2ea41f16fea95f5e170a77d5389416ace9e8c7c90  books/222767-离婚后她惊艳了世界/runs/2026-08-13-character-remediation-r01/outputs/audits/all-characters-01.jpg
 ffb90ddded45134e52a8d9f49d5d8a590a6b0e2307861e42fa153093b9fc4f79  books/222767-离婚后她惊艳了世界/runs/2026-08-13-character-remediation-r01/outputs/audits/all-characters-02.jpg

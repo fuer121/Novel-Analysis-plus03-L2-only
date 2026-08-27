@@ -5,6 +5,7 @@
   "task": "character-redraw-backup",
   "source": "artifacts/废材又怎么样照样吊打你角色形象/重绘前备份-20260812",
   "migrated_at": "2026-08-27",
-  "status": "copied_pending_source_cleanup",
-  "source_cleanup_after": "2026-09-10"
+  "status": "completed_source_cleaned",
+  "source_cleanup_after": "2026-09-10",
+  "source_cleaned_at": "2026-08-27"
 }

@@ -257,8 +257,8 @@ cdee7fb450a4e2189a18c5c6aac10b4a31ef95e5e88d4b029262da054f29c698  books/1836527-
 bb5d0577c462732a073f40fa9fd0dd1dd1a1c14025b766be3e0ea43de7805b64  books/1836527-凰宫梦/inputs/prompts/dify-image-upload.txt
 acedd4a62606e66081f524b629dfc5f312d93171afad6b4a1c16e9acdb6c6526  books/1836527-凰宫梦/runs/2026-08-07-character-extraction-r01/inputs/50章原文抽样.json
 5214093a77d4428d6751188b48bee0e6e08ac114dc77ca72f28651557fa2d344  books/1836527-凰宫梦/runs/2026-08-07-character-extraction-r01/inputs/50章原文抽样.md
-98b6ca35d6ca012186b5ae2f963e2eb625a12eafaa354afa96d36adbb0e541ed  books/1836527-凰宫梦/runs/2026-08-07-character-extraction-r01/manifest.json
-d426a23a789b90dad44b32398b6a458f57ac614c385bfab7dc8c399b23874b41  books/1836527-凰宫梦/runs/2026-08-14-character-candidates-r01/manifest.json
+0f1685efc4f33bd329ff3415b3baecf058d1218c6f4713597734e027178a9148  books/1836527-凰宫梦/runs/2026-08-07-character-extraction-r01/manifest.json
+26428f43b78fffd0af66354ea2a195e2457847c325f19870646322adbf2a319a  books/1836527-凰宫梦/runs/2026-08-14-character-candidates-r01/manifest.json
 d5343afb828b7aa15cfbf608f7235794a0378329714013eba5b63f17073da50a  books/1836527-凰宫梦/runs/2026-08-14-character-candidates-r01/outputs/南宫玄羽-三视图正式立绘/image-edit-1.png
 4b55ee9e7ac6e36e722f56793d94b2220414e46e7f56558125fbd87eb8f8ad32  books/1836527-凰宫梦/runs/2026-08-14-character-candidates-r01/outputs/南宫玄羽-三视图正式立绘/南宫玄羽-3x4.png
 3373c9c05d7f1313be38c1f594d70a37fdc061e20f445411487c58dde69f8b4f  books/1836527-凰宫梦/runs/2026-08-14-character-candidates-r01/outputs/南宫玄羽-伟岸体态/image-edit-1.png
@@ -278,7 +278,7 @@ ddf246c3fb36547f1edc4e0e1f7fa1a1321ab226e71f2df64b2becb8a1f996c1  books/1836527-
 006531ae0f2458ccd42dec39c3980c4b6de45cd6f05adbe5c84ecdad8681515e  books/1836527-凰宫梦/runs/2026-08-14-character-candidates-r01/outputs/姜婉歌/姜婉歌-3x4.png
 0b8a3d0fe64b0d90dc0d26b2a38e96c148e97acf3baf334852c4f106eca72e69  books/1836527-凰宫梦/runs/2026-08-14-character-candidates-r01/outputs/楚夕颜-少女常态/image-edit-1.png
 15ffea65c7f65747ae4c63559fc12c4f0b28eac367a46b9b66e787b2f0f8e17d  books/1836527-凰宫梦/runs/2026-08-14-character-candidates-r01/outputs/楚夕颜-少女常态/楚夕颜-3x4.png
-ab06446aa1b5e21814833915639980fd0d19f3d94a0c1c73026723f478c18ad1  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r01/manifest.json
+1d0e117e6ef174da4af47268d7bacc932d313304860b42c4f2a29f20a4b36604  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r01/manifest.json
 6cf7c29e24eee5ce9d3777d27167026664921c41884ffa4c77cdb0a06d9ebf2b  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r01/outputs/00-input-entities.json
 a6cd2e15c30694c4c6bf5c1641043f1f39f82d176a320dba0126168835324b1e  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r01/outputs/01-entity-adjudications.json
 563f50c77fcb9b6c4f7073de431e92158ef704a33f8aef04b74819e4e3805bb7  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r01/outputs/02-alias-audit.json
@@ -287,7 +287,7 @@ a6cd2e15c30694c4c6bf5c1641043f1f39f82d176a320dba0126168835324b1e  books/1836527-
 4ff1bb9d5cdc4b6a915e2f793f67e3f476369908667f9dd7b10151ccdbb62a74  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r01/outputs/05-manual-review-queue.json
 009a76e427c2b10742927a0b67c0f40d0b479c19cb652ec07154e3d828432e27  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r01/outputs/README.md
 edbe54aa7aea09652c371fb9af7ac0d60770485e44af4bc2d81fe0f771a0dea5  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r01/outputs/summary.json
-5406c30dc104bf49417e8ccf9d94f7b445bb10000cfcb40303e0670aef2a1652  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r02/manifest.json
+88f82105603424a4b8a833f0eac8ae15e22f7e695b6e896294b853cc100d7b8e  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r02/manifest.json
 e3db91c662d68a4623a6771f7f3507e9c658f62e58fd3c9e5b5c6f735676bd04  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r02/outputs/00-input-entities.json
 4e8d29cb503572227c2559cf87a74f376347136bc07e15fb255e863e0ab094c6  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r02/outputs/01-entity-adjudications.json
 d85fbdbf5c5e2ffc80f9a9ef2504b784725cce19c984cacc6cc80ea9661d60a6  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r02/outputs/02-alias-audit.json
@@ -296,7 +296,7 @@ d85fbdbf5c5e2ffc80f9a9ef2504b784725cce19c984cacc6cc80ea9661d60a6  books/1836527-
 93f3a2423f7c06844691e8988e9a6ac886d16617e2941b3eff119f17df72f005  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r02/outputs/05-manual-review-queue.json
 009a76e427c2b10742927a0b67c0f40d0b479c19cb652ec07154e3d828432e27  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r02/outputs/README.md
 22914f90751ea5a6bed8e726a9b5330b00331c2bf71050b53b6a52d8877d1f6e  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r02/outputs/summary.json
-934bd05ea43179992bead3ae2bba396812c570ff8bde673584667db4f7970c66  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r03/manifest.json
+d767bd964df7f43868d7ad88372f5b4034ed85f6612a91660b443a54217440c5  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r03/manifest.json
 e3db91c662d68a4623a6771f7f3507e9c658f62e58fd3c9e5b5c6f735676bd04  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r03/outputs/00-input-entities.json
 3e99f60305c7e5c14a9d129c088c3f5b1f4167ea277908a5481ce1a8208c23e7  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r03/outputs/01-entity-adjudications.json
 b1b46f739564399b7bb832100eecb4f094a2185d9edc7aa934c5a634e81230ff  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r03/outputs/02-alias-audit.json
@@ -305,7 +305,7 @@ b1b46f739564399b7bb832100eecb4f094a2185d9edc7aa934c5a634e81230ff  books/1836527-
 0ee3bd0519117af8e293aa864defb04dc9ab162d2e94a193a3e35f1070f28332  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r03/outputs/05-manual-review-queue.json
 009a76e427c2b10742927a0b67c0f40d0b479c19cb652ec07154e3d828432e27  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r03/outputs/README.md
 cd1dc3b8780ce379eea26f7659af8d2f3c5c3b681436ebbf12404288c7bf9f88  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r03/outputs/summary.json
-d8fb8de5fe671bc2b6bfe96f931705a95691fb1b681c7c4ccef10f1b29bb2b87  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r04/manifest.json
+22968595513de787b05fb9f0ca5e989616ac7ea88765f0097e0bebf86b3eaeb4  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r04/manifest.json
 e3db91c662d68a4623a6771f7f3507e9c658f62e58fd3c9e5b5c6f735676bd04  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r04/outputs/00-input-entities.json
 e831934458f43e5f3afe849614521fbed02693bb7e7ebce527d110a201c2a5c3  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r04/outputs/01-entity-adjudications.json
 a3ff4072d029b2ef57087804f8252aa2749a3a9061b5bdea77f94ecf98ca3185  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r04/outputs/02-alias-audit.json
@@ -314,7 +314,7 @@ a3ff4072d029b2ef57087804f8252aa2749a3a9061b5bdea77f94ecf98ca3185  books/1836527-
 5d2af468f9a628d84838df7dfe4f54a44c1325df58f9d188e19b681b20d0ee36  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r04/outputs/05-manual-review-queue.json
 009a76e427c2b10742927a0b67c0f40d0b479c19cb652ec07154e3d828432e27  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r04/outputs/README.md
 8eda1058408baec37f4e4b83f2eefae7807702c36eddc9138f4b58c8358fcbc6  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r04/outputs/summary.json
-f37fdc11cca35f22ac5f2039d58a7d40451b591f94b9968ab69c0afcbb209058  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r05/manifest.json
+5bd543a3a4fee946038fa02975ad2bcf54e815320aabcbcc114114b33dab499f  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r05/manifest.json
 e3db91c662d68a4623a6771f7f3507e9c658f62e58fd3c9e5b5c6f735676bd04  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r05/outputs/00-input-entities.json
 13c79c49ae5958bf1d20c01e769eb358cd9146952df326034af47de3bc60fc5c  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r05/outputs/01-entity-adjudications.json
 0e8839fb380411489b5ed86ac3c1eb4b3179719738b27aae25895930893fad09  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r05/outputs/02-alias-audit.json
@@ -323,7 +323,7 @@ d516dce2322544ebb53d0473c54ad09676390aa971c7c5abff261f309cda1e69  books/1836527-
 e369f02d844dc115fed1a355b8f920be76099aa741145206f1d5e418dd7e4cf8  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r05/outputs/05-manual-review-queue.json
 009a76e427c2b10742927a0b67c0f40d0b479c19cb652ec07154e3d828432e27  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r05/outputs/README.md
 547bae482f5ba8b011845835b9e0e206d8a0545522775bd853a51daf212327f7  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r05/outputs/summary.json
-f72c9dd24330575a1db18ef159dae1a2fde6275f1175d7cf09cfe58ccdcb396a  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r06/manifest.json
+2b51aeb4f0e4a1caa43d8a562db01b2478f55fff81197cf645c941ad0e04aff4  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r06/manifest.json
 e3db91c662d68a4623a6771f7f3507e9c658f62e58fd3c9e5b5c6f735676bd04  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r06/outputs/00-input-entities.json
 9dec4e4b2541b05290cf852002a86751089b1dbe369aa6f7418ce3835616e93f  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r06/outputs/01-entity-adjudications.json
 86a34e93b2c4b8c007abe0b4a87d5816d4600605aa59e2bc46fb8fd1ede634ae  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r06/outputs/02-alias-audit.json
@@ -332,7 +332,7 @@ d0ae9138f261847894f6e9691926001bf9bcf7182e4fb0dc4abfeadc526d4ad2  books/1836527-
 e5e2d93efd4c5a374a021c79fd5c2d7ad4b428279736c34522c7b315d6148fb5  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r06/outputs/05-manual-review-queue.json
 009a76e427c2b10742927a0b67c0f40d0b479c19cb652ec07154e3d828432e27  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r06/outputs/README.md
 df610f38c04ca57c6a339a1d9a03cc0d08d17c213ccdcddc90ddb7a26bc7fdca  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r06/outputs/summary.json
-31a3f79e94d5590a8969ca88e87cb25a01d48c5f2d01b70d92209c1114cb8f3c  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r07/manifest.json
+89dc3c2d0e1433ecd0c7f3eb1290c635ba47a658c440e6067e8e9bbee916cd3f  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r07/manifest.json
 e3db91c662d68a4623a6771f7f3507e9c658f62e58fd3c9e5b5c6f735676bd04  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r07/outputs/00-input-entities.json
 e7adbcfff64fe81131d183482d2bba0516afc48481c83b26f04002decbba1582  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r07/outputs/01-entity-adjudications.json
 fc0d9426e1f0d0fb45233010a933236ff3862330c8b03de4dced32d37e0a63da  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r07/outputs/02-alias-audit.json
@@ -341,7 +341,7 @@ ff73d293376e7ce3c83a00c86dc8da2bd52472f6f3ba8652178116d84864a0a9  books/1836527-
 398b7a048d5b4456054568f8375ba624f82101cbae5c3b32b24bc498f077c7eb  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r07/outputs/05-manual-review-queue.json
 009a76e427c2b10742927a0b67c0f40d0b479c19cb652ec07154e3d828432e27  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r07/outputs/README.md
 622469f4102f1dc03ab61cbe788d1f600fac24bd4bbba0fd9f90a68fc5572b61  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r07/outputs/summary.json
-02f05563fb65f643dad5889ed105c20272ae2f9717f5737d585d5bca623f05d7  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r08/manifest.json
+fb5fc20d56f3b1989ee1ee4c384c15bfae89cc36cac20924d37e061268afd181  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r08/manifest.json
 e3db91c662d68a4623a6771f7f3507e9c658f62e58fd3c9e5b5c6f735676bd04  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r08/outputs/00-input-entities.json
 cdf3b488918e345faf879d4ce8a5a514970dafffcfa9de1e4142e8d78da6faea  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r08/outputs/01-entity-adjudications.json
 3554891ab8b7dc55fab14908be1e9bdeafaac365fbfda0889da451cbfc2a2fd9  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r08/outputs/02-alias-audit.json
@@ -350,7 +350,7 @@ f25fd40172c6472c1f71bd8555dff9dbe3aea632e30ff5f0130d7cb7a13542b8  books/1836527-
 5eefaaaa5981238dafb0a92820211763d61fee1b134a1dea0451af96e65e9bc3  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r08/outputs/05-manual-review-queue.json
 009a76e427c2b10742927a0b67c0f40d0b479c19cb652ec07154e3d828432e27  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r08/outputs/README.md
 9fdf124b78b74280a225da9f363a19ef88cc7d67fa1eb8ecb9ac24f71bae6ca7  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r08/outputs/summary.json
-689e14575e4a5e781639225d9f05cf8130d5e0761cad380228908c3e7916c13a  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r09/manifest.json
+245475d6ce61a55de6ee6818408fc0d292299dd2e34c4a2fc1b430ae47219c21  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r09/manifest.json
 e3db91c662d68a4623a6771f7f3507e9c658f62e58fd3c9e5b5c6f735676bd04  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r09/outputs/00-input-entities.json
 374c7a0d0b8f90e20772a381030fe710260bb1ca49cc1bd37619297f0ee7438e  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r09/outputs/01-entity-adjudications.json
 68cabd60cfe164a728b536da344272f7bb50a0f4b743fba184023f3a8a41bd4f  books/1836527-凰宫梦/runs/2026-08-14-character-normalization-r09/outputs/02-alias-audit.json

@@ -10,15 +10,14 @@
 - 当前可交付成果只从 `final/` 获取
 - 每次执行过程都能在 `runs/` 中独立追溯
 - 历史版本完整保留在 `archive/`，但不干扰日常工作
-- 上层工作区根不再出现带书名的提示词、别名、图片或批处理文件
+- 仓库根不再出现带书名的提示词、别名、图片或批处理文件
 - 产品源码、共享脚本和书籍专项资料之间边界明确
 
 ## 根目录定义
 
 - 仓库根：`小说分析重构-plus3-抽取L2提问/`
-- 上层工作区根：`小说分析重构-plus3-抽取L2提问/`
 
-现有提示词、别名文件和 `redraw-four-*` 产物位于上层工作区根，不受当前仓库 Git 保护。迁移这些文件时，SHA-256 清单是移动或删除旧来源前的强制安全依据
+整理前，提示词、别名文件和 `redraw-four-*` 产物曾位于 Git 仓库上层的工作区根。该层级已于 2026-08-27 压平；以下相关条款保留为迁移历史和安全决策记录
 
 ## 不在本次范围内
 
@@ -164,7 +163,7 @@ filename,book_id,status,category,last_known_run,dependencies,target_path,notes
 
 ## 迁移映射原则
 
-### 上层工作区根散落文件
+### 原上层工作区根散落文件
 
 - `*-L1索引提示词.md` 和 `*-L2索引提示词.md` 进入对应书籍的 `inputs/prompts/`
 - `*-角色名-别名.txt` 进入对应书籍的 `inputs/character-names/`
@@ -173,7 +172,7 @@ filename,book_id,status,category,last_known_run,dependencies,target_path,notes
 
 无法仅凭文件名确认归属的文件在迁移清单中标记为待人工确认，不静默猜测
 
-上层工作区文件迁入 `inputs/prompts/` 后默认纳入 Git。迁入前必须检查 API Key、内部服务地址、敏感原文和不应提交的业务数据；包含敏感内容时保留本地并补充忽略规则
+原上层工作区文件迁入 `inputs/prompts/` 后默认纳入 Git。迁入前必须检查 API Key、内部服务地址、敏感原文和不应提交的业务数据；包含敏感内容时保留本地并补充忽略规则
 
 ### 现有 `artifacts/`
 
@@ -233,7 +232,7 @@ filename,book_id,status,category,last_known_run,dependencies,target_path,notes
 - 每本书独立迁移和验收，不进行一次性全量搬迁
 - 迁移前后分别记录文件数量、总字节数和 SHA-256 清单
 - 数据库保持原位，并在迁移前后运行现有测试
-- 上层工作区根的疑似重复项目副本不纳入自动迁移，单独确认后处理
+- 原上层工作区根的疑似重复项目副本不纳入自动迁移，单独确认后处理
 
 重复项目副本必须比较相对路径、文件数量、总字节数、SHA-256、`book.json` 和迁移状态
 
@@ -261,7 +260,7 @@ filename,book_id,status,category,last_known_run,dependencies,target_path,notes
 
 ### 第四阶段：清理旧入口
 
-处理上层工作区根散落文件，按对比标准确认疑似重复项目目录，更新 `Agent.md`、`README.md` 和书籍说明，并检查上层工作区根是否仍有书籍专项产物
+处理原上层工作区根散落文件，按对比标准确认疑似重复项目目录，更新 `Agent.md`、`README.md` 和书籍说明，并检查仓库根是否仍有书籍专项产物
 
 ## 验收标准
 
@@ -272,5 +271,5 @@ filename,book_id,status,category,last_known_run,dependencies,target_path,notes
 - 仍在维护的专项脚本不再硬编码旧 `artifacts/<书名>` 路径
 - 每本书都有完整的 `scripts-inventory.csv`，所有专项和 artifacts 内嵌脚本均标记为 active、historical 或 review
 - `npm test` 和现有产品功能不因目录整理受到影响
-- 上层工作区根不再散落书籍专项输入和输出
+- 仓库根不再散落书籍专项输入和输出
 - 临时旧来源只在 14 天校验窗口内保留，不形成永久双份

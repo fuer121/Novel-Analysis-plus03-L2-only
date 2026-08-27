@@ -40,3 +40,4 @@ dify-workflows/Dify-key.md
 # 本地工作产物
 artifacts/
 .ui-review/
+tmp/

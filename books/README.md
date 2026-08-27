@@ -17,3 +17,11 @@
 产品源码和 SQLite 数据库不进入书籍目录，数据库统一使用 `data/novel-chapters.sqlite`
 
 新增文件前先判断归属，不允许把带书名的输入或输出重新放回仓库根目录
+
+## 提示词定稿入口
+
+- `1836527-凰宫梦/inputs/prompts/character-image-l2-index.md`
+- `222767-离婚后她惊艳了世界/inputs/prompts/l1-index.md`
+- `222767-离婚后她惊艳了世界/inputs/prompts/character-image-l2-index.md`
+
+提示词以书籍 `inputs/prompts/` 内的 Markdown 定稿为准。若在 `/prompts` 页面临时调整且验证有效，必须回写对应文件

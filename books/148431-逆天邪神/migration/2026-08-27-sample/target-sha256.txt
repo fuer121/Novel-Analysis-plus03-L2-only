@@ -339,7 +339,7 @@ ae7bad8945b7078a6b8470df3235df475dd9b43f1eec9b765c41d45d52e91d3b  books/148431-�
 25b10ae21ff882cf72c9e58ba6ae2b156190241ef3eb44ab93b2651d80f67f56  books/148431-逆天邪神/final/characters/images/306_舞雪心.png
 08ba78c03338f41f8efbd9f6fc7311c89cb940ffd54596becb34b8105aface79  books/148431-逆天邪神/final/characters/images/307_苍霖.png
 904343421fe0cb7bbfd2c4b02d27530029f85932fbb873d35eecc570e217c1c1  books/148431-逆天邪神/inputs/prompts/角色形象生成与质检SOP.md
-f2b0c8bd7a2cc45a76dad80543f31597b25bc9222278e512807b4d0fcd40167a  books/148431-逆天邪神/runs/2026-08-05-character-generation-r01/manifest.json
+d99ee74d401746c234641496bfe84adec27879d84a078eb4d5fe5600ba573eec  books/148431-逆天邪神/runs/2026-08-05-character-generation-r01/manifest.json
 9630f3bd2a4518497e33d38fb7326a6bfd5bd16ae7f4126fcf34831a76f3f19e  books/148431-逆天邪神/runs/2026-08-05-character-generation-r01/outputs/contact-sheet-new.jpg
 2e26b67381f60220b119b411f520680b2ac3ecc9765b9d680ee4fb536ca540a8  books/148431-逆天邪神/runs/2026-08-05-character-generation-r01/outputs/contact-sheet-sample.jpg
 97938317d45d449dc7aa00bee6c683cdb0b94fbfeebc130a9241c55febfc5bb7  books/148431-逆天邪神/runs/2026-08-05-character-generation-r01/outputs/images-legacy-invalid/001_云澈-少年.png
@@ -489,7 +489,7 @@ e5db61724a0fd00c2c4464e98a57148cf230b92e5536ecf2b4558d50fa77095b  books/148431-�
 14374dd0d3ecd2f5494143cf8d4d46129a3a9c8a5a3997357916d2b00b389fe3  books/148431-逆天邪神/runs/2026-08-05-character-generation-r01/outputs/vancool-results-remaining-1.jsonl
 3c59b2b371d1580bbd03094364a5cafcb76742a744b6c27f1c85dd52fcdfaa19  books/148431-逆天邪神/runs/2026-08-05-character-generation-r01/outputs/vancool-results-remaining-2.jsonl
 3b7937b22563dbb1c4e24ae1c0d9802b48ce55ae1eb95d2e6e6b2c7c9b473381  books/148431-逆天邪神/runs/2026-08-05-character-generation-r01/outputs/vancool-results-remaining-3.jsonl
-dc25f879894825563b818552bee0245ee92dc9a0b94c2e56956d087032e81234  books/148431-逆天邪神/runs/2026-08-05-character-review-redraw-r01/manifest.json
+a5df99b2931130651027cb0f98e026f8afc40bc65711db47c2145a7193dc4d05  books/148431-逆天邪神/runs/2026-08-05-character-review-redraw-r01/manifest.json
 9c1fea21bca5f92bffabbb9c4b8a7ea8264979aaaf1f253ef6c16a67ca431ab7  books/148431-逆天邪神/runs/2026-08-05-character-review-redraw-r01/outputs/images-pre-redraw/018_楚月婵.png
 604ae5b8ac30718489d99ee7f6c2c76b805622616432f944fe3698e13922ee92  books/148431-逆天邪神/runs/2026-08-05-character-review-redraw-r01/outputs/images-pre-redraw/024_萧云.png
 c723db98521c5327927bb2106eef14600a607629b2f77cd18cd44bd0316802dd  books/148431-逆天邪神/runs/2026-08-05-character-review-redraw-r01/outputs/images-pre-redraw/040_沐小蓝.png
@@ -648,6 +648,6 @@ b8947fcf5e9ebdb5e494b0299f87bfc9f2e2c1b5f9eac28e9f97ea5a5af77ee5  books/148431-�
 cc917928335a6fb815cb48ab8950f46ca80b8b2e15cd47f40141c01a0d282cbc  books/148431-逆天邪神/runs/2026-08-05-character-review-redraw-r01/outputs/review-2.json
 4898766e7df4ca43ee96b6c4dbe0e134d2212a15198084f3083e1fefe52961db  books/148431-逆天邪神/runs/2026-08-05-character-review-redraw-r01/outputs/review-3.json
 a038adffd659ddcdc6db0578194cf2c97fd3eebc939631a0b73327ddd94cc60f  books/148431-逆天邪神/runs/2026-08-05-character-review-redraw-r01/outputs/review-all.json
-58371a93a8b9aa9f987856badc55d2c4ed62dffce5efe0ee1af3ccf6dba3e7c3  books/148431-逆天邪神/runs/2026-08-05-lark-sync-r01/manifest.json
+2f3f1ef9e9f212632aaf8d2065980e55105fc0ec0e502bd26c2caed713e72b6e  books/148431-逆天邪神/runs/2026-08-05-lark-sync-r01/manifest.json
 df82c1a8232e2f9dd5404fd154c0bba54c454f9b0fb8189e3e3b61f7d7d07684  books/148431-逆天邪神/scripts/active/build-characters.py
 44d0fd4c29b1d669c63b5a10469cc2d44a13d34f8e5b036aae3c028a112b5240  books/148431-逆天邪神/scripts/active/generate-images.py

@@ -178,8 +178,8 @@ f20f63fbaeda70ab4582b29f78b319c5b2d5c8c358c39b333b6f8502122b61c0  books/1721648-
 e18d0757679a817604539393f81f876746f81205c03f359ac771e0ed148dccd8  books/1721648-废材那又怎样/runs/2026-06-23-portrait-import-r01/inputs/source-downloads/071-月院长.jpg
 9ac294ac07a21102fd8e3d08dfa95f5de3626145d5c819533705ef34eaf6d4fe  books/1721648-废材那又怎样/runs/2026-06-23-portrait-import-r01/inputs/source-downloads/072-张录.jpg
 8177e02d4ba95d6cd06fbdd24b91d79d855435c80e5a9245a2b7c952e72a2b71  books/1721648-废材那又怎样/runs/2026-06-23-portrait-import-r01/inputs/source-downloads/073-白铃木.jpg
-86f79250dd22766890f3dbd988e15fc87ac7bc1c702deb6584ac12cc71a065c9  books/1721648-废材那又怎样/runs/2026-06-23-portrait-import-r01/manifest.json
-e1254a3932e2f370dbae8c19089208004267b00152ae6cdab29ed6b5338f753a  books/1721648-废材那又怎样/runs/2026-08-11-tanfu-outfits-r01/manifest.json
+51edf29aced623040520d311a45ccc59627076f333abb38b411b32709a412919  books/1721648-废材那又怎样/runs/2026-06-23-portrait-import-r01/manifest.json
+ba8f2538e35aad11241b1e6e39a096936d6f5b5db131ada4fada8cc768f841f6  books/1721648-废材那又怎样/runs/2026-08-11-tanfu-outfits-r01/manifest.json
 ee86bf2c7d3ef642c51246b493224c164ee5625728b4cfd5a8c2fc0292166e65  books/1721648-废材那又怎样/runs/2026-08-11-tanfu-outfits-r01/outputs/家居服/谭浮-家居服-v1.jpeg
 19c987719e71b6233041c53da7c36e9ad550f32e7e5f6d17e2774dcbb1157a6b  books/1721648-废材那又怎样/runs/2026-08-11-tanfu-outfits-r01/outputs/家居服/谭浮-家居服-v2.jpeg
 0b6957b40e890e432bf2d2fc060b16a9d79717ffade46bf6e43ad231454848e9  books/1721648-废材那又怎样/runs/2026-08-11-tanfu-outfits-r01/outputs/战斗服/谭浮-战斗服-v1.jpeg
@@ -187,7 +187,7 @@ e47784b6b21ce4bb3aeaee9fd8d041fc434818842fc69bf510986cdbcf0e1332  books/1721648-
 31100e63606521c9f96485692a56a60dd18364cb50cb24fe5b4a5ee9e843400d  books/1721648-废材那又怎样/runs/2026-08-11-tanfu-outfits-r01/outputs/礼服/谭浮-深色晚礼服-v3.jpeg
 059a226a64e612774219582d9066e9e72c8d8bce27aabc1852009015bc84a9c2  books/1721648-废材那又怎样/runs/2026-08-11-tanfu-outfits-r01/outputs/礼服/谭浮-礼服-v1.jpeg
 dc80c7fcfdaecc2f16f6da4e83a38262c7178c3bf225b37902cd4d11abb35011  books/1721648-废材那又怎样/runs/2026-08-11-tanfu-outfits-r01/outputs/谭浮-立绘-v1.jpeg
-bf0e19818c34b60dc575981018194b588326df66a6bb978fcfef4b09226b2a9c  books/1721648-废材那又怎样/runs/2026-08-12-character-redraw-r01/manifest.json
+6087f0f106384e3673c5afb0541bf260bbcf1b1345b0b5bd8babb765bdb7ceb8  books/1721648-废材那又怎样/runs/2026-08-12-character-redraw-r01/manifest.json
 45f4d9e96d2f075a98cef6384ff429717037031bc0af08b535c3ef877d25d80f  books/1721648-废材那又怎样/runs/2026-08-12-character-redraw-r01/outputs/云染.jpeg
 70ba7a31038888f7a887e7a1e8c114699e01c96ff2f4346920592387d1fb1328  books/1721648-废材那又怎样/runs/2026-08-12-character-redraw-r01/outputs/元轻.jpeg
 50043af786e6ea9ceafc0c86f5d5bd38671b6e55b98283e25327f53afb92f5d4  books/1721648-废材那又怎样/runs/2026-08-12-character-redraw-r01/outputs/李天.jpeg
