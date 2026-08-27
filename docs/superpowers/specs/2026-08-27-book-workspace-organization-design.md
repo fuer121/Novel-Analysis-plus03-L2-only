@@ -10,8 +10,15 @@
 - 当前可交付成果只从 `final/` 获取
 - 每次执行过程都能在 `runs/` 中独立追溯
 - 历史版本完整保留在 `archive/`，但不干扰日常工作
-- 仓库根目录不再出现带书名的提示词、别名、图片或批处理文件
+- 上层工作区根不再出现带书名的提示词、别名、图片或批处理文件
 - 产品源码、共享脚本和书籍专项资料之间边界明确
+
+## 根目录定义
+
+- 仓库根：`小说分析重构-plus3-抽取L2提问/Novel-Analysis-plus03-L2-only/`
+- 上层工作区根：`小说分析重构-plus3-抽取L2提问/`
+
+现有提示词、别名文件和 `redraw-four-*` 产物位于上层工作区根，不受当前仓库 Git 保护。迁移这些文件时，SHA-256 清单是移动或删除旧来源前的强制安全依据
 
 ## 不在本次范围内
 
@@ -35,25 +42,22 @@ Novel-Analysis-plus03-L2-only/
 │       │   ├── source-images/
 │       │   └── batch-inputs/
 │       ├── scripts/
-│       │   ├── build/
-│       │   ├── audit/
-│       │   ├── generate/
-│       │   ├── sync/
-│       │   └── repair/
+│       │   ├── README.md
+│       │   └── active/
 │       ├── runs/
 │       │   └── YYYY-MM-DD-<task>-rNN/
 │       │       ├── manifest.json
 │       │       ├── logs/
 │       │       ├── outputs/
-│       │       └── review/
+│       │       ├── review/
+│       │       └── scripts/
 │       ├── final/
 │       │   ├── characters/
 │       │   ├── indexes/
 │       │   └── exports/
 │       └── archive/
 │           └── YYYY/
-├── scripts/
-│   └── shared/
+├── scripts/                   # 产品级工具保持现有稳定路径
 ├── data/
 │   └── novel-chapters.sqlite
 └── tmp/
@@ -82,15 +86,27 @@ Novel-Analysis-plus03-L2-only/
 
 ### `scripts/`
 
-存放只服务当前书籍的专项脚本，并按动作分类
+书籍目录内的 `scripts/active/` 只存放确认仍会继续运行的专项脚本，不再按 build、audit、generate、sync、repair 细分
 
-- `build/`：构建角色、字段或批处理数据
-- `audit/`：审计、校验、分类和决策
-- `generate/`：生图、重绘和预览生成
-- `sync/`：上传、下载以及与 Dify、Lark 等外部系统同步
-- `repair/`：应用修复、字段更新、提升和最终化处理
+- 可以对应到具体执行批次的历史脚本进入 `runs/<batch>/scripts/`
+- 无法对应批次的历史脚本进入 `archive/YYYY/legacy-scripts/`
+- 无法确认是否仍在使用的脚本保持原位并标记为 `review`，不静默移动
 
-`scripts/shared/` 只保留真正跨书复用的工具，例如数据库迁移和工作流清单生成，不因文件名通用就自动判定为共享
+仓库根 `scripts/` 中的产品级工具保持现有稳定路径，特别是 `migrate-to-plaintext.mjs` 和 `generate-dify-workflow-manifest.mjs`，避免破坏 `package.json` 与测试中的直接引用
+
+每本书迁移前必须创建 `scripts-inventory.csv`，字段固定为
+
+```text
+filename,book_id,status,category,last_known_run,dependencies,target_path,notes
+```
+
+`status` 只允许以下值
+
+- `active`：有明确后续用途、被稳定入口引用，或列入本次样板迁移维护清单
+- `historical`：只用于复盘，后续不再作为执行入口
+- `review`：现有证据不足，暂时保持原位
+
+专项脚本当前多数未被 Git 跟踪，因此不能只依赖提交时间判断维护状态
 
 ### `runs/`
 
@@ -133,7 +149,7 @@ Novel-Analysis-plus03-L2-only/
 
 ## 迁移映射原则
 
-### 工作区根目录散落文件
+### 上层工作区根散落文件
 
 - `*-L1索引提示词.md` 和 `*-L2索引提示词.md` 进入对应书籍的 `inputs/prompts/`
 - `*-角色名-别名.txt` 进入对应书籍的 `inputs/character-names/`
@@ -142,6 +158,8 @@ Novel-Analysis-plus03-L2-only/
 
 无法仅凭文件名确认归属的文件在迁移清单中标记为待人工确认，不静默猜测
 
+上层工作区文件迁入 `inputs/prompts/` 后默认纳入 Git。迁入前必须检查 API Key、内部服务地址、敏感原文和不应提交的业务数据；包含敏感内容时保留本地并补充忽略规则
+
 ### 现有 `artifacts/`
 
 - 明确的最终图片目录迁入 `final/characters/`
@@ -149,12 +167,16 @@ Novel-Analysis-plus03-L2-only/
 - 已存在的 `archive/`、备份、失败和废弃目录迁入 `archive/2026/`
 - 审计 JSON、CSV 和说明文档优先随对应批次进入 `runs/<batch>/review/`
 - 无法可靠拆分批次的大目录先整体放入 `archive/2026/legacy-artifacts/`，保持原始相对结构
+- `artifacts/` 内的 Python、JavaScript 和 Shell 脚本也必须进入 `scripts-inventory.csv`，再按 active、historical、review 规则归类
 
 ### 现有 `scripts/`
 
-带 `divorce`、`huanggong`、角色专名或明确书籍语义的脚本移入对应书籍的 `scripts/` 分类目录
+带 `divorce`、`huanggong`、角色专名或明确书籍语义的脚本先进入对应书籍的 `scripts-inventory.csv`
 
-`migrate-to-plaintext.mjs`、`generate-dify-workflow-manifest.mjs` 等产品级工具保留在共享脚本区域
+- `active` 脚本移入对应书籍的 `scripts/active/`
+- `historical` 脚本随批次或历史归档保存
+- `review` 脚本保持原位，等待人工确认
+- `migrate-to-plaintext.mjs`、`generate-dify-workflow-manifest.mjs` 等产品级工具保留在仓库根 `scripts/`
 
 ## 路径兼容策略
 
@@ -166,10 +188,14 @@ Novel-Analysis-plus03-L2-only/
 2. 将文件复制到目标位置，并核对文件数量、总大小和校验和
 3. 逐个调整仍需继续使用的专项脚本，使其从脚本位置推导书籍根目录
 4. 对调整后的代表性脚本执行只读或 dry-run 验证
-5. 确认目标内容完整后，将旧目录整体移入对应书籍的 `archive/2026/migration-source/`
-6. 删除已确认无引用的空旧目录，更新仓库说明
+5. 旧来源保留 14 天作为临时安全副本，期间不得继续写入
+6. 14 天后再次核对目标文件数量、总大小和 SHA-256 清单
+7. 人工确认后删除旧来源，永久保留迁移清单和 SHA-256 记录
+8. 更新仓库 `Agent.md`、`README.md` 和对应书籍 `README.md`
 
 不再维护的历史脚本可以随历史批次归档，不要求全部改造成可再次运行
+
+临时复制会使迁移期间磁盘峰值接近源数据的两倍。当前 `artifacts/` 约 1.6GB，完整迁移峰值约 3.2GB；逐书迁移可以限制单次额外占用。`migration-source/` 不作为永久重复备份，完整历史由整理后的 `runs/` 与 `archive/` 承担
 
 ## Git 策略
 
@@ -192,7 +218,17 @@ Novel-Analysis-plus03-L2-only/
 - 每本书独立迁移和验收，不进行一次性全量搬迁
 - 迁移前后分别记录文件数量、总字节数和 SHA-256 清单
 - 数据库保持原位，并在迁移前后运行现有测试
-- 工作区根目录的疑似重复项目副本不纳入自动迁移，单独确认后处理
+- 上层工作区根的疑似重复项目副本不纳入自动迁移，单独确认后处理
+
+重复项目副本必须比较相对路径、文件数量、总字节数、SHA-256、`book.json` 和迁移状态
+
+- 完全一致或确认是主项目子集：列出证据并经人工确认后删除
+- 包含主项目没有的唯一文件：合并到对应书籍的 `runs/` 或 `archive/`
+- 无法确认：保持原位并记录为 `review`
+
+不得通过目录名、修改时间或肉眼抽查直接判定重复
+
+当前 `book.json` 四字段和每本书的 `inputs/`、`scripts/`、`runs/`、`final/`、`archive/` 五个一级目录已被 `test/book-workspace.test.js` 锁定。调整这些契约时必须同步更新测试
 
 ## 分阶段落地
 
@@ -210,7 +246,7 @@ Novel-Analysis-plus03-L2-only/
 
 ### 第四阶段：清理旧入口
 
-处理工作区根目录散落文件，确认疑似重复项目目录，补充维护说明，并检查根目录是否仍有书籍专项产物
+处理上层工作区根散落文件，按对比标准确认疑似重复项目目录，更新 `Agent.md`、`README.md` 和书籍说明，并检查上层工作区根是否仍有书籍专项产物
 
 ## 验收标准
 
@@ -219,6 +255,7 @@ Novel-Analysis-plus03-L2-only/
 - `final/` 中不存在多个含义不清的并列当前版本
 - 每个迁移批次都有清单，迁移前后文件数量、大小和校验和一致
 - 仍在维护的专项脚本不再硬编码旧 `artifacts/<书名>` 路径
+- 每本书都有完整的 `scripts-inventory.csv`，所有专项和 artifacts 内嵌脚本均标记为 active、historical 或 review
 - `npm test` 和现有产品功能不因目录整理受到影响
-- 仓库及其上层工作区根目录不再散落书籍专项输入和输出
-
+- 上层工作区根不再散落书籍专项输入和输出
+- 临时旧来源只在 14 天校验窗口内保留，不形成永久双份
