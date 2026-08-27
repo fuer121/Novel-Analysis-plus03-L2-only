@@ -28,8 +28,8 @@ npm run books:cleanup:check
 ## 人工确认后步骤
 
 1. 保存 `books:cleanup:check -- --json` 输出
-2. 明确列出准备删除的路径，不使用模糊通配符
-3. 根据各书 `scripts-inventory.csv` 生成根脚本原位副本清单，不使用预设数量作为删除依据
+2. 执行 `npm run books:cleanup:scripts -- --json` 并保存 81 个脚本的逐文件哈希证据
+3. 明确列出准备删除的路径，不使用模糊通配符
 4. 人工确认删除范围
 5. 删除旧来源后再次运行目录契约、全量测试和构建
 6. 将四本书迁移状态更新为 `completed_source_cleaned`
