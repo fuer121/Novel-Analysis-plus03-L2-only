@@ -1,0 +1,54 @@
+source_path,target_path,status,reason
+scripts/apply-chusuosuo-priority-fix.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/apply-chusuosuo-priority-fix.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/apply-divorce-audit-redraw.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/apply-divorce-audit-redraw.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/apply-divorce-face-prompt-r10.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/apply-divorce-face-prompt-r10.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/apply-divorce-profile-r07.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/apply-divorce-profile-r07.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/apply-divorce-r20.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/apply-divorce-r20.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/apply-gujinyao-hidden-scar-redraw.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/apply-gujinyao-hidden-scar-redraw.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/apply-gujinyao-profile-redraw.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/apply-gujinyao-profile-redraw.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/audit-divorce-aliases-r06.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/audit-divorce-aliases-r06.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/audit-divorce-clothing-worldview-r09.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/audit-divorce-clothing-worldview-r09.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/audit-divorce-profile-r07.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/audit-divorce-profile-r07.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/audit-divorce-transient-appearance-r08.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/audit-divorce-transient-appearance-r08.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/build-divorce-characters.mjs,books/222767-离婚后她惊艳了世界/scripts/active/build-divorce-characters.mjs,active,当前角色构建、图片生成或单图维护入口
+scripts/classify-divorce-formal-names.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/classify-divorce-formal-names.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/clean-divorce-character-names-aliases.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/clean-divorce-character-names-aliases.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/decide-divorce-profile-r07.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/decide-divorce-profile-r07.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/finalize-chusuosuo-hair-redraw.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/finalize-chusuosuo-hair-redraw.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/finalize-chusuosuo-priority-fix.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/finalize-chusuosuo-priority-fix.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/finalize-divorce-profile-r07.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/finalize-divorce-profile-r07.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/finalize-divorce-r06-alias-sync.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/finalize-divorce-r06-alias-sync.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/finalize-divorce-r13-sync.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/finalize-divorce-r13-sync.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/finalize-divorce-r14-cleanup.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/finalize-divorce-r14-cleanup.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/finalize-divorce-r15-baseline.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/finalize-divorce-r15-baseline.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/finalize-divorce-r17.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/finalize-divorce-r17.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/finalize-divorce-r18.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/finalize-divorce-r18.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/finalize-divorce-r19.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/finalize-divorce-r19.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/finalize-divorce-redraw-r11-r12.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/finalize-divorce-redraw-r11-r12.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/generate-divorce-images.py,books/222767-离婚后她惊艳了世界/scripts/active/generate-divorce-images.py,active,当前角色构建、图片生成或单图维护入口
+scripts/generate-divorce-r18-jiang-v3.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/generate-divorce-r18-jiang-v3.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/generate-divorce-r18.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/generate-divorce-r18.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/generate-divorce-r19.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/generate-divorce-r19.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/generate-divorce-redraw-r11-r12.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/generate-divorce-redraw-r11-r12.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/prepare-divorce-r06-alias-sync.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/prepare-divorce-r06-alias-sync.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/prepare-divorce-r13-sync.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/prepare-divorce-r13-sync.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/prepare-divorce-r14-cleanup.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/prepare-divorce-r14-cleanup.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/prepare-divorce-r15-field-repair.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/prepare-divorce-r15-field-repair.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/prepare-divorce-r18.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/prepare-divorce-r18.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/prepare-divorce-r20.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/prepare-divorce-r20.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/promote-chusuosuo-low-half-up.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/promote-chusuosuo-low-half-up.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/promote-chusuosuo-ponytail-dress.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/promote-chusuosuo-ponytail-dress.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/promote-chusuosuo-soft-side-pleats.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/promote-chusuosuo-soft-side-pleats.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/r17-update-ancient-prompts.mjs,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/r17-update-ancient-prompts.mjs,historical,已完成审核或修订轮次，仅供追溯
+scripts/redraw-divorce-audit.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/redraw-divorce-audit.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/sync-divorce-images-lark.mjs,books/222767-离婚后她惊艳了世界/scripts/review/sync-divorce-images-lark.mjs,review,包含线上同步或旧 280 条批量假设，迁移后需人工复核再启用
+scripts/sync-divorce-r13-attachments.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/sync-divorce-r13-attachments.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/sync-divorce-r15-attachments.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/sync-divorce-r15-attachments.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/sync-divorce-r20-attachments.mjs,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/sync-divorce-r20-attachments.mjs,historical,已完成审核或修订轮次，仅供追溯
+scripts/update-divorce-role-all-r21.py,books/222767-离婚后她惊艳了世界/scripts/active/update-divorce-role-all-r21.py,active,角色画像导出入口，迁移时需移除固定 280 条断言
+scripts/update-gujinyao-character-profile.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/update-gujinyao-character-profile.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/upload-divorce-images-dify.py,books/222767-离婚后她惊艳了世界/scripts/review/upload-divorce-images-dify.py,review,包含线上同步或旧 280 条批量假设，迁移后需人工复核再启用
+scripts/upload-divorce-single-image-dify.py,books/222767-离婚后她惊艳了世界/scripts/active/upload-divorce-single-image-dify.py,active,当前角色构建、图片生成或单图维护入口
+scripts/verify-divorce-dify-upload.py,books/222767-离婚后她惊艳了世界/scripts/review/verify-divorce-dify-upload.py,review,包含线上同步或旧 280 条批量假设，迁移后需人工复核再启用
+scripts/verify-divorce-r13-fields.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/verify-divorce-r13-fields.py,historical,已完成审核或修订轮次，仅供追溯
+scripts/verify-divorce-r20.py,books/222767-离婚后她惊艳了世界/archive/2026/legacy-scripts/verify-divorce-r20.py,historical,已完成审核或修订轮次，仅供追溯

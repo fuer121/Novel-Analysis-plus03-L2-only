@@ -1,0 +1,20 @@
+{
+  "book_id": "222767",
+  "book_name": "离婚后她惊艳了世界",
+  "migration_id": "2026-08-27-sample",
+  "created_at": "2026-08-27",
+  "status": "inventory_complete",
+  "source": "artifacts/离婚后她惊艳了世界角色形象, upper workspace prompts and book-specific scripts",
+  "target": "books/222767-离婚后她惊艳了世界",
+  "source_cleanup_after": "2026-09-10",
+  "official_base_character_count": 250,
+  "official_stage_record_count": 279,
+  "official_image_count": 279,
+  "source_file_count": 1167,
+  "source_total_bytes": 543511857,
+  "source_sha256_manifest": "source-sha256.txt",
+  "target_file_count": 0,
+  "target_total_bytes": 0,
+  "target_sha256_manifest": "target-sha256.txt",
+  "notes": "The stale 280-record baseline included an invalid 楚锁锁-老年 stage based on temporary injury evidence; current 279-record baseline is authoritative"
+}
