@@ -1,0 +1,13 @@
+source,target,group,tracked
+artifacts/逆天邪神角色形象/characters.json,books/148431-逆天邪神/final/characters/data/characters.json,final,false
+artifacts/逆天邪神角色形象/characters.csv,books/148431-逆天邪神/final/characters/data/characters.csv,final,false
+artifacts/逆天邪神角色形象/review-final.json,books/148431-逆天邪神/final/characters/evidence/review-final.json,final,false
+artifacts/逆天邪神角色形象/images/NNN_角色名.png,books/148431-逆天邪神/final/characters/images/,final,false
+artifacts/逆天邪神角色形象/角色形象生成与质检SOP.md,books/148431-逆天邪神/inputs/prompts/角色形象生成与质检SOP.md,input,true
+artifacts/逆天邪神角色形象/build_characters.py,books/148431-逆天邪神/scripts/active/build-characters.py,script,true
+artifacts/逆天邪神角色形象/generate_images.py,books/148431-逆天邪神/scripts/active/generate-images.py,script,true
+artifacts/逆天邪神角色形象/generation-history,books/148431-逆天邪神/runs/2026-08-05-character-generation-r01/,run,false
+artifacts/逆天邪神角色形象/review-redraw-history,books/148431-逆天邪神/runs/2026-08-05-character-review-redraw-r01/,run,false
+artifacts/逆天邪神角色形象/lark-sync-history,books/148431-逆天邪神/archive/2026/local-records/lark-sync/,archive,false
+artifacts/逆天邪神角色形象/images/188.png,books/148431-逆天邪神/archive/2026/legacy-images/188.png,archive,false
+artifacts/逆天邪神角色形象/images/189.png,books/148431-逆天邪神/archive/2026/legacy-images/189.png,archive,false
