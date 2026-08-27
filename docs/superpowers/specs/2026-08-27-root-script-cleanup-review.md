@@ -2,7 +2,7 @@
 
 **审查日期**：2026-08-27
 
-**结论**：根 `scripts/` 中现有 81 个书籍专项脚本，均已找到 SHA-256 一致的保全副本，可进入 2026-09-10 或之后的人工删除确认流程
+**结论**：根 `scripts/` 的 81 个书籍专项脚本已于 2026-08-27 经用户明确授权删除，保全副本仍存在
 
 ## 数量口径
 
@@ -54,6 +54,7 @@ npm run books:cleanup:scripts
 ```text
 root script candidates: 81
 historical: 74; active source copies: 4; review: 3
+removed sources: 81; remaining sources: 0
 all preserved with matching SHA-256: true
 ```
 
@@ -67,7 +68,7 @@ JSON 结果包含每个删除候选的源路径、状态、保全路径、源目
 
 ## 删除门禁
 
-本审查只证明脚本副本已完整保全，不授权当前删除
+删除已于 2026-08-27 执行完成，后续运行本检查器应持续显示 `removed sources: 81; remaining sources: 0`
 
 2026-09-10 或之后仍必须：
 

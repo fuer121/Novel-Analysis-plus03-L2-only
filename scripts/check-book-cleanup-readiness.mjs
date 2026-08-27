@@ -65,6 +65,16 @@ function verifyEntries(entries) {
   }
 }
 
+function verifyRemovedEntries(entries) {
+  const remaining = entries.map((entry) => entry.file).filter((file) => fs.existsSync(path.resolve(repoRoot, file)))
+  return {
+    expected_file_count: entries.length,
+    removed_file_count: entries.length - remaining.length,
+    remaining,
+    all_sources_removed: remaining.length === 0,
+  }
+}
+
 const LEGACY_REFERENCE_PATTERN = /(?:["'`]artifacts["'`]|artifacts\/)/
 
 function walkFiles(directory) {
@@ -110,10 +120,16 @@ export function checkCleanupReadiness({ asOf = null, bookId = null } = {}) {
 
   const books = migrations.map((migrationDir) => {
     const manifest = JSON.parse(fs.readFileSync(path.join(migrationDir, 'migration-manifest.json'), 'utf8'))
-    const source = verifyEntries(loadHashManifest(path.join(migrationDir, manifest.source_sha256_manifest)))
+    const sourceEntries = loadHashManifest(path.join(migrationDir, manifest.source_sha256_manifest))
+    const source = manifest.status === 'completed_source_cleaned'
+      ? verifyRemovedEntries(sourceEntries)
+      : verifyEntries(sourceEntries)
     const target = verifyEntries(loadHashManifest(path.join(migrationDir, manifest.target_sha256_manifest)))
     const windowElapsed = reviewDate >= manifest.source_cleanup_after
-    const ready = windowElapsed && source.hashes_match && target.hashes_match && activeLegacyReferences.length === 0
+    const cleanupCompleted = manifest.status === 'completed_source_cleaned'
+    const ready = cleanupCompleted
+      ? source.all_sources_removed && target.hashes_match && activeLegacyReferences.length === 0
+      : windowElapsed && source.hashes_match && target.hashes_match && activeLegacyReferences.length === 0
     return {
       book_id: manifest.book_id,
       book_name: manifest.book_name,
@@ -124,7 +140,13 @@ export function checkCleanupReadiness({ asOf = null, bookId = null } = {}) {
       source,
       target,
       cleanup_status: ready
-        ? 'ready_for_manual_confirmation'
+        ? cleanupCompleted ? 'source_cleanup_completed' : 'ready_for_manual_confirmation'
+        : cleanupCompleted
+          ? !source.all_sources_removed
+            ? 'blocked_by_remaining_sources'
+            : !target.hashes_match
+              ? 'blocked_by_hash_drift'
+              : 'blocked_by_active_legacy_references'
         : !windowElapsed
           ? 'waiting_for_verification_window'
           : !source.hashes_match || !target.hashes_match
@@ -136,7 +158,7 @@ export function checkCleanupReadiness({ asOf = null, bookId = null } = {}) {
   return {
     checked_at: reviewDate,
     active_legacy_references: activeLegacyReferences,
-    all_ready_for_manual_confirmation: books.every((book) => book.cleanup_status === 'ready_for_manual_confirmation'),
+    all_ready_for_manual_confirmation: books.every((book) => ['ready_for_manual_confirmation', 'source_cleanup_completed'].includes(book.cleanup_status)),
     books,
   }
 }
@@ -145,7 +167,9 @@ function printHuman(report) {
   for (const book of report.books) {
     console.log(`${book.book_id} ${book.book_name}: ${book.cleanup_status}`)
     console.log(`  review date: ${book.review_date}; cleanup after: ${book.source_cleanup_after}`)
-    console.log(`  source hashes: ${book.source.matched_file_count}/${book.source.expected_file_count}`)
+    if (book.cleanup_status === 'source_cleanup_completed') {
+      console.log(`  removed sources: ${book.source.removed_file_count}/${book.source.expected_file_count}`)
+    } else console.log(`  source hashes: ${book.source.matched_file_count}/${book.source.expected_file_count}`)
     console.log(`  target hashes: ${book.target.matched_file_count}/${book.target.expected_file_count}`)
   }
   console.log(`all ready: ${report.all_ready_for_manual_confirmation}`)

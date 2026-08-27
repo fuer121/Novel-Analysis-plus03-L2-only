@@ -83,10 +83,11 @@ function preservationPath(row) {
 
 export function checkRootScriptCleanupReadiness({ root = repoRoot } = {}) {
   const rows = inventoryRows(root).filter((row) => row.source_path.startsWith('scripts/'))
-  const candidates = fs.readdirSync(path.join(root, 'scripts'))
+  const candidates = [...new Set(rows.map((row) => row.source_path))].sort()
+  const unexpectedSources = fs.readdirSync(path.join(root, 'scripts'))
     .filter((name) => !productTools.has(name))
     .map((name) => `scripts/${name}`)
-    .sort()
+    .filter((file) => !candidates.includes(file))
 
   const files = candidates.map((sourcePath) => {
     const matches = rows.filter((row) => row.source_path === sourcePath)
@@ -95,19 +96,26 @@ export function checkRootScriptCleanupReadiness({ root = repoRoot } = {}) {
     const preservedPath = preservationPath(row)
     const source = path.join(root, sourcePath)
     const preserved = path.join(root, preservedPath)
+    const sourceExists = fs.existsSync(source)
     const preservedExists = fs.existsSync(preserved)
-    const sourceHash = sha256(source)
+    const sourceHash = sourceExists ? sha256(source) : null
     const preservedHash = preservedExists ? sha256(preserved) : null
     return {
       source_path: sourcePath,
       status: row.status,
       preserved_path: preservedPath,
+      source_exists: sourceExists,
       source_sha256: sourceHash,
       preserved_sha256: preservedHash,
       preserved_exists: preservedExists,
-      hashes_match: sourceHash === preservedHash,
+      hashes_match: sourceExists ? sourceHash === preservedHash : null,
       inventory: row.inventory,
-      ready: preservedExists && sourceHash === preservedHash,
+      cleanup_status: !sourceExists && preservedExists
+        ? 'source_removed_preserved'
+        : sourceExists && preservedExists && sourceHash === preservedHash
+          ? 'ready_for_manual_confirmation'
+          : 'blocked',
+      ready: preservedExists && (!sourceExists || sourceHash === preservedHash),
     }
   })
 
@@ -118,8 +126,11 @@ export function checkRootScriptCleanupReadiness({ root = repoRoot } = {}) {
 
   return {
     candidate_count: files.length,
+    remaining_source_count: files.filter((file) => file.source_exists).length,
+    removed_source_count: files.filter((file) => !file.source_exists).length,
+    unexpected_sources: unexpectedSources,
     status_counts: statusCounts,
-    all_ready_for_manual_confirmation: files.length > 0 && files.every((file) => file.ready),
+    all_ready_for_manual_confirmation: files.length > 0 && files.every((file) => file.ready) && unexpectedSources.length === 0,
     files,
   }
 }
@@ -130,6 +141,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   else {
     console.log(`root script candidates: ${report.candidate_count}`)
     console.log(`historical: ${report.status_counts.historical}; active source copies: ${report.status_counts.active}; review: ${report.status_counts.review}`)
+    console.log(`removed sources: ${report.removed_source_count}; remaining sources: ${report.remaining_source_count}`)
     console.log(`all preserved with matching SHA-256: ${report.all_ready_for_manual_confirmation}`)
     for (const file of report.files.filter((entry) => !entry.ready)) console.log(`  blocked: ${file.source_path}`)
   }

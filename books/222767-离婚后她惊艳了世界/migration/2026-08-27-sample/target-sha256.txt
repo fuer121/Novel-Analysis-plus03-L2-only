@@ -1,4 +1,4 @@
-0e1a8427020a54f410f88f85bca549d1ddc4f37383ecf3f2833aa5f5ce8de42c  books/222767-离婚后她惊艳了世界/README.md
+d4f699d1b786adcb35d5db697d0187bb1e2ad3783ed2851bcf86109788fc5857  books/222767-离婚后她惊艳了世界/README.md
 498f3e5f573ee582d1a47c0b1b899d200ab3c2a11f02b2ac66bc06dc1da4db54  books/222767-离婚后她惊艳了世界/archive/2026/legacy-artifacts/2026-08-13-pre-baseline-cleanup/audit-history/audit-redraw-contact-sheets/audit-redraw-01.jpg
 6e47121d1f620a38e5d77ef5d03511df8fc504a55a9a217e5d4a1f7ac5b5f714  books/222767-离婚后她惊艳了世界/archive/2026/legacy-artifacts/2026-08-13-pre-baseline-cleanup/audit-history/audit-redraw-contact-sheets/audit-redraw-02.jpg
 1f2595a37c1e5b23bf03947f46c54449a92cc9db7cd4f4cc73b40a532c66be76  books/222767-离婚后她惊艳了世界/archive/2026/legacy-artifacts/2026-08-13-pre-baseline-cleanup/audit-history/contact-sheet-batch-001.jpg

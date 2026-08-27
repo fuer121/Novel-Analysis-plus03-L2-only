@@ -7,24 +7,24 @@ import path from 'node:path'
 
 import { checkCleanupReadiness, findActiveLegacyReferences } from '../scripts/check-book-cleanup-readiness.mjs'
 
-test('book cleanup remains blocked until the 14-day verification window ends', () => {
+test('completed book cleanup confirms every recorded source was removed', () => {
   const report = checkCleanupReadiness({ asOf: '2026-08-27' })
 
   assert.equal(report.books.length, 4)
-  assert.equal(report.all_ready_for_manual_confirmation, false)
+  assert.equal(report.all_ready_for_manual_confirmation, true)
   for (const book of report.books) {
-    assert.equal(book.source.hashes_match, true)
+    assert.equal(book.source.all_sources_removed, true)
     assert.equal(book.target.hashes_match, true)
-    assert.equal(book.cleanup_status, 'waiting_for_verification_window')
+    assert.equal(book.cleanup_status, 'source_cleanup_completed')
   }
 })
 
-test('book cleanup becomes ready after hash verification on the review date', () => {
+test('completed cleanup remains valid after the original review date', () => {
   const report = checkCleanupReadiness({ asOf: '2026-09-10' })
 
   assert.equal(report.all_ready_for_manual_confirmation, true)
   for (const book of report.books) {
-    assert.equal(book.cleanup_status, 'ready_for_manual_confirmation')
+    assert.equal(book.cleanup_status, 'source_cleanup_completed')
   }
 })
 

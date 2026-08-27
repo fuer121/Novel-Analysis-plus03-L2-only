@@ -3,7 +3,7 @@
   "book_name": "离婚后她惊艳了世界",
   "migration_id": "2026-08-27-sample",
   "created_at": "2026-08-27",
-  "status": "copied_pending_source_cleanup",
+  "status": "completed_source_cleaned",
   "source": "artifacts/离婚后她惊艳了世界角色形象, upper workspace prompts and book-specific scripts",
   "target": "books/222767-离婚后她惊艳了世界",
   "source_cleanup_after": "2026-09-10",
@@ -17,5 +17,7 @@
   "target_total_bytes": 543604280,
   "target_sha256_manifest": "target-sha256.txt",
   "completed_at": "2026-08-27",
+  "source_cleaned_at": "2026-08-27",
+  "cleanup_authorization": "user_confirmed_early_cleanup",
   "notes": "The stale 280-record baseline included an invalid 楚锁锁-老年 stage based on temporary injury evidence; current 279-record baseline is authoritative"
 }
