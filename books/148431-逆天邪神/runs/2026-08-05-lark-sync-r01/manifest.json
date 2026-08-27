@@ -1,0 +1,11 @@
+{
+  "book_id": "148431",
+  "book_name": "逆天邪神",
+  "run_id": "2026-08-05-lark-sync-r01",
+  "task": "lark-upload-score-redraw-sync",
+  "source": "artifacts/逆天邪神角色形象 Lark records, results and logs",
+  "local_records": "archive/2026/local-records/lark-sync",
+  "migrated_at": "2026-08-27",
+  "status": "copied_pending_source_cleanup",
+  "source_cleanup_after": "2026-09-10"
+}

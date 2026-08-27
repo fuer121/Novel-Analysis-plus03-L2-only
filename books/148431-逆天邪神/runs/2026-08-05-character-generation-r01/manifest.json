@@ -1,0 +1,10 @@
+{
+  "book_id": "148431",
+  "book_name": "逆天邪神",
+  "run_id": "2026-08-05-character-generation-r01",
+  "task": "character-generation",
+  "source": "artifacts/逆天邪神角色形象 generation manifests, previews and intermediate outputs",
+  "migrated_at": "2026-08-27",
+  "status": "copied_pending_source_cleanup",
+  "source_cleanup_after": "2026-09-10"
+}
