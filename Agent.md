@@ -28,7 +28,7 @@
 - [`docs/character-image-generation-rules.md`](docs/character-image-generation-rules.md)：跨书籍角色形象提炼、生图、JPEG 输出、质检、重绘和上传规则
 - [`books/README.md`](books/README.md)：书籍工作区目录职责、批次规则和迁移要求
 - [《凰宫梦》179 人正式角色基线](books/1836527-凰宫梦/final/characters/README.md)：当前样板书的正式成果入口和校验证据
-- [《逆天邪神》角色形象生成与质检 SOP](artifacts/逆天邪神角色形象/角色形象生成与质检SOP.md)：尚未迁移的历史实践记录，不作为跨书籍默认配置
+- [《逆天邪神》角色形象生成与质检 SOP](books/148431-逆天邪神/inputs/prompts/角色形象生成与质检SOP.md)：单书实践记录，不作为跨书籍默认配置
 
 删除影响：执行者会重复猜测规则，或把单书案例、历史 PNG 产物和一次性数字误当成新任务的通用标准
 
