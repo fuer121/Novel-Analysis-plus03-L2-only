@@ -1,0 +1,10 @@
+{
+  "book_id": "1836527",
+  "book_name": "凰宫梦",
+  "run_id": "2026-08-14-character-normalization-r06",
+  "task": "character-normalization",
+  "source": "artifacts/凰宫梦角色形象/baseline-temp-normalization-2026-08-14-v6",
+  "migrated_at": "2026-08-27",
+  "status": "copied_pending_source_cleanup",
+  "source_cleanup_after": "2026-09-10"
+}
