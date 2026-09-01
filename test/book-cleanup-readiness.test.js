@@ -7,7 +7,9 @@ import path from 'node:path'
 
 import { checkCleanupReadiness, findActiveLegacyReferences } from '../scripts/check-book-cleanup-readiness.mjs'
 
-test('completed book cleanup confirms every recorded source was removed', () => {
+const localArtifactTest = process.env.CI ? test.skip : test
+
+localArtifactTest('completed book cleanup confirms every recorded source was removed', () => {
   const report = checkCleanupReadiness({ asOf: '2026-08-27' })
 
   assert.equal(report.books.length, 4)
@@ -19,7 +21,7 @@ test('completed book cleanup confirms every recorded source was removed', () => 
   }
 })
 
-test('completed cleanup remains valid after the original review date', () => {
+localArtifactTest('completed cleanup remains valid after the original review date', () => {
   const report = checkCleanupReadiness({ asOf: '2026-09-10' })
 
   assert.equal(report.all_ready_for_manual_confirmation, true)
