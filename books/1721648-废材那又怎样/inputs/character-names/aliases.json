@@ -1,0 +1,1053 @@
+{
+  "character_name_list": [
+    "月源",
+    "元浅壹",
+    "玉然",
+    "何嫦宝",
+    "江澜",
+    "燕温",
+    "谭宁",
+    "顾靡",
+    "席誉",
+    "白团团",
+    "花寻",
+    "裴间",
+    "陆征",
+    "燕元帅",
+    "谭安",
+    "裴宁卿",
+    "黎晓晓",
+    "裴宁晚",
+    "月荌",
+    "元苍",
+    "郑苦",
+    "谭限",
+    "谭破",
+    "季书",
+    "谭白",
+    "容随",
+    "谭乐",
+    "月流",
+    "齐隔",
+    "谢样",
+    "谭深",
+    "江悦",
+    "虫祖",
+    "江校长",
+    "裴天",
+    "木女士",
+    "魏奇",
+    "香浪",
+    "玉老爷子",
+    "元轻",
+    "云染",
+    "月新",
+    "朝暮",
+    "魏妙",
+    "月弄",
+    "白琳琳",
+    "何苗",
+    "席老爷子",
+    "唐烈",
+    "施冥",
+    "风如夜",
+    "齐佞",
+    "何贺",
+    "苏主任",
+    "裴团长",
+    "林恰",
+    "元闻",
+    "李老师",
+    "花襄",
+    "金二",
+    "金金",
+    "小白",
+    "姬陵",
+    "陈老爷子",
+    "花徵",
+    "裴佩",
+    "江老爷子",
+    "元珩",
+    "周明",
+    "李天",
+    "顾已",
+    "刘力",
+    "木林",
+    "姬月",
+    "李指挥",
+    "月院长",
+    "张录",
+    "白铃木",
+    "谭浮",
+    "谭系统"
+  ],
+  "characters": [
+    {
+      "character_name": "月源",
+      "picture": [
+        "月源.jpeg"
+      ],
+      "aliases": [
+        "骷髅",
+        "主人",
+        "先祖",
+        "月源先祖",
+        "远方的灯塔",
+        "老祖宗",
+        "月源前辈",
+        "祖宗"
+      ]
+    },
+    {
+      "character_name": "元浅壹",
+      "picture": [
+        "元浅壹.jpeg"
+      ],
+      "aliases": [
+        "元大少爷",
+        "坏人",
+        "少主",
+        "元少",
+        "三好学生",
+        "二班人丑心狠的班长大人",
+        "同班同学"
+      ]
+    },
+    {
+      "character_name": "玉然",
+      "picture": [
+        "玉然.jpeg"
+      ],
+      "aliases": [
+        "玉家的丫头",
+        "奶妈",
+        "富婆奶妈",
+        "小玉米",
+        "玉小姐",
+        "双玉治疗师",
+        "天才治愈师",
+        "第三军首席治愈师玉黎的孩子"
+      ]
+    },
+    {
+      "character_name": "何嫦宝",
+      "picture": [
+        "何嫦宝.jpeg"
+      ],
+      "aliases": [
+        "何家大小姐",
+        "哭包",
+        "何家掌上明珠",
+        "帝都小公主",
+        "何家小公主",
+        "大小姐",
+        "何大小姐"
+      ]
+    },
+    {
+      "character_name": "江澜",
+      "picture": [
+        "江澜.jpeg"
+      ],
+      "aliases": [
+        "班长",
+        "校长公子",
+        "倒霉儿子",
+        "男同胞",
+        "便宜班长",
+        "小透明",
+        "江家的",
+        "幽灵"
+      ]
+    },
+    {
+      "character_name": "燕温",
+      "picture": [
+        "燕温.jpeg"
+      ],
+      "aliases": [
+        "老师",
+        "燕秘书",
+        "燕老师",
+        "辅导员",
+        "花孔雀",
+        "小白脸",
+        "燕狗"
+      ]
+    },
+    {
+      "character_name": "谭宁",
+      "picture": [
+        "谭宁.jpeg"
+      ],
+      "aliases": [
+        "未来的老师",
+        "小舅子",
+        "C大校长",
+        "指挥官",
+        "老师",
+        "第十",
+        "首席指挥官",
+        "谭老师"
+      ]
+    },
+    {
+      "character_name": "顾靡",
+      "picture": [
+        "顾靡.jpeg"
+      ],
+      "aliases": [
+        "厌世脸",
+        "厌世脸的懒散美男",
+        "第二军顾靡",
+        "顾家血脉传承人",
+        "顾小工",
+        "摇钱树",
+        "无耻小人"
+      ]
+    },
+    {
+      "character_name": "席誉",
+      "picture": [
+        "席誉.jpeg"
+      ],
+      "aliases": [
+        "房东",
+        "小房东",
+        "小霸王",
+        "倒霉蛋",
+        "帝都小霸王",
+        "阿誉",
+        "席哥",
+        "席誉哥哥"
+      ]
+    },
+    {
+      "character_name": "白团团",
+      "picture": [
+        "白团团.jpeg"
+      ],
+      "aliases": [
+        "先祖",
+        "白球球",
+        "祖宗",
+        "列祖列宗",
+        "月球",
+        "月宫继承人相关",
+        "前辈",
+        "西瓜老师"
+      ]
+    },
+    {
+      "character_name": "花寻",
+      "picture": [
+        "花寻.jpeg"
+      ],
+      "aliases": [
+        "花叔叔",
+        "训练营排行榜第十",
+        "花将军的儿子",
+        "腹黑小花",
+        "阿寻",
+        "小白脸",
+        "霸总花寻",
+        "小花"
+      ]
+    },
+    {
+      "character_name": "裴间",
+      "picture": [
+        "裴间.jpeg"
+      ],
+      "aliases": [
+        "讨厌鬼",
+        "姐夫",
+        "第一军首席指挥",
+        "裴家血脉",
+        "裴指挥",
+        "裴家公子",
+        "一军首席指挥",
+        "一军"
+      ]
+    },
+    {
+      "character_name": "陆征",
+      "picture": [
+        "陆征.jpeg"
+      ],
+      "aliases": [
+        "老陆",
+        "陆叔叔",
+        "老东西",
+        "爸爸",
+        "老爸",
+        "陆老爹",
+        "富豪爸爸",
+        "金主爸爸"
+      ]
+    },
+    {
+      "character_name": "燕元帅",
+      "picture": [
+        "燕元帅.jpeg"
+      ],
+      "aliases": [
+        "燕大元帅",
+        "元帅",
+        "燕老贼",
+        "杀马特",
+        "燕温的叔叔",
+        "燕至",
+        "爷爷"
+      ]
+    },
+    {
+      "character_name": "谭安",
+      "picture": [
+        "谭安.jpeg"
+      ],
+      "aliases": [
+        "谭家家主",
+        "姑姑",
+        "叛徒",
+        "谭安家主",
+        "姑奶奶",
+        "谭安姑奶奶"
+      ]
+    },
+    {
+      "character_name": "裴宁卿",
+      "picture": [
+        "裴宁卿.jpeg"
+      ],
+      "aliases": [
+        "裴少",
+        "阎王",
+        "一军裴宁卿",
+        "黑衣男子",
+        "一军疯子",
+        "告白的小伙子",
+        "第一军成员",
+        "家臣"
+      ]
+    },
+    {
+      "character_name": "黎晓晓",
+      "picture": [
+        "黎晓晓.jpeg"
+      ],
+      "aliases": [
+        "黎记录官",
+        "狐狸",
+        "晓晓",
+        "妹妹",
+        "第三军",
+        "纪录官"
+      ]
+    },
+    {
+      "character_name": "裴宁晚",
+      "picture": [
+        "裴宁晚.jpeg"
+      ],
+      "aliases": [
+        "白衣男子",
+        "裴哥",
+        "裴宁早",
+        "早哥",
+        "裴姐",
+        "防御型指挥",
+        "裴大小姐",
+        "裴浮"
+      ]
+    },
+    {
+      "character_name": "月荌",
+      "picture": [
+        "月荌.jpeg"
+      ],
+      "aliases": [
+        "月宫宫主",
+        "外婆",
+        "宫主",
+        "月院长",
+        "月宫代表",
+        "嫂子",
+        "黑衣女人"
+      ]
+    },
+    {
+      "character_name": "元苍",
+      "picture": [
+        "元苍.jpeg"
+      ],
+      "aliases": [
+        "启智",
+        "元苍苍",
+        "灵星的神",
+        "婴儿",
+        "莲花中的魂体"
+      ]
+    },
+    {
+      "character_name": "郑苦",
+      "picture": [
+        "郑苦.jpeg"
+      ],
+      "aliases": [
+        "郑叔叔",
+        "老郑",
+        "第三军代表",
+        "郑苦副营长"
+      ]
+    },
+    {
+      "character_name": "谭限",
+      "picture": [
+        "谭限.jpeg"
+      ],
+      "aliases": [
+        "老祖宗",
+        "谭限先祖",
+        "谭家先祖",
+        "谭家老祖宗",
+        "冰雕里的大叔",
+        "我亲爱的祖宗",
+        "先祖",
+        "矿工"
+      ]
+    },
+    {
+      "character_name": "谭破",
+      "picture": [
+        "谭破.jpeg"
+      ],
+      "aliases": [
+        "人族至强者",
+        "谭家领军人物",
+        "舅舅",
+        "副团长",
+        "宿主舅舅"
+      ]
+    },
+    {
+      "character_name": "季书",
+      "picture": [
+        "季书.jpeg"
+      ],
+      "aliases": [
+        "至强者",
+        "季叔",
+        "人族第一强者",
+        "季书前辈",
+        "季阴",
+        "季书大人",
+        "季大天才"
+      ]
+    },
+    {
+      "character_name": "谭白",
+      "picture": [
+        "谭白.jpeg"
+      ],
+      "aliases": [
+        "书店老板",
+        "谭老板",
+        "少爷",
+        "地下城的少爷",
+        "受受的书店老板",
+        "谭家兄弟"
+      ]
+    },
+    {
+      "character_name": "容随",
+      "picture": [
+        "容随.jpeg"
+      ],
+      "aliases": [
+        "容哥",
+        "容少爷",
+        "少爷"
+      ]
+    },
+    {
+      "character_name": "谭乐",
+      "picture": [
+        "谭乐.jpeg"
+      ],
+      "aliases": [
+        "谭家大小姐",
+        "猫咪",
+        "阿乐",
+        "母亲",
+        "猫"
+      ]
+    },
+    {
+      "character_name": "月流",
+      "picture": [
+        "月流.jpeg"
+      ],
+      "aliases": [
+        "月家家主",
+        "月宫核心弟子",
+        "中夏月家家主",
+        "月宫大人"
+      ]
+    },
+    {
+      "character_name": "齐隔",
+      "picture": [
+        "齐隔.jpeg"
+      ],
+      "aliases": [
+        "齐哥",
+        "老大"
+      ]
+    },
+    {
+      "character_name": "谢样",
+      "picture": [
+        "谢样.jpeg"
+      ],
+      "aliases": []
+    },
+    {
+      "character_name": "谭深",
+      "picture": [
+        "谭深.jpeg"
+      ],
+      "aliases": [
+        "外公",
+        "团长",
+        "老谭"
+      ]
+    },
+    {
+      "character_name": "江悦",
+      "picture": [
+        "江悦.jpeg"
+      ],
+      "aliases": [
+        "悦姨",
+        "姑姑",
+        "江悦阿姨",
+        "悦姐",
+        "悦悦",
+        "暴力狂"
+      ]
+    },
+    {
+      "character_name": "虫祖",
+      "picture": [
+        "虫祖.jpeg"
+      ],
+      "aliases": [
+        "非人眼睛",
+        "虫祖们",
+        "小虫子",
+        "元首"
+      ]
+    },
+    {
+      "character_name": "江校长",
+      "picture": [
+        "江校长.jpeg"
+      ],
+      "aliases": [
+        "江北",
+        "校长",
+        "老江",
+        "江叔叔",
+        "江澜父亲",
+        "江老爷子"
+      ]
+    },
+    {
+      "character_name": "裴天",
+      "picture": [
+        "裴天.jpeg"
+      ],
+      "aliases": [
+        "裴天前辈",
+        "科学天才",
+        "阿天",
+        "科学怪人"
+      ]
+    },
+    {
+      "character_name": "木女士",
+      "picture": [
+        "木女士.jpeg"
+      ],
+      "aliases": [
+        "母亲",
+        "老母亲",
+        "元浅壹母亲",
+        "元浅壹生母",
+        "阿木",
+        "伯母",
+        "阿姨"
+      ]
+    },
+    {
+      "character_name": "魏奇",
+      "picture": [
+        "魏奇.jpeg"
+      ],
+      "aliases": [
+        "捡破烂的大学生",
+        "军户子弟",
+        "哥哥",
+        "小奇",
+        "奇总"
+      ]
+    },
+    {
+      "character_name": "香浪",
+      "picture": [
+        "香浪.jpeg"
+      ],
+      "aliases": [
+        "香浪老师",
+        "老大",
+        "老师",
+        "班主任"
+      ]
+    },
+    {
+      "character_name": "玉老爷子",
+      "picture": [
+        "玉老爷子.jpeg"
+      ],
+      "aliases": [
+        "玉爷爷",
+        "玉叔",
+        "玉老",
+        "高级奶妈",
+        "爷爷"
+      ]
+    },
+    {
+      "character_name": "元轻",
+      "picture": [
+        "元轻.jpeg"
+      ],
+      "aliases": [
+        "元副指挥",
+        "叔",
+        "元叔"
+      ]
+    },
+    {
+      "character_name": "云染",
+      "picture": [
+        "云染.jpeg"
+      ],
+      "aliases": [
+        "人美心善"
+      ]
+    },
+    {
+      "character_name": "月新",
+      "picture": [
+        "月新.jpeg"
+      ],
+      "aliases": [
+        "神秘女人",
+        "学姐",
+        "香浪"
+      ]
+    },
+    {
+      "character_name": "朝暮",
+      "picture": [
+        "朝暮.jpeg"
+      ],
+      "aliases": [
+        "灵星负责人",
+        "燕的老师",
+        "轮回"
+      ]
+    },
+    {
+      "character_name": "魏妙",
+      "picture": [
+        "魏妙.jpeg"
+      ],
+      "aliases": [
+        "妙总"
+      ]
+    },
+    {
+      "character_name": "月弄",
+      "picture": [
+        "月弄.jpeg"
+      ],
+      "aliases": [
+        "特助",
+        "哥哥"
+      ]
+    },
+    {
+      "character_name": "白琳琳",
+      "picture": [
+        "白琳琳.jpeg"
+      ],
+      "aliases": [
+        "女老师",
+        "白姨"
+      ]
+    },
+    {
+      "character_name": "何苗",
+      "picture": [
+        "何苗.jpeg"
+      ],
+      "aliases": [
+        "何苗先祖",
+        "苗苗",
+        "天才武器设计师"
+      ]
+    },
+    {
+      "character_name": "席老爷子",
+      "picture": [
+        "席老爷子.jpeg"
+      ],
+      "aliases": [
+        "爷爷"
+      ]
+    },
+    {
+      "character_name": "唐烈",
+      "picture": [
+        "唐烈.jpeg"
+      ],
+      "aliases": [
+        "唐将军",
+        "威武大将军",
+        "唐烈将军",
+        "小唐"
+      ]
+    },
+    {
+      "character_name": "施冥",
+      "picture": [
+        "施冥.jpeg"
+      ],
+      "aliases": [
+        "施冥长老",
+        "黑衣女人",
+        "月宫分部长老",
+        "主事人",
+        "月宫长老",
+        "师父"
+      ]
+    },
+    {
+      "character_name": "风如夜",
+      "picture": [
+        "风如夜.jpeg"
+      ],
+      "aliases": [
+        "青年"
+      ]
+    },
+    {
+      "character_name": "齐佞",
+      "picture": [
+        "齐佞.jpeg"
+      ],
+      "aliases": [
+        "关系户",
+        "傻子",
+        "话唠"
+      ]
+    },
+    {
+      "character_name": "何贺",
+      "picture": [
+        "何贺.jpeg"
+      ],
+      "aliases": [
+        "叔叔"
+      ]
+    },
+    {
+      "character_name": "苏主任",
+      "picture": [
+        "苏主任.jpeg"
+      ],
+      "aliases": [
+        "冷脸修罗",
+        "苏办",
+        "老苏"
+      ]
+    },
+    {
+      "character_name": "裴团长",
+      "picture": [
+        "裴团长.jpeg"
+      ],
+      "aliases": [
+        "爷爷",
+        "一军的裴团长",
+        "团长",
+        "裴绪"
+      ]
+    },
+    {
+      "character_name": "林恰",
+      "picture": [
+        "林恰.jpeg"
+      ],
+      "aliases": []
+    },
+    {
+      "character_name": "元闻",
+      "picture": [
+        "元闻.jpeg"
+      ],
+      "aliases": [
+        "灯塔前辈",
+        "皇太子",
+        "一班元闻"
+      ]
+    },
+    {
+      "character_name": "李老师",
+      "picture": [
+        "李老师.jpeg"
+      ],
+      "aliases": [
+        "老师",
+        "班主任",
+        "老班"
+      ]
+    },
+    {
+      "character_name": "花襄",
+      "picture": [
+        "花襄.jpeg"
+      ],
+      "aliases": [
+        "一中天才"
+      ]
+    },
+    {
+      "character_name": "金二",
+      "picture": [
+        "金二.jpeg"
+      ],
+      "aliases": [
+        "二哥"
+      ]
+    },
+    {
+      "character_name": "金金",
+      "picture": [
+        "金金.jpeg"
+      ],
+      "aliases": [
+        "妹妹"
+      ]
+    },
+    {
+      "character_name": "小白",
+      "picture": [
+        "小白.jpeg"
+      ],
+      "aliases": []
+    },
+    {
+      "character_name": "姬陵",
+      "picture": [
+        "姬陵.jpeg"
+      ],
+      "aliases": [
+        "姬家的"
+      ]
+    },
+    {
+      "character_name": "陈老爷子",
+      "picture": [
+        "陈老爷子.jpeg"
+      ],
+      "aliases": [
+        "陈爷爷",
+        "Y市官方训练营副营长",
+        "陈老"
+      ]
+    },
+    {
+      "character_name": "花徵",
+      "picture": [
+        "花徵.jpeg"
+      ],
+      "aliases": []
+    },
+    {
+      "character_name": "裴佩",
+      "picture": [
+        "裴佩.jpeg"
+      ],
+      "aliases": [
+        "薄情长相的男人"
+      ]
+    },
+    {
+      "character_name": "江老爷子",
+      "picture": [
+        "江老爷子.jpeg"
+      ],
+      "aliases": [
+        "江爷爷"
+      ]
+    },
+    {
+      "character_name": "元珩",
+      "picture": [
+        "元珩.jpeg"
+      ],
+      "aliases": [
+        "元老父亲"
+      ]
+    },
+    {
+      "character_name": "周明",
+      "picture": [
+        "周明.jpeg"
+      ],
+      "aliases": [
+        "二中学生"
+      ]
+    },
+    {
+      "character_name": "李天",
+      "picture": [
+        "李天.jpeg"
+      ],
+      "aliases": [
+        "将军",
+        "老大",
+        "监考官",
+        "将军大人",
+        "检查员"
+      ]
+    },
+    {
+      "character_name": "顾已",
+      "picture": [
+        "顾已.jpeg"
+      ],
+      "aliases": [
+        "顾家老大",
+        "顾靡他老爸"
+      ]
+    },
+    {
+      "character_name": "刘力",
+      "picture": [
+        "刘力.jpeg"
+      ],
+      "aliases": [
+        "百强榜第三",
+        "L市百强榜第三",
+        "对手"
+      ]
+    },
+    {
+      "character_name": "木林",
+      "picture": [
+        "木林.jpeg"
+      ],
+      "aliases": [
+        "木学长",
+        "擂主",
+        "比我们还弱鸡的弱鸡",
+        "5号选手"
+      ]
+    },
+    {
+      "character_name": "姬月",
+      "picture": [
+        "姬月.jpeg"
+      ],
+      "aliases": [
+        "姬月老师",
+        "实战课老师",
+        "姬月姐"
+      ]
+    },
+    {
+      "character_name": "李指挥",
+      "picture": [
+        "李指挥.jpeg"
+      ],
+      "aliases": []
+    },
+    {
+      "character_name": "月院长",
+      "picture": [
+        "月院长.jpeg"
+      ],
+      "aliases": [
+        "监察使大人",
+        "东月长老"
+      ]
+    },
+    {
+      "character_name": "张录",
+      "picture": [
+        "张录.jpeg"
+      ],
+      "aliases": [
+        "张教任"
+      ]
+    },
+    {
+      "character_name": "白铃木",
+      "picture": [
+        "白铃木.jpeg"
+      ],
+      "aliases": []
+    },
+    {
+      "character_name": "谭浮",
+      "picture": [
+        "谭浮.jpeg",
+        "谭浮-家居服.jpeg",
+        "谭浮-战斗服.jpeg",
+        "谭浮-礼服.jpeg"
+      ],
+      "aliases": [
+        "小月亮",
+        "小冰淇淋",
+        "黑心冰淇淋",
+        "谭姐",
+        "谭指挥",
+        "谭总指挥",
+        "总指挥",
+        "第二任总指挥",
+        "月宫少宫主",
+        "月宫继承人",
+        "新天道",
+        "审判",
+        "宿主",
+        "清潭第一天才",
+        "清潭第一高手",
+        "高冷天才",
+        "魔女",
+        "活着的传奇"
+      ]
+    },
+    {
+      "character_name": "谭系统",
+      "picture": [
+        "谭系统.jpeg"
+      ],
+      "aliases": []
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "book_id": "1721648",
+  "book_name": "废材那又怎样",
+  "task": "upper-workspace-redraw-preservation",
+  "created_at": "2026-08-27",
+  "status": "completed_source_cleaned",
+  "source_inputs": [
+    "../redraw-four-characters.jsonl",
+    "../redraw-peijian-prompt.txt"
+  ],
+  "source_outputs": "../redraw-four-output/",
+  "input_file_count": 2,
+  "output_file_count": 42,
+  "total_bytes": 4201154,
+  "sha256": {
+    "redraw-four-characters.jsonl": "9d411a8e74bfae8b2181cbe684661f56e33090607cc5b2149b475fdbbf89f714",
+    "redraw-peijian-prompt.txt": "482a33667e9d2a0f44aa0cc49821febce0073a51ab52c70d117faa8839746a4d",
+    "outputs_tree": "dee89e192c82eaa7da63abc54655fcac5f129d39f56fa4039d04caec62901824"
+  },
+  "attribution_evidence": {
+    "characters": [
+      "云染",
+      "李天",
+      "裴天",
+      "元轻",
+      "裴间"
+    ],
+    "final_image_hashes_match_book_baseline": true
+  },
+  "source_cleanup_after": "2026-09-10",
+  "notes": "仅保全上层工作区散落的输入、过程图和批次结果，未覆盖正式图片，删除旧源仍需人工确认",
+  "source_cleaned_at": "2026-08-27"
+}

@@ -1,0 +1,11 @@
+{
+  "book_id": "148431",
+  "book_name": "逆天邪神",
+  "run_id": "2026-08-05-character-review-redraw-r01",
+  "task": "character-review-redraw",
+  "source": "artifacts/逆天邪神角色形象 review, redraw and pre-redraw files",
+  "migrated_at": "2026-08-27",
+  "status": "completed_source_cleaned",
+  "source_cleanup_after": "2026-09-10",
+  "source_cleaned_at": "2026-08-27"
+}

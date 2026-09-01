@@ -17,6 +17,14 @@ L1/L2 是**可复用的导航与证据层，不是最终分析结果**。索引�
 - 章节原文会发送到你自托管 Dify 工作流配置的 LLM 服务商（导入只走 Dify 工具节点不接 LLM；L1/L2/汇总会过 LLM），请自行确认该链路的合规性。
 - 本仓库是 [Novel-Analysis](https://github.com/fuer121/Novel-Analysis) 的精简重构版（加密存储、多分析模式、OpenAI 直连、多人协作重构设施均已移除；历史代码见原仓库）。
 
+## 书籍工作区
+
+书籍专项输入、脚本、执行批次、最终成果和历史归档统一放在 `books/<book_id>-<book_name>/`
+
+目录职责、命名规则和迁移要求见 `books/README.md`，应用数据库仍统一保存在 `data/novel-chapters.sqlite`
+
+旧来源清理前运行 `npm run books:cleanup:check`，只有校验窗口结束且四本书源目标 SHA-256 全部一致时，才进入人工删除确认
+
 ## 准备
 
 ```bash

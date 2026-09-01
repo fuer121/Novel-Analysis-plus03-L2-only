@@ -1,0 +1,23 @@
+{
+  "book_id": "148431",
+  "book_name": "逆天邪神",
+  "migration_id": "2026-08-27-sample",
+  "created_at": "2026-08-27",
+  "status": "completed_source_cleaned",
+  "source": "artifacts/逆天邪神角色形象",
+  "target": "books/148431-逆天邪神",
+  "source_cleanup_after": "2026-09-10",
+  "official_character_count": 307,
+  "official_image_count": 307,
+  "redrawn_character_count": 72,
+  "source_file_count": 645,
+  "source_total_bytes": 739380023,
+  "source_sha256_manifest": "source-sha256.txt",
+  "target_file_count": 653,
+  "target_total_bytes": 739443937,
+  "target_sha256_manifest": "target-sha256.txt",
+  "completed_at": "2026-08-27",
+  "source_cleaned_at": "2026-08-27",
+  "cleanup_authorization": "user_confirmed_early_cleanup",
+  "notes": "Official images are the 307 NNN_character-name PNG files; unreferenced 188.png and 189.png are historical"
+}

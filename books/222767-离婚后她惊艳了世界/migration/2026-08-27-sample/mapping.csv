@@ -1,0 +1,12 @@
+source,target,group,tracked
+../离婚后她惊艳了世界-L1索引提示词.md,books/222767-离婚后她惊艳了世界/inputs/prompts/l1-index.md,input,true
+../离婚后她惊艳了世界-角色形象-L2索引提示词.md,books/222767-离婚后她惊艳了世界/inputs/prompts/character-image-l2-index.md,input,true
+artifacts/离婚后她惊艳了世界角色形象/100章原文抽样.*,books/222767-离婚后她惊艳了世界/inputs/source-excerpts/,input,true
+artifacts/离婚后她惊艳了世界角色形象/222767_prompt.txt,books/222767-离婚后她惊艳了世界/inputs/prompts/dify-image-upload.txt,input,true
+artifacts/离婚后她惊艳了世界角色形象/characters.json,books/222767-离婚后她惊艳了世界/final/characters/data/characters.json,final,false
+artifacts/离婚后她惊艳了世界角色形象/images/,books/222767-离婚后她惊艳了世界/final/characters/images/,final,false
+artifacts/离婚后她惊艳了世界角色形象/222767_role_all.txt,books/222767-离婚后她惊艳了世界/final/exports/222767_role_all.txt,final,true
+artifacts/离婚后她惊艳了世界角色形象/audits/,books/222767-离婚后她惊艳了世界/runs/,run,false
+artifacts/离婚后她惊艳了世界角色形象/archive/,books/222767-离婚后她惊艳了世界/archive/2026/legacy-artifacts/,archive,false
+artifacts/离婚后她惊艳了世界角色形象/record-id-map.json,books/222767-离婚后她惊艳了世界/archive/2026/local-records/record-id-map.json,archive,false
+scripts/*divorce* and related book scripts,books/222767-离婚后她惊艳了世界/scripts/active or archive/2026/legacy-scripts,script,mixed

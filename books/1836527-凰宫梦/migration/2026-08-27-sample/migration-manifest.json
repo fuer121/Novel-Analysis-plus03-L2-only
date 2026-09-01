@@ -1,0 +1,23 @@
+{
+  "book_id": "1836527",
+  "book_name": "凰宫梦",
+  "migration_id": "2026-08-27-sample",
+  "created_at": "2026-08-27",
+  "status": "completed_source_cleaned",
+  "source": "artifacts/凰宫梦角色形象 and upper workspace inputs",
+  "target": "books/1836527-凰宫梦",
+  "source_cleanup_after": "2026-09-10",
+  "official_baseline": "baseline-current-179-2026-08-14",
+  "official_character_count": 179,
+  "official_image_count": 179,
+  "source_file_count": 350,
+  "source_total_bytes": 372874180,
+  "source_sha256_manifest": "source-sha256.txt",
+  "target_file_count": 363,
+  "target_total_bytes": 372879177,
+  "target_sha256_manifest": "target-sha256.txt",
+  "completed_at": "2026-08-27",
+  "source_cleaned_at": "2026-08-27",
+  "cleanup_authorization": "user_confirmed_early_cleanup",
+  "notes": "195-person baseline document is stale; verified 179-person baseline is authoritative"
+}

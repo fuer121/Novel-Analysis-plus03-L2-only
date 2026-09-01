@@ -1,0 +1,13 @@
+{
+  "book_id": "",
+  "book_name": "",
+  "migration_id": "",
+  "created_at": "",
+  "status": "planned",
+  "source": "",
+  "target": "",
+  "file_count": 0,
+  "total_bytes": 0,
+  "sha256_manifest": "",
+  "notes": ""
+}

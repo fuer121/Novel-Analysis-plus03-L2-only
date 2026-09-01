@@ -1,0 +1,5 @@
+source_path,target_path,status,reason
+artifacts/逆天邪神角色形象/build_characters.py,books/148431-逆天邪神/scripts/active/build-characters.py,active,角色数据重建入口
+artifacts/逆天邪神角色形象/generate_images.py,books/148431-逆天邪神/scripts/active/generate-images.py,active,角色图片生成入口
+artifacts/逆天邪神角色形象/sync_redraws_to_lark.sh,books/148431-逆天邪神/archive/2026/legacy-scripts/sync_redraws_to_lark.sh,historical,绑定旧目录和已完成飞书同步批次
+artifacts/逆天邪神角色形象/build_lark_redraw_result.jq,books/148431-逆天邪神/archive/2026/legacy-scripts/build_lark_redraw_result.jq,historical,仅用于已完成飞书同步结果汇总

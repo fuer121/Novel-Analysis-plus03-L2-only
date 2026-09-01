@@ -1,0 +1,15 @@
+source,target,group,tracked
+../1721648-废材-角色名-别名.txt,books/1721648-废材那又怎样/archive/2026/source-records/1721648-角色名-别名原始.txt,archive,false
+../1721648-废材-角色名-别名.txt,books/1721648-废材那又怎样/inputs/character-names/aliases.json,input,true
+books/1721648-废材那又怎样/inputs/character-names/aliases.json,books/1721648-废材那又怎样/final/exports/character-index.json,final,true
+artifacts/废材又怎么样照样吊打你角色形象/*.jpeg,books/1721648-废材那又怎样/final/characters/images/,final,false
+artifacts/废材又怎么样照样吊打你角色形象/_source_downloads,books/1721648-废材那又怎样/runs/2026-06-23-portrait-import-r01/inputs/source-downloads,run,false
+artifacts/废材又怎么样照样吊打你角色形象/_role_base_source_downloads,books/1721648-废材那又怎样/runs/2026-06-23-portrait-import-r01/inputs/role-base-source-downloads,run,false
+artifacts/废材又怎么样照样吊打你角色形象/谭浮,books/1721648-废材那又怎样/runs/2026-08-11-tanfu-outfits-r01/outputs,run,false
+artifacts/废材又怎么样照样吊打你角色形象/重绘前备份-20260812,books/1721648-废材那又怎样/runs/2026-08-12-character-redraw-r01/outputs,run,false
+artifacts/废材又怎么样照样吊打你角色形象/*.json,books/1721648-废材那又怎样/archive/2026/local-records/,archive,false
+artifacts/废材又怎么样照样吊打你角色形象/_source_谭系统.png,books/1721648-废材那又怎样/archive/2026/legacy-images/,archive,false
+artifacts/废材又怎么样照样吊打你角色形象/北长尾山雀.jpeg,books/1721648-废材那又怎样/archive/2026/legacy-images/,archive,false
+artifacts/废材又怎么样照样吊打你角色形象/燕老师.jpeg,books/1721648-废材那又怎样/archive/2026/legacy-images/,archive,false
+artifacts/废材又怎么样照样吊打你角色形象/谭浮-立绘-v1.jpeg,books/1721648-废材那又怎样/archive/2026/legacy-images/,archive,false
+artifacts/废材又怎么样照样吊打你角色形象/鸟.jpeg,books/1721648-废材那又怎样/archive/2026/legacy-images/,archive,false

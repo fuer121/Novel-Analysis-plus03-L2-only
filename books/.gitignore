@@ -1,0 +1,11 @@
+*/inputs/source-images/
+*/inputs/batch-inputs/*
+!*/inputs/batch-inputs/README.md
+*/runs/*/inputs/
+*/runs/*/logs/
+*/runs/*/outputs/
+*/runs/*/review/
+*/final/characters/
+*/final/exports/*.local.json
+*/archive/*
+!*/archive/.gitkeep
