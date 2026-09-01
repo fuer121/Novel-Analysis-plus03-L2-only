@@ -20,8 +20,11 @@
 
 ## 提示词定稿入口
 
+- `10473186-碰触成瘾/inputs/prompts/character-image-l2-index.md`
+- `12144762-哥，别舔女主了！妹宝被你死对头亲晕了/inputs/prompts/character-image-l2-index.md`
 - `1836527-凰宫梦/inputs/prompts/character-image-l2-index.md`
 - `222767-离婚后她惊艳了世界/inputs/prompts/l1-index.md`
 - `222767-离婚后她惊艳了世界/inputs/prompts/character-image-l2-index.md`
+- `8720253-死亡就变强：全球诡异求我别送/inputs/prompts/character-image-l2-index.md`
 
 提示词以书籍 `inputs/prompts/` 内的 Markdown 定稿为准。若在 `/prompts` 页面临时调整且验证有效，必须回写对应文件

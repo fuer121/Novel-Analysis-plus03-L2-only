@@ -55,7 +55,7 @@ f0904f855d792f6afbb105f9dab936f150f47b9a789300d0d14db8ed42c04413  books/1836527-
 1bc5344c36396e09cbd45917c2a38cd7abc6a7f82cc223368f7da1a1b93924cd  books/1836527-凰宫梦/archive/2026/local-records/dify-upload-1836527.json
 640eaa1f1333f679e56cc3d2e75f4e427b0fbdb389e15fba7c6abcbf1bd697d0  books/1836527-凰宫梦/archive/2026/stale-documents/当前正式基线-195-过期.md
 6a6a3834da1fd9c40c3dae448ee59de1de582066eae263078ff6825a304b74bd  books/1836527-凰宫梦/book.json
-4d86ee8a8ecce782564ed1290138792b5afcf7981913a8805744a9471570b79b  books/1836527-凰宫梦/final/characters/README.md
+82ee7eeba520341b235ae87206932a5a65edc9fc077787af26cefdb58d3cddbb  books/1836527-凰宫梦/final/characters/README.md
 92cd2a9fb7aec654a2de79d0ca31783103fb3467f3a64e8a64a96b8e9d8d4b68  books/1836527-凰宫梦/final/characters/baseline-summary.json
 6c026f8645584bf8b0e045a00afda283a69870c90d9ec93bb930a2295539bee5  books/1836527-凰宫梦/final/characters/cleanup-manifest.json
 7b4d0e02733294fba2e71ffef433609285ac4045a065b437a62c49508f7aa768  books/1836527-凰宫梦/final/characters/data/R14-feishu-update-payload.json
