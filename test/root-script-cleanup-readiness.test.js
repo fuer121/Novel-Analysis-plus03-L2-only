@@ -3,7 +3,9 @@ import assert from 'node:assert/strict'
 
 import { checkRootScriptCleanupReadiness } from '../scripts/check-root-script-cleanup-readiness.mjs'
 
-test('every removed root book-specific script retains its preservation target', () => {
+const localArtifactTest = process.env.CI ? test.skip : test
+
+localArtifactTest('every removed root book-specific script retains its preservation target', () => {
   const report = checkRootScriptCleanupReadiness()
 
   assert.equal(report.candidate_count, 81)
