@@ -106,8 +106,11 @@
 
 - 实现：激活前确定性闭合已消费的分类 checkpoint，保留 classification_output 并写入 absorbed 关联审计
 - 失败保护：零映射、多映射或残留 running 阻止激活，并将未闭合 item 终结为 failed；取消路径保持 cancelled
-- 测试：Task 9C 聚焦测试 7/7，`node --test test/service.test.js` 118/118，`npm run verify` 154/154
+- 实现补充：真实样板证明不同主体可能共享不含 entity 的稳定事实指纹，lineage 因此固定先校验 Task 2 confirmed identity set，再校验事实指纹子集
+- 失败保护补充：零 identity、真正多 identity 或事实不一致继续阻止激活，跨主体单纯指纹碰撞不得制造伪歧义
+- 测试：Task 9C 聚焦测试 8/8，`node --test test/service.test.js` 120/120，`npm run verify` 156/156
 - 验证：Lint、生产构建与 `git diff --check` 通过
 - 审查：最终规格审查 PASS，最终代码质量审查 PASS
+- 修复循环：2 轮，未触发 3 轮复杂度暂停阈值
 - BLOCKER: 无
 - QUESTION: 无

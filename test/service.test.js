@@ -1565,35 +1565,23 @@ test("character library closes absorbed checkpoints when the merged final candid
   }
 });
 
-test("character library blocks activation when an open checkpoint has multiple final targets", async () => {
-  const bookId = "character-ambiguous-checkpoint-target-book";
+test("character library uses confirmed identity lineage when different entities share a fact fingerprint", async () => {
+  const bookId = "character-confirmed-lineage-checkpoint-book";
   seedCharacterLibraryWorkflowBook(bookId, [
-    { category: "character", entity: "沈昭", fact_type: "appearance", fact: "沈昭眉尾有痣", evidence: ["沈昭眉尾有痣"] },
-    { category: "character", entity: "昭昭", fact_type: "appearance", fact: "共享事实文本", evidence: ["共享证据"] },
-    { category: "character", entity: "顾南风", fact_type: "appearance", fact: "共享事实文本", evidence: ["共享证据"] }
+    { category: "character", entity: "秦小昭", fact_type: "appearance", fact: "秦小昭眉尾有痣", evidence: ["秦小昭眉尾有痣"] },
+    { category: "character", entity: "小昭", fact_type: "appearance", fact: "共享事实文本", evidence: ["共享证据"] },
+    { category: "character", entity: "秦珩", fact_type: "appearance", fact: "共享事实文本", evidence: ["共享证据"] }
   ]);
-  const previousBuild = db.createCharacterLibraryBuild({
-    bookId,
-    indexGroupKey: "characters",
-    startChapter: 1,
-    endChapter: 1,
-    sourceFingerprint: "ambiguous-checkpoint-previous"
-  });
-  db.replaceCharacterProjection(previousBuild.id, [{
-    id: "ambiguous-checkpoint-previous-character",
-    canonical_name: "旧角色",
-    stages: [{ id: "ambiguous-checkpoint-previous-stage", name: "默认阶段", facts: [] }]
-  }]);
   const previousFetch = global.fetch;
   global.fetch = async (_url, request = {}) => {
     const context = JSON.parse(JSON.parse(request.body).inputs.context_json);
     const profile = characterProfileFixture(context.character.canonical_name);
-    if (context.character.canonical_name === "沈昭") {
+    if (context.character.canonical_name === "秦小昭") {
       profile.aliases = [{
-        name: "昭昭",
+        name: "小昭",
         alias_relation: "confirmed",
         alias_confidence: 0.99,
-        evidence: ["沈昭又名昭昭"],
+        evidence: ["秦小昭又名小昭"],
         quality_warnings: []
       }];
     }
@@ -1606,22 +1594,156 @@ test("character library blocks activation when an open checkpoint has multiple f
       start_chapter: 1,
       end_chapter: 1
     });
+    await waitForTask(task);
+
+    assert.equal(task.status, "completed");
+    assert.equal(task.progress.completed + task.progress.failed + task.progress.skipped, task.progress.total);
+    const status = db.getCharacterLibraryStatus(bookId);
+    assert.equal(status.status, "completed");
+    assert.deepEqual(new Set(db.listCharacterLibraryCharacters({ bookId }).map((item) => item.canonical_name)), new Set(["秦小昭", "秦珩"]));
+    const items = db.listCharacterLibraryBuildItems(status.build_id);
+    assert.equal(items.some((item) => ["pending", "running"].includes(item.status)), false);
+    const absorbed = items.find((item) => item.input_payload.canonical_name === "小昭");
+    assert.equal(absorbed.identity_match.absorbed, true);
+    assert.equal(absorbed.identity_match.final_canonical_name, "秦小昭");
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test("character library blocks activation when a checkpoint has no confirmed identity lineage", async () => {
+  const bookId = "character-zero-identity-lineage-book";
+  seedCharacterLibraryWorkflowBook(bookId, [
+    { category: "character", entity: "秦小昭", fact_type: "appearance", fact: "秦小昭眉尾有痣", evidence: ["秦小昭眉尾有痣"] }
+  ]);
+  const sourceFact = db.listCharacterL2FactsPage({
+    bookId,
+    indexGroupKey: "characters",
+    startChapter: 1,
+    endChapter: 1
+  }).items[0];
+  const sourceFingerprint = characterLibrary.characterFactFingerprint(sourceFact);
+  const previousBuild = db.createCharacterLibraryBuild({
+    bookId,
+    indexGroupKey: "characters",
+    startChapter: 1,
+    endChapter: 1,
+    sourceFingerprint: "zero-lineage-previous"
+  });
+  db.replaceCharacterProjection(previousBuild.id, [{
+    id: "zero-lineage-previous-character",
+    canonical_name: "旧角色",
+    stages: [{ id: "zero-lineage-previous-stage", name: "默认阶段", facts: [] }]
+  }]);
+
+  const previousFetch = global.fetch;
+  let task;
+  let calls = 0;
+  global.fetch = async () => {
+    calls += 1;
+    if (calls === 2) {
+      while (!task?.result?.buildId) await new Promise((resolve) => setTimeout(resolve, 0));
+      db.saveCharacterLibraryBuildItem(task.result.buildId, {
+        item_key: "zero-lineage-checkpoint",
+        candidate_fingerprint: "zero-lineage-checkpoint",
+        source_fact_fingerprints: [sourceFingerprint],
+        input_payload: { canonical_name: "小昭", aliases: [] },
+        classification_output: characterProfileFixture("小昭"),
+        status: "pending"
+      });
+    }
+    return difyWorkflowResponse({ result: JSON.stringify(characterProfileFixture("秦小昭")) });
+  };
+  try {
+    task = workflows.startCharacterLibraryTask({
+      book_id: bookId,
+      index_group_key: "characters",
+      start_chapter: 1,
+      end_chapter: 1
+    });
+    await waitForTerminalTask(task);
+
+    assert.equal(task.status, "failed");
+    assert.match(task.error, /checkpoint mapping is not unique/);
+    assert.equal(db.getCharacterLibraryStatus(bookId).build_id, previousBuild.id);
+    const items = db.listCharacterLibraryBuildItems(task.result.buildId);
+    assert.equal(items.some((item) => ["pending", "running"].includes(item.status)), false);
+    assert.equal(items.find((item) => item.item_key === "zero-lineage-checkpoint").identity_match.mapping_failed, true);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test("character library blocks activation when two final identity sets contain the checkpoint name", async () => {
+  const bookId = "character-multiple-identity-lineage-book";
+  seedCharacterLibraryWorkflowBook(bookId, [
+    { category: "character", entity: "秦小昭", fact_type: "appearance", fact: "秦小昭眉尾有痣", evidence: ["秦小昭眉尾有痣"] }
+  ]);
+  const sourceFact = db.listCharacterL2FactsPage({
+    bookId,
+    indexGroupKey: "characters",
+    startChapter: 1,
+    endChapter: 1
+  }).items[0];
+  const sourceFingerprint = characterLibrary.characterFactFingerprint(sourceFact);
+  const previousBuild = db.createCharacterLibraryBuild({
+    bookId,
+    indexGroupKey: "characters",
+    startChapter: 1,
+    endChapter: 1,
+    sourceFingerprint: "multiple-lineage-previous"
+  });
+  db.replaceCharacterProjection(previousBuild.id, [{
+    id: "multiple-lineage-previous-character",
+    canonical_name: "旧角色",
+    stages: [{ id: "multiple-lineage-previous-stage", name: "默认阶段", facts: [] }]
+  }]);
+
+  const previousFetch = global.fetch;
+  let task;
+  let calls = 0;
+  global.fetch = async () => {
+    calls += 1;
+    if (calls === 2) {
+      while (!task?.result?.buildId) await new Promise((resolve) => setTimeout(resolve, 0));
+      for (const suffix of ["a", "b"]) {
+        db.saveCharacterLibraryBuildItem(task.result.buildId, {
+          item_key: `multiple-lineage-target-${suffix}`,
+          candidate_fingerprint: `multiple-lineage-target-${suffix}`,
+          source_fact_fingerprints: [sourceFingerprint],
+          input_payload: { canonical_name: `候选${suffix}`, aliases: ["小昭"] },
+          profile_output: { id: `multiple-lineage-character-${suffix}` },
+          status: "succeeded",
+          completed_at: new Date().toISOString()
+        });
+      }
+      db.saveCharacterLibraryBuildItem(task.result.buildId, {
+        item_key: "multiple-lineage-checkpoint",
+        candidate_fingerprint: "multiple-lineage-checkpoint",
+        source_fact_fingerprints: [sourceFingerprint],
+        input_payload: { canonical_name: "小昭", aliases: [] },
+        classification_output: characterProfileFixture("小昭"),
+        status: "pending"
+      });
+    }
+    return difyWorkflowResponse({ result: JSON.stringify(characterProfileFixture("秦小昭")) });
+  };
+  try {
+    task = workflows.startCharacterLibraryTask({
+      book_id: bookId,
+      index_group_key: "characters",
+      start_chapter: 1,
+      end_chapter: 1
+    });
     await waitForTerminalTask(task);
 
     assert.equal(task.status, "failed");
     assert.match(task.error, /checkpoint mapping is not unique/);
     assert.equal(task.progress.completed + task.progress.failed + task.progress.skipped, task.progress.total);
-    const current = db.getCharacterLibraryStatus(bookId);
-    assert.equal(current.build_id, previousBuild.id);
-    assert.equal(db.listCharacterLibraryCharacters({ bookId })[0].id, "ambiguous-checkpoint-previous-character");
-    const failedBuild = db.getCharacterLibraryBuild(task.result.buildId);
-    assert.equal(failedBuild.status, "failed");
-    const items = db.listCharacterLibraryBuildItems(failedBuild.id);
+    assert.equal(db.getCharacterLibraryStatus(bookId).build_id, previousBuild.id);
+    const items = db.listCharacterLibraryBuildItems(task.result.buildId);
     assert.equal(items.some((item) => ["pending", "running"].includes(item.status)), false);
-    const mappingFailure = items.find((item) => item.identity_match.mapping_failed === true);
-    assert.ok(mappingFailure);
-    assert.equal(mappingFailure.status, "failed");
-    assert.match(mappingFailure.error_summary, /checkpoint mapping is not unique/);
+    assert.equal(items.find((item) => item.item_key === "multiple-lineage-checkpoint").identity_match.mapping_failed, true);
   } finally {
     global.fetch = previousFetch;
   }

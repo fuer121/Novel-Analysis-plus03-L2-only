@@ -768,8 +768,14 @@ function closeConsumedCharacterClassificationCheckpoints(buildId) {
   }
   const openItems = items.filter((item) => item.status === "pending");
   const resolutions = openItems.map((item) => {
+    const sourceName = String(item.input_payload?.canonical_name || "").trim();
     const sourceFingerprints = new Set(item.source_fact_fingerprints);
-    const matches = sourceFingerprints.size === 0 ? [] : targets.filter((target) => {
+    const matches = !sourceName || sourceFingerprints.size === 0 ? [] : targets.filter((target) => {
+      const targetIdentity = new Set([
+        target.input_payload?.canonical_name,
+        ...(target.input_payload?.aliases || [])
+      ].map((name) => String(name || "").trim()).filter(Boolean));
+      if (!targetIdentity.has(sourceName)) return false;
       const targetFingerprints = new Set(target.source_fact_fingerprints);
       return [...sourceFingerprints].every((fingerprint) => targetFingerprints.has(fingerprint));
     });
