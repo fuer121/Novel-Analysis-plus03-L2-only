@@ -116,6 +116,30 @@ test("character library ignores weak and conflicting alias declarations", () => 
   assert.deepEqual(result.find((item) => item.canonical_name === "苏晚").aliases, []);
 });
 
+test("character library does not let weak alias facts occupy a strong alias", () => {
+  const result = characterLibrary.resolveCharacterCandidates([
+    {
+      entity: "沈昭",
+      aliases: ["昭昭"],
+      fact_type: "alias",
+      fact: "沈昭的小名是昭昭",
+      evidence: ["沈家人自幼唤她昭昭"]
+    },
+    {
+      entity: "昭昭",
+      aliases: ["阿昭"],
+      fact_type: "alias",
+      fact: "昭昭与阿昭同章出现",
+      evidence: ["昭昭与阿昭一同走进庭院"]
+    },
+    { entity: "昭昭", fact_type: "appearance", fact: "昭昭眉尾有痣", evidence: ["昭昭眉尾那颗小痣"] }
+  ]);
+
+  assert.deepEqual(result.map((item) => item.canonical_name), ["沈昭"]);
+  assert.deepEqual(result[0].aliases, ["昭昭"]);
+  assert.equal(result[0].facts.length, 3);
+});
+
 test("character library rejects unrelated copula text as alias evidence", () => {
   const result = characterLibrary.resolveCharacterCandidates([
     {
@@ -170,6 +194,22 @@ test("character library accepts only finite explicit alias templates", () => {
     assert.deepEqual(result.map((item) => item.canonical_name), ["沈昭"], statement);
     assert.deepEqual(result[0].aliases, [alias], statement);
   }
+});
+
+test("character library accepts quoted names in explicit alias templates", () => {
+  const result = characterLibrary.resolveCharacterCandidates([
+    {
+      entity: "沈昭",
+      aliases: ["昭昭"],
+      fact_type: "alias",
+      fact: "沈昭的化名是“昭昭”",
+      evidence: ["她以《昭昭》之名行走江湖"]
+    },
+    { entity: "昭昭", fact_type: "appearance", fact: "昭昭身形高挑", evidence: ["昭昭身形高挑"] }
+  ]);
+
+  assert.deepEqual(result.map((item) => item.canonical_name), ["沈昭"]);
+  assert.deepEqual(result[0].aliases, ["昭昭"]);
 });
 
 test("character stages split distinct stable forms and reject temporary injuries", () => {
@@ -250,6 +290,28 @@ test("character stages reject one-off clothing actions", () => {
   ]);
 
   assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
+});
+
+test("character stages preserve clothing changes with stable duration evidence", () => {
+  const stages = characterLibrary.deriveCharacterStages("沈昭", [
+    {
+      stage_hint: "流亡时期",
+      stable_difference: true,
+      fact: "流亡后长期以布衣示人",
+      evidence: ["流亡后多年一直穿着布衣"]
+    },
+    {
+      stage_hint: "皇后时期",
+      stable_difference: true,
+      fact: "册封后从此换上皇后冠服",
+      evidence: ["自册封起始终穿皇后冠服"]
+    }
+  ]);
+
+  assert.deepEqual(stages.map(({ name, type }) => ({ name, type })), [
+    { name: "流亡时期", type: "state" },
+    { name: "皇后时期", type: "state" }
+  ]);
 });
 
 test("character stages keep identity periods distinct from age and form types", () => {

@@ -33,7 +33,10 @@ const GENERIC_CHARACTER_NAMES = new Set([
 
 const DESCRIPTIVE_PREFIX_PATTERN = /^(?:某人|某个|一名|一个|那名|这名)/u;
 const RELATIONSHIP_SUFFIX_PATTERN = /的(?:父亲|母亲|兄弟|姐妹|师父|徒弟)$/u;
-const TEMPORARY_STAGE_PATTERN = /(?:受伤|伤病|重伤|哭泣|落泪|战损|换装|换上|换下|改穿|穿上|易容|戴面罩|戴面纱|短暂|临时|一次性|单场景|只维持一场|仅维持一场|单次情绪)/u;
+const TRANSIENT_STAGE_PATTERN = /(?:受伤|伤病|重伤|哭泣|落泪|战损|易容|戴面罩|戴面纱|单次情绪)/u;
+const TEMPORARY_STAGE_HINT_PATTERN = /^(?:换装|换衣)$/u;
+const TEMPORARY_DURATION_PATTERN = /(?:短暂|临时|一时|片刻|一次性|单场景|宴会中|宴会上|宴会期间|当晚|这次|随后换下|只维持一场|仅维持一场)/u;
+const STABLE_DURATION_PATTERN = /(?:从此|此后|始终|常年|长期|一直|自[^，。；;]{0,12}起)/u;
 const AGE_STAGE_PATTERN = /(?:婴儿|幼年|童年|少年|青年|成年|中年|老年|晚年)/u;
 const FORM_STAGE_PATTERN = /(?:形态|人身|真身|鬼魂|魂体|非人|形$)/u;
 
@@ -75,7 +78,7 @@ export function resolveCharacterCandidates(facts = []) {
     const canonical = normalizeText(fact?.entity);
     if (!isStrongAliasFact(fact, canonical)) continue;
 
-    canonicalClaimers.add(canonical);
+    const validatedAliases = [];
     for (const value of fact.aliases) {
       const alias = normalizeText(value);
       if (
@@ -84,6 +87,12 @@ export function resolveCharacterCandidates(facts = []) {
         !hasExplicitAliasRelationship(normalizeText(fact.fact), canonical, alias)
       ) continue;
 
+      validatedAliases.push(alias);
+    }
+
+    if (!validatedAliases.length) continue;
+    canonicalClaimers.add(canonical);
+    for (const alias of validatedAliases) {
       const claimers = claimsByAlias.get(alias) ?? new Set();
       claimers.add(canonical);
       claimsByAlias.set(alias, claimers);
@@ -173,15 +182,16 @@ function isQualifiedStageFact(fact, stageName) {
 
   return Boolean(
     stageName &&
-    !TEMPORARY_STAGE_PATTERN.test(context) &&
+    !isTemporaryStage(stageName, context) &&
     fact?.stable_difference === true &&
     hasEvidence(fact.evidence)
   );
 }
 
 function hasExplicitAliasRelationship(statement, canonical, alias) {
-  const canonicalPattern = escapeRegExp(canonical);
-  const aliasPattern = escapeRegExp(alias);
+  const relationshipText = normalizeAliasRelationshipText(statement);
+  const canonicalPattern = escapeRegExp(normalizeAliasRelationshipText(canonical));
+  const aliasPattern = escapeRegExp(normalizeAliasRelationshipText(alias));
   const nameLabel = "(?:小名|乳名|昵称|绰号|别名|曾用名|原名|本名|真名|化名|称号)";
   const renameVerb = "(?:化名|改名|更名|易名)";
   const directTitle = "(?:又名|人称|号称|被称作|被称为|被唤作|被唤为)";
@@ -192,7 +202,13 @@ function hasExplicitAliasRelationship(statement, canonical, alias) {
     `${aliasPattern}(?:是|为)${canonicalPattern}的?${nameLabel}`
   ];
 
-  return patterns.some((pattern) => new RegExp(pattern, "u").test(statement));
+  return patterns.some((pattern) => new RegExp(pattern, "u").test(relationshipText));
+}
+
+function isTemporaryStage(stageName, context) {
+  if (TRANSIENT_STAGE_PATTERN.test(context)) return true;
+  if (TEMPORARY_STAGE_HINT_PATTERN.test(stageName)) return true;
+  return TEMPORARY_DURATION_PATTERN.test(context) && !STABLE_DURATION_PATTERN.test(context);
 }
 
 function filterStagesWithIndependentEvidence(stageFacts) {
@@ -230,6 +246,10 @@ function compareChineseNames(left, right) {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+function normalizeAliasRelationshipText(value) {
+  return normalizeText(value).replace(/[\s"'“”‘’《》〈〉「」『』【】〔〕]/gu, "");
 }
 
 function normalizeText(value) {
