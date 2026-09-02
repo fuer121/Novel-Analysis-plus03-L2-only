@@ -35,6 +35,7 @@ test("character library admits only stable named characters", () => {
   assert.equal(characterLibrary.isStableCharacterName("黑衣人"), false);
   assert.equal(characterLibrary.isStableCharacterName("某人的母亲"), false);
   assert.equal(characterLibrary.isStableCharacterName("侍卫"), false);
+  assert.equal(characterLibrary.isStableCharacterName("老人"), false);
   assert.equal(characterLibrary.isStableCharacterName(""), false);
   assert.equal(characterLibrary.isStableCharacterName("一名过路女子"), false);
   assert.equal(characterLibrary.isStableCharacterName("林深的师父"), false);
@@ -47,7 +48,7 @@ test("character fact fingerprints survive L2 UUID replacement", () => {
     id: "original-uuid",
     book_id: "book-1",
     index_group_key: "characters",
-    chapter_index: 12,
+    chapter_index: "12",
     fact: "顾南风有一双狭长凤眼",
     evidence: ["那双狭长的凤眼微微抬起", "他  眸光沉静"]
   });
@@ -60,6 +61,19 @@ test("character fact fingerprints survive L2 UUID replacement", () => {
     evidence: [" 他 眸光沉静 ", "那双狭长的凤眼微微抬起", "那双狭长的凤眼微微抬起"]
   });
   assert.equal(left, right);
+});
+
+test("character fact fingerprints normalize invalid chapter indexes", () => {
+  const base = {
+    book_id: "book-1",
+    index_group_key: "characters",
+    fact: "顾南风有一双狭长凤眼",
+    evidence: ["那双狭长的凤眼微微抬起"]
+  };
+  assert.equal(
+    characterLibrary.characterFactFingerprint({ ...base, chapter_index: "invalid" }),
+    characterLibrary.characterFactFingerprint({ ...base, chapter_index: "" })
+  );
 });
 
 test("builds Dify batches and normalizes chapter output", () => {
