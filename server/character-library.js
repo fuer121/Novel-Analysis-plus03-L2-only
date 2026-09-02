@@ -34,8 +34,11 @@ const GENERIC_CHARACTER_NAMES = new Set([
 const DESCRIPTIVE_PREFIX_PATTERN = /^(?:某人|某个|一名|一个|那名|这名)/u;
 const RELATIONSHIP_SUFFIX_PATTERN = /的(?:父亲|母亲|兄弟|姐妹|师父|徒弟)$/u;
 const TRANSIENT_STAGE_PATTERN = /(?:受伤|伤病|重伤|哭泣|落泪|战损|易容|戴面罩|戴面纱|单次情绪)/u;
-const TEMPORARY_STAGE_HINT_PATTERN = /^(?:换装|换衣)$/u;
-const TEMPORARY_DURATION_PATTERN = /(?:短暂|临时|一时|片刻|一次性|单场景|宴会中|宴会上|宴会期间|当晚|这次|随后换下|只维持一场|仅维持一场)/u;
+const TEMPORARY_STAGE_HINT_PATTERN = /(?:病中|伤中|受伤|病后)|^(?:换装|换衣)$/u;
+const EXPLICIT_TEMPORARY_PATTERN = /(?:短暂|临时|一时|片刻|一次性|单场景|当晚|这次|随后换下|只维持一场|仅维持一场)/u;
+const LIMITED_SCENE_PATTERN = /(?:宴会中|宴会上|宴会期间)/u;
+const TEMPORARY_RECOVERY_PATTERN = /(?:病了一场|(?:三|数)日后痊愈|伤愈|痊愈)/u;
+const CLOTHING_CHANGE_PATTERN = /(?:换装|换上|换下|改穿|穿上)/u;
 const STABLE_DURATION_PATTERN = /(?:从此|此后|始终|常年|长期|一直|自[^，。；;]{0,12}起)/u;
 const AGE_STAGE_PATTERN = /(?:婴儿|幼年|童年|少年|青年|成年|中年|老年|晚年)/u;
 const FORM_STAGE_PATTERN = /(?:形态|人身|真身|鬼魂|魂体|非人|形$)/u;
@@ -182,7 +185,7 @@ function isQualifiedStageFact(fact, stageName) {
 
   return Boolean(
     stageName &&
-    !isTemporaryStage(stageName, context) &&
+    !hasExplicitTemporaryContext(stageName, context) &&
     fact?.stable_difference === true &&
     hasEvidence(fact.evidence)
   );
@@ -192,23 +195,29 @@ function hasExplicitAliasRelationship(statement, canonical, alias) {
   const relationshipText = normalizeAliasRelationshipText(statement);
   const canonicalPattern = escapeRegExp(normalizeAliasRelationshipText(canonical));
   const aliasPattern = escapeRegExp(normalizeAliasRelationshipText(alias));
+  const gap = "\\s*";
+  const terminalAliasPattern = `${aliasPattern}(?=$|\\s|[，,。.!！?？；;：:、)）\\]】>》〉」』])`;
   const nameLabel = "(?:小名|乳名|昵称|绰号|别名|曾用名|原名|本名|真名|化名|称号)";
   const renameVerb = "(?:化名|改名|更名|易名)";
   const directTitle = "(?:又名|人称|号称|被称作|被称为|被唤作|被唤为)";
   const patterns = [
-    `${canonicalPattern}的?${nameLabel}(?:也?是|为|叫)?${aliasPattern}`,
-    `${canonicalPattern}(?:曾)?${renameVerb}(?:为|叫|作|成)?${aliasPattern}`,
-    `${canonicalPattern}${directTitle}${aliasPattern}`,
-    `${aliasPattern}(?:是|为)${canonicalPattern}的?${nameLabel}`
+    `${canonicalPattern}${gap}的?${gap}${nameLabel}${gap}(?:也?是|为|叫)?${gap}${terminalAliasPattern}`,
+    `${canonicalPattern}${gap}(?:曾)?${renameVerb}${gap}(?:为|叫|作|成)?${gap}${terminalAliasPattern}`,
+    `${canonicalPattern}${gap}${directTitle}${gap}${terminalAliasPattern}`,
+    `${aliasPattern}${gap}(?:是|为)${gap}${canonicalPattern}${gap}的?${gap}${nameLabel}`
   ];
 
   return patterns.some((pattern) => new RegExp(pattern, "u").test(relationshipText));
 }
 
-function isTemporaryStage(stageName, context) {
+function hasExplicitTemporaryContext(stageName, context) {
   if (TRANSIENT_STAGE_PATTERN.test(context)) return true;
   if (TEMPORARY_STAGE_HINT_PATTERN.test(stageName)) return true;
-  return TEMPORARY_DURATION_PATTERN.test(context) && !STABLE_DURATION_PATTERN.test(context);
+  if (TEMPORARY_RECOVERY_PATTERN.test(context)) return true;
+  if (EXPLICIT_TEMPORARY_PATTERN.test(context)) return true;
+  return CLOTHING_CHANGE_PATTERN.test(context) &&
+    LIMITED_SCENE_PATTERN.test(context) &&
+    !STABLE_DURATION_PATTERN.test(context);
 }
 
 function filterStagesWithIndependentEvidence(stageFacts) {
@@ -249,7 +258,7 @@ function escapeRegExp(value) {
 }
 
 function normalizeAliasRelationshipText(value) {
-  return normalizeText(value).replace(/[\s"'“”‘’《》〈〉「」『』【】〔〕]/gu, "");
+  return normalizeText(value).replace(/["'“”‘’《》〈〉「」『』【】〔〕]/gu, "");
 }
 
 function normalizeText(value) {

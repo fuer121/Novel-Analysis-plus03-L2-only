@@ -212,6 +212,22 @@ test("character library accepts quoted names in explicit alias templates", () =>
   assert.deepEqual(result[0].aliases, ["昭昭"]);
 });
 
+test("character library requires a complete alias name boundary", () => {
+  const result = characterLibrary.resolveCharacterCandidates([
+    {
+      entity: "沈昭",
+      aliases: ["昭昭"],
+      fact_type: "alias",
+      fact: "沈昭的小名是昭昭姐",
+      evidence: ["沈昭提到了昭昭姐"]
+    },
+    { entity: "昭昭", fact_type: "appearance", fact: "昭昭眉尾有痣", evidence: ["昭昭眉尾那颗小痣"] }
+  ]);
+
+  assert.deepEqual(result.map((item) => item.canonical_name), ["沈昭", "昭昭"]);
+  assert.deepEqual(result.find((item) => item.canonical_name === "沈昭").aliases, []);
+});
+
 test("character stages split distinct stable forms and reject temporary injuries", () => {
   const humanFact = {
     chapter_index: 3,
@@ -312,6 +328,48 @@ test("character stages preserve clothing changes with stable duration evidence",
     { name: "流亡时期", type: "state" },
     { name: "皇后时期", type: "state" }
   ]);
+});
+
+test("character stages prioritize explicit temporary context over unrelated duration", () => {
+  const stages = characterLibrary.deriveCharacterStages("玄霜", [
+    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
+    { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
+    {
+      stage_hint: "白衣形态",
+      stable_difference: true,
+      fact: "宴会上临时换装白衣",
+      evidence: ["此前一直穿青衣，当晚换上白衣"]
+    }
+  ]);
+
+  assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
+});
+
+test("character stages reject short illness and recovery states", () => {
+  const stages = characterLibrary.deriveCharacterStages("玄霜", [
+    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
+    { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
+    {
+      stage_hint: "病中形态",
+      stable_difference: true,
+      fact: "她病了一场",
+      evidence: ["三日后痊愈"]
+    },
+    {
+      stage_hint: "伤中形态",
+      stable_difference: true,
+      fact: "她肩头带伤",
+      evidence: ["不久便伤愈"]
+    },
+    {
+      stage_hint: "病后形态",
+      stable_difference: true,
+      fact: "病后一时懔悴",
+      evidence: ["数日后痊愈"]
+    }
+  ]);
+
+  assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
 });
 
 test("character stages keep identity periods distinct from age and form types", () => {
