@@ -33,11 +33,17 @@ const GENERIC_CHARACTER_NAMES = new Set([
 
 const DESCRIPTIVE_PREFIX_PATTERN = /^(?:某人|某个|一名|一个|那名|这名)/u;
 const RELATIONSHIP_SUFFIX_PATTERN = /的(?:父亲|母亲|兄弟|姐妹|师父|徒弟)$/u;
-const TRANSIENT_STAGE_PATTERN = /(?:受伤|伤病|重伤|哭泣|落泪|战损|易容|戴面罩|戴面纱|单次情绪)/u;
-const TEMPORARY_STAGE_HINT_PATTERN = /(?:病中|伤中|受伤|病后)|^(?:换装|换衣)$/u;
+const TEMPORARY_INJURY_HINT_PATTERN = /(?:病中|伤中|受伤|病后)/u;
+const TEMPORARY_INJURY_CONTEXT_PATTERN = /(?:受伤|伤病|重伤|战损|病了一场|(?:三|数)日后痊愈|伤愈|痊愈)/u;
+const TEMPORARY_EMOTION_HINT_PATTERN = /(?:愤怒|悲伤|哭泣|惊恐|醉态)/u;
+const EMOTION_CONTEXT_PATTERN = /(?:愤怒|怒不可遏|悲伤|哭泣|落泪|惊恐|恐惧|醉态|醉酒)/u;
+const TEMPORARY_EMOTION_CONTEXT_PATTERN = /(?:此刻|旋即恢复平静|一时|片刻)/u;
+const COVERING_HINT_PATTERN = /(?:蒙面|面纱|面罩)/u;
+const TEMPORARY_COVERING_CONTEXT_PATTERN = /(?:这一幕|当时|临时|离场后摘去|随后摘下)/u;
+const TEMPORARY_APPEARANCE_PATTERN = /(?:易容|单次情绪)/u;
+const TEMPORARY_CLOTHING_HINT_PATTERN = /^(?:换装|换衣)$/u;
 const EXPLICIT_TEMPORARY_PATTERN = /(?:短暂|临时|一时|片刻|一次性|单场景|当晚|这次|随后换下|只维持一场|仅维持一场)/u;
 const LIMITED_SCENE_PATTERN = /(?:宴会中|宴会上|宴会期间)/u;
-const TEMPORARY_RECOVERY_PATTERN = /(?:病了一场|(?:三|数)日后痊愈|伤愈|痊愈)/u;
 const CLOTHING_CHANGE_PATTERN = /(?:换装|换上|换下|改穿|穿上)/u;
 const STABLE_DURATION_PATTERN = /(?:从此|此后|始终|常年|长期|一直|自[^，。；;]{0,12}起)/u;
 const AGE_STAGE_PATTERN = /(?:婴儿|幼年|童年|少年|青年|成年|中年|老年|晚年)/u;
@@ -197,12 +203,13 @@ function hasExplicitAliasRelationship(statement, canonical, alias) {
   const aliasPattern = escapeRegExp(normalizeAliasRelationshipText(alias));
   const gap = "\\s*";
   const terminalAliasPattern = `${aliasPattern}(?=$|\\s|[，,。.!！?？；;：:、)）\\]】>》〉」』])`;
+  const renameTimeAdverb = "(?:(?:后来|之后|此后|随后|最终)\\s*)?";
   const nameLabel = "(?:小名|乳名|昵称|绰号|别名|曾用名|原名|本名|真名|化名|称号)";
   const renameVerb = "(?:化名|改名|更名|易名)";
   const directTitle = "(?:又名|人称|号称|被称作|被称为|被唤作|被唤为)";
   const patterns = [
     `${canonicalPattern}${gap}的?${gap}${nameLabel}${gap}(?:也?是|为|叫)?${gap}${terminalAliasPattern}`,
-    `${canonicalPattern}${gap}(?:曾)?${renameVerb}${gap}(?:为|叫|作|成)?${gap}${terminalAliasPattern}`,
+    `${canonicalPattern}${gap}${renameTimeAdverb}(?:曾)?${renameVerb}${gap}(?:为|叫|作|成)?${gap}${terminalAliasPattern}`,
     `${canonicalPattern}${gap}${directTitle}${gap}${terminalAliasPattern}`,
     `${aliasPattern}${gap}(?:是|为)${gap}${canonicalPattern}${gap}的?${gap}${nameLabel}`
   ];
@@ -211,9 +218,13 @@ function hasExplicitAliasRelationship(statement, canonical, alias) {
 }
 
 function hasExplicitTemporaryContext(stageName, context) {
-  if (TRANSIENT_STAGE_PATTERN.test(context)) return true;
-  if (TEMPORARY_STAGE_HINT_PATTERN.test(stageName)) return true;
-  if (TEMPORARY_RECOVERY_PATTERN.test(context)) return true;
+  if (TEMPORARY_INJURY_HINT_PATTERN.test(stageName)) return true;
+  if (TEMPORARY_INJURY_CONTEXT_PATTERN.test(context)) return true;
+  if (TEMPORARY_EMOTION_HINT_PATTERN.test(stageName)) return true;
+  if (EMOTION_CONTEXT_PATTERN.test(context) && TEMPORARY_EMOTION_CONTEXT_PATTERN.test(context)) return true;
+  if (COVERING_HINT_PATTERN.test(stageName) && TEMPORARY_COVERING_CONTEXT_PATTERN.test(context)) return true;
+  if (TEMPORARY_APPEARANCE_PATTERN.test(context)) return true;
+  if (TEMPORARY_CLOTHING_HINT_PATTERN.test(stageName)) return true;
   if (EXPLICIT_TEMPORARY_PATTERN.test(context)) return true;
   return CLOTHING_CHANGE_PATTERN.test(context) &&
     LIMITED_SCENE_PATTERN.test(context) &&

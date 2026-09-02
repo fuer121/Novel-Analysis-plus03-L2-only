@@ -183,6 +183,7 @@ test("character library accepts only finite explicit alias templates", () => {
     ["沈昭的称号是昭月仙子", "昭月仙子"],
     ["沈昭又名沈月", "沈月"],
     ["沈昭改名为沈瑄", "沈瑄"],
+    ["沈昭后来改名为沈珩", "沈珩"],
     ["沈昭被称为昭光居士", "昭光居士"]
   ];
 
@@ -370,6 +371,46 @@ test("character stages reject short illness and recovery states", () => {
   ]);
 
   assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
+});
+
+test("character stages reject single-scene emotional states", () => {
+  const stages = characterLibrary.deriveCharacterStages("玄霜", [
+    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
+    { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
+    {
+      stage_hint: "愤怒形态",
+      stable_difference: true,
+      fact: "此刻怒不可遏",
+      evidence: ["她旋即恢复平静"]
+    }
+  ]);
+
+  assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
+});
+
+test("character stages reject one-off coverings but preserve stable coverings", () => {
+  const temporaryStages = characterLibrary.deriveCharacterStages("玄霜", [
+    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
+    { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
+    {
+      stage_hint: "蒙面形态",
+      stable_difference: true,
+      fact: "这一幕她以黑纱蒙面",
+      evidence: ["离场后摘去黑纱"]
+    }
+  ]);
+  assert.deepEqual(temporaryStages.map((stage) => stage.name), ["人类形态", "龙形"]);
+
+  const stableStages = characterLibrary.deriveCharacterStages("沈昭", [
+    { stage_hint: "未遮挡时期", stable_difference: true, evidence: ["早年以真容示人"] },
+    {
+      stage_hint: "蒙面形态",
+      stable_difference: true,
+      fact: "此后从此以黑纱蒙面",
+      evidence: ["多年来始终戴着黑纱"]
+    }
+  ]);
+  assert.deepEqual(stableStages.map((stage) => stage.name), ["未遮挡时期", "蒙面形态"]);
 });
 
 test("character stages keep identity periods distinct from age and form types", () => {
