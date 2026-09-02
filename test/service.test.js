@@ -497,6 +497,27 @@ test("character stages reject reverted mutations but preserve stable mutations",
   assert.deepEqual(stableStages.map((stage) => stage.name), ["黑瞳时期", "赤瞳形态"]);
 });
 
+test("character stages recognize permanent form changes", () => {
+  const stages = characterLibrary.deriveCharacterStages("玄霜", [
+    {
+      stage_hint: "人类形态",
+      stable_difference: true,
+      evidence: ["她仍是人身"]
+    },
+    {
+      stage_hint: "龙形",
+      stable_difference: true,
+      fact: "她永久化作银龙真身",
+      evidence: ["银龙真身盘旋云上"]
+    }
+  ]);
+
+  assert.deepEqual(stages.map(({ name, type }) => ({ name, type })), [
+    { name: "人类形态", type: "form" },
+    { name: "龙形", type: "form" }
+  ]);
+});
+
 test("character stages keep identity periods distinct from age and form types", () => {
   const stages = characterLibrary.deriveCharacterStages("沈昭", [
     { stage_hint: "少年", stable_difference: true, evidence: ["少年时身量未足"] },

@@ -45,7 +45,7 @@ const TEMPORARY_CLOTHING_HINT_PATTERN = /^(?:换装|换衣)$/u;
 const EXPLICIT_TEMPORARY_PATTERN = /(?:短暂|临时|一时|片刻|转瞬|顷刻|一次性|单场景|这一幕|当晚|这次|随后换下|(?:离席便|离场便)(?:换回|换下|脱下)|事后换回|随后(?:恢复原状|恢复如常|变回)|只维持一场|仅维持一场)/u;
 const CLOTHING_CHANGE_PATTERN = /(?:换装|换上|换下|换回|改穿|穿上|脱下)/u;
 const TRANSFORMATION_CHANGE_PATTERN = /(?:异变|化作|变成|变为|力量爆发|恢复原状|恢复如常|变回)/u;
-const STABLE_DURATION_PATTERN = /(?:从此|此后|始终|常年|长期|一直|自[^，。；;]{0,12}起)/u;
+const STABLE_DURATION_PATTERN = /(?:从此|此后|始终|常年|长期|一直|永久|永远|再未恢复|不可逆|终生|自[^，。；;]{0,12}起)/u;
 const AGE_STAGE_PATTERN = /(?:婴儿|幼年|童年|少年|青年|成年|中年|老年|晚年)/u;
 const FORM_STAGE_PATTERN = /(?:形态|人身|真身|鬼魂|魂体|非人|形$)/u;
 
