@@ -346,6 +346,28 @@ test("character stages preserve clothing changes with stable duration evidence",
   ]);
 });
 
+test("character stages preserve lasting wardrobe changes that remove old clothing", () => {
+  const stages = characterLibrary.deriveCharacterStages("沈昭", [
+    {
+      stage_hint: "流亡时期",
+      stable_difference: true,
+      fact: "流亡后长期以布衣示人",
+      evidence: ["流亡后多年一直穿着布衣"]
+    },
+    {
+      stage_hint: "皇后时期",
+      stable_difference: true,
+      fact: "册封后从此换下旧袍，穿上皇后冠服",
+      evidence: ["此后始终着皇后冠服"]
+    }
+  ]);
+
+  assert.deepEqual(stages.map(({ name, type }) => ({ name, type })), [
+    { name: "流亡时期", type: "state" },
+    { name: "皇后时期", type: "state" }
+  ]);
+});
+
 test("character stages prioritize explicit temporary context over unrelated duration", () => {
   const stages = characterLibrary.deriveCharacterStages("玄霜", [
     { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
