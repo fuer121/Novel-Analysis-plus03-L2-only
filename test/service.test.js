@@ -43,6 +43,132 @@ test("character library admits only stable named characters", () => {
   assert.equal(characterLibrary.isStableCharacterName("顾".repeat(81)), false);
 });
 
+test("character library merges aliases only with explicit relationship evidence", () => {
+  const aliasFact = {
+    chapter_index: 8,
+    entity: "沈昭",
+    aliases: ["昭昭"],
+    fact_type: "alias",
+    fact: "沈昭的小名是昭昭",
+    evidence: ["她自幼便被唤作昭昭"]
+  };
+  const aliasAppearance = {
+    chapter_index: 8,
+    entity: "昭昭",
+    aliases: [],
+    fact_type: "appearance",
+    fact: "昭昭眉尾有痣",
+    evidence: ["昭昭眉尾那颗小痣"]
+  };
+  const separateCharacter = {
+    chapter_index: 8,
+    entity: "沈姑娘",
+    aliases: ["沈昭"],
+    fact_type: "appearance",
+    fact: "沈姑娘与沈昭同章出现，面色苍白",
+    evidence: ["那沈姑娘面色苍白"]
+  };
+
+  const result = characterLibrary.resolveCharacterCandidates([
+    aliasFact,
+    aliasAppearance,
+    separateCharacter
+  ]);
+
+  assert.deepEqual(result.map((item) => item.canonical_name), ["沈姑娘", "沈昭"]);
+  assert.deepEqual(result.find((item) => item.canonical_name === "沈昭").aliases, ["昭昭"]);
+  assert.deepEqual(result.find((item) => item.canonical_name === "沈昭").facts, [
+    aliasFact,
+    aliasAppearance
+  ]);
+  assert.deepEqual(result.find((item) => item.canonical_name === "沈姑娘").facts, [separateCharacter]);
+});
+
+test("character library ignores weak and conflicting alias declarations", () => {
+  const result = characterLibrary.resolveCharacterCandidates([
+    {
+      entity: "陆岑",
+      aliases: ["阿岑"],
+      fact_type: "alias",
+      fact: "陆岑与阿岑同章出现",
+      evidence: ["两人先后走进庭院"]
+    },
+    { entity: "阿岑", fact_type: "appearance", fact: "阿岑身形高挑", evidence: ["阿岑身形高挑"] },
+    {
+      entity: "白清",
+      aliases: ["小雪"],
+      fact_type: "alias",
+      fact: "白清小名小雪",
+      evidence: ["白家人唤她小雪"]
+    },
+    {
+      entity: "苏晚",
+      aliases: ["小雪"],
+      fact_type: "alias",
+      fact: "苏晚的小名也是小雪",
+      evidence: ["苏母口中的小雪正是苏晚"]
+    },
+    { entity: "小雪", fact_type: "appearance", fact: "小雪穿着青衣", evidence: ["小雪穿着青衣"] }
+  ]);
+
+  assert.deepEqual(result.map((item) => item.canonical_name), ["阿岑", "白清", "陆岑", "苏晚", "小雪"]);
+  assert.deepEqual(result.find((item) => item.canonical_name === "白清").aliases, []);
+  assert.deepEqual(result.find((item) => item.canonical_name === "苏晚").aliases, []);
+});
+
+test("character stages split distinct stable forms and reject temporary injuries", () => {
+  const humanFact = {
+    chapter_index: 3,
+    stage_hint: "人类形态",
+    stable_difference: true,
+    evidence: ["她仍是人身"]
+  };
+  const dragonFact = {
+    chapter_index: 40,
+    stage_hint: "龙形",
+    stable_difference: true,
+    evidence: ["此后常以银龙真身现世"]
+  };
+  const injuryFact = {
+    chapter_index: 41,
+    stage_hint: "受伤",
+    stable_difference: true,
+    evidence: ["左肩受伤"]
+  };
+
+  const stages = characterLibrary.deriveCharacterStages("玄霜", [humanFact, dragonFact, injuryFact]);
+
+  assert.deepEqual(stages, [
+    { name: "人类形态", type: "form", facts: [humanFact] },
+    { name: "龙形", type: "form", facts: [dragonFact] }
+  ]);
+});
+
+test("character stages distinguish age stages from forms", () => {
+  const stages = characterLibrary.deriveCharacterStages("林深", [
+    { stage_hint: "少年", stable_difference: true, evidence: ["少年时身量未足"] },
+    { stage_hint: "成年", stable_difference: true, evidence: ["成年后骨架高大"] }
+  ]);
+
+  assert.deepEqual(stages.map(({ name, type }) => ({ name, type })), [
+    { name: "少年", type: "age" },
+    { name: "成年", type: "age" }
+  ]);
+});
+
+test("character stages fall back when fewer than two distinct stages qualify", () => {
+  const facts = [
+    { stage_hint: "龙形", stable_difference: true, evidence: ["第一处龙形证据"] },
+    { stage_hint: "龙形", stable_difference: true, evidence: ["第二处龙形证据"] },
+    { stage_hint: "人类形态", stable_difference: false, evidence: ["仅是模型推测"] },
+    { stage_hint: "成年", stable_difference: true, evidence: [] }
+  ];
+
+  assert.deepEqual(characterLibrary.deriveCharacterStages("玄霜", facts), [
+    { name: "默认阶段", type: "default", facts }
+  ]);
+});
+
 test("character fact fingerprints survive L2 UUID replacement", () => {
   const left = characterLibrary.characterFactFingerprint({
     id: "original-uuid",
