@@ -20,6 +20,7 @@ process.env.DIFY_ANALYSIS_SUMMARY_WORKFLOW_VERSION = "v1";
 const db = await import("../server/db.js");
 const dify = await import("../server/dify.js");
 const appConfig = await import("../server/config.js");
+const characterLibrary = await import("../server/character-library.js");
 const indexingInputs = await import("../server/indexing-inputs.js");
 const schemaTools = await import("../src/schemaTools.js");
 const tasks = await import("../server/tasks.js");
@@ -27,6 +28,38 @@ const workflows = await import("../server/workflows.js");
 
 test.after(async () => {
   await fs.rm(tempDir, { recursive: true, force: true });
+});
+
+test("character library admits only stable named characters", () => {
+  assert.equal(characterLibrary.isStableCharacterName("顾南风"), true);
+  assert.equal(characterLibrary.isStableCharacterName("黑衣人"), false);
+  assert.equal(characterLibrary.isStableCharacterName("某人的母亲"), false);
+  assert.equal(characterLibrary.isStableCharacterName("侍卫"), false);
+  assert.equal(characterLibrary.isStableCharacterName(""), false);
+  assert.equal(characterLibrary.isStableCharacterName("一名过路女子"), false);
+  assert.equal(characterLibrary.isStableCharacterName("林深的师父"), false);
+  assert.equal(characterLibrary.isStableCharacterName("顾".repeat(80)), true);
+  assert.equal(characterLibrary.isStableCharacterName("顾".repeat(81)), false);
+});
+
+test("character fact fingerprints survive L2 UUID replacement", () => {
+  const left = characterLibrary.characterFactFingerprint({
+    id: "original-uuid",
+    book_id: "book-1",
+    index_group_key: "characters",
+    chapter_index: 12,
+    fact: "顾南风有一双狭长凤眼",
+    evidence: ["那双狭长的凤眼微微抬起", "他  眸光沉静"]
+  });
+  const right = characterLibrary.characterFactFingerprint({
+    id: "replacement-uuid",
+    book_id: "book-1",
+    index_group_key: "characters",
+    chapter_index: 12,
+    fact: "  顾南风有一双狭长凤眼  ",
+    evidence: [" 他 眸光沉静 ", "那双狭长的凤眼微微抬起", "那双狭长的凤眼微微抬起"]
+  });
+  assert.equal(left, right);
 });
 
 test("builds Dify batches and normalizes chapter output", () => {
