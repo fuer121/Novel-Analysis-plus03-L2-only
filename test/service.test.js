@@ -1006,6 +1006,34 @@ test("character library partial coverage deletes an old character whose source c
   assert.equal(db.listCharacterLibraryCharacters({ bookId }).some((row) => row.id === "fresh-deleted-character"), false);
 });
 
+test("character library empty fresh chapter intersection ignores stale L2 facts", async () => {
+  const bookId = "character-empty-fresh-intersection-book";
+  seedCharacterLibraryWorkflowBook(bookId, [
+    { category: "character", entity: "沈昭", fact_type: "appearance", fact: "沈昭眉尾有痣", evidence: ["眉尾有痣"] }
+  ]);
+  db.saveChapter({ bookId, chapterIndex: 1, title: "第一章", content: "章节正文已经修改" });
+
+  const previousFetch = global.fetch;
+  let calls = 0;
+  global.fetch = async () => {
+    calls += 1;
+    throw new Error("empty fresh chapter intersection must not call Dify");
+  };
+  try {
+    const task = workflows.startCharacterLibraryTask({ book_id: bookId, index_group_key: "characters", start_chapter: 1, end_chapter: 1 });
+    await waitForTask(task);
+    const status = db.getCharacterLibraryStatus(bookId);
+    assert.equal(calls, 0);
+    assert.equal(status.status, "partial");
+    assert.deepEqual(status.coverage.failed_chapters, [1]);
+    assert.equal(status.character_count, 0);
+    assert.equal(db.listCharacterLibraryBuildItems(status.build_id).length, 0);
+    assert.equal(db.listCharacterLibraryCharacters({ bookId }).length, 0);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
 test("character library build persists profiles and atomically activates a complete candidate set", async () => {
   const bookId = "character-build-workflow-book";
   db.ensureBook(bookId, "角色构建编排测试书");

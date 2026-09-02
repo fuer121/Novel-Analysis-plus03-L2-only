@@ -773,12 +773,14 @@ function loadCharacterBuildSnapshot({ bookId, indexGroupKey, startChapter, endCh
   });
   const freshChapters = freshSources.map((row) => row.chapter_index);
   const facts = [];
-  let cursor = null;
-  do {
-    const page = listCharacterL2FactsPage({ bookId, indexGroupKey, startChapter, endChapter, chapterIndexes: freshChapters, cursor, pageSize: 200 });
-    facts.push(...page.items);
-    cursor = page.next_cursor;
-  } while (cursor);
+  if (freshChapters.length > 0) {
+    let cursor = null;
+    do {
+      const page = listCharacterL2FactsPage({ bookId, indexGroupKey, startChapter, endChapter, chapterIndexes: freshChapters, cursor, pageSize: 200 });
+      facts.push(...page.items);
+      cursor = page.next_cursor;
+    } while (cursor);
+  }
   const expected = endChapter - startChapter + 1;
   const coverage = {
     start_chapter: startChapter,
