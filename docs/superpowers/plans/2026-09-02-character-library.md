@@ -845,8 +845,9 @@ git commit -m "feat: add character library navigation"
 - Create: `src/styles/pages/character-library.css`
 - Modify: `src/styles.css`
 - Modify: `src/App.jsx`
+- Modify: `test/journey.test.js`
 
-- [ ] **Step 1: 实现页面数据 hook**
+- [x] **Step 1: 实现页面数据 hook**
 
 `useCharacterLibraryData(bookId)` 管理 `status`、`characters`、`selectedCharacter`、`loading`、`detailLoading`、`search`、`filter`、`sort`，搜索输入延迟 250ms 请求，角色选中后独立加载详情，任务结束后同时刷新状态和列表
 
@@ -869,40 +870,52 @@ return {
 }
 ```
 
-- [ ] **Step 2: 建立页面头部和真实状态区**
+- [x] **Step 2: 建立页面头部和真实状态区**
 
 创建 `CharacterLibraryPage.jsx`，头部包含标题、构建覆盖、最近更新时间、“更新角色库”和“前往事实索引”，部分构建显示明确警告，前置条件不足时显示对应下一步入口
 
-- [ ] **Step 3: 建立高密度角色表格**
+- [x] **Step 3: 建立高密度角色表格**
 
 表格列严格为：角色姓名、确认别名、性别、阶段、年龄、身份或职业、外形事实数、档案状态、最近更新。工具栏使用搜索框、筛选菜单和排序菜单，行点击与键盘 Enter 都能选中角色
 
-- [ ] **Step 4: 建立右侧详情抽屉**
+- [x] **Step 4: 建立右侧详情抽屉**
 
 抽屉宽度使用 `clamp(560px, 42vw, 640px)`，内容依次展示角色摘要、阶段 tabs、年龄、身份或职业、稳定外形、稳定气质、原文五官、带“设计推导”标记的设计五官、事实证据列表
 
 关闭按钮使用 Lucide `X` 图标和 tooltip，抽屉打开后保留左侧表格上下文，Escape 关闭，切换角色不先关闭抽屉
 
-- [ ] **Step 5: 增加页面状态**
+- [x] **Step 5: 增加页面状态**
 
 实现设计规格 12.5 的全部状态，其中无章节、L1 未建立、无角色事实索引组、无已完成角色事实、角色库未建立、构建中、部分可用、全量可用、需更新、搜索无结果和深链接角色不存在都必须对应到明确 UI
 
-- [ ] **Step 6: 增加响应式样式**
+- [x] **Step 6: 增加响应式样式**
 
 桌面使用全宽表格和固定右抽屉，小于 900px 时抽屉覆盖页面主体，小于 640px 时抽屉宽度为 100vw，表格保持横向滚动，不缩成卡片，不出现文本和按钮重叠
 
-- [ ] **Step 7: 运行静态验证**
+- [x] **Step 7: 运行静态验证**
 
 Run: `npm run lint && npm run build`
 
 Expected: ESLint PASS，Vite build completed
 
-- [ ] **Step 8: 提交 B 方案界面**
+- [x] **Step 8: 提交 B 方案界面**
 
 ```bash
 git add src/hooks/useCharacterLibraryData.js src/pages/CharacterLibraryPage.jsx src/styles/pages/character-library.css src/styles.css src/App.jsx
 git commit -m "feat: build character library table and drawer"
 ```
+
+**2026-09-03 封板记录：**
+
+- 状态：完成，Task 8 双审与浏览器验收通过，Task 9 等待授权
+- 实现：角色库数据 hook、全宽表格、搜索筛选排序、右侧详情抽屉、阶段档案、事实证据、深链接和响应式布局
+- 聚焦测试：20/20
+- 全仓测试：144/144
+- build、lint 与 `git diff --check`：PASS
+- 规格审查：窄修复过期章节映射、初始加载态和稳定气质证据后 PASS
+- 代码质量审查：窄修复摘要请求竞态与窄屏抽屉焦点约束后 PASS
+- 浏览器验收：真实空态和临时 mock 完整态通过，1440px、820px、390px 无整页溢出或控件重叠
+- 剩余风险：列表字段和精确新鲜度等待后端后续增强，组件级竞态与焦点自动化测试留给 Task 9
 
 ### Task 9: 补齐端到端验收和项目文档
 

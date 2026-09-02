@@ -15,6 +15,7 @@ import { BASE_INDEX_GROUP_KEY, L2_INDEX_MODE_ALL, TASK_TYPES } from "./constants
 import { useTaskChannel } from "./hooks/useTaskChannel.js";
 import { AskManagePage } from "./pages/AskManagePage.jsx";
 import { BookHomePage } from "./pages/BookHomePage.jsx";
+import { CharacterLibraryPage } from "./pages/CharacterLibraryPage.jsx";
 import { DiagnosticsPage } from "./pages/DiagnosticsPage.jsx";
 import { L1ManagePage } from "./pages/L1ManagePage.jsx";
 import { L2ManagePage } from "./pages/L2ManagePage.jsx";
@@ -98,7 +99,11 @@ export default function App() {
   const characterLibraryChannel = useTaskChannel({
     type: TASK_TYPES.CHARACTER_LIBRARY,
     baseUrl: characterLibraryBuildUrl,
-    startRequest: ({ bookId, ...payload }) => apiPost(characterLibraryBuildsUrl(bookId), payload).then((data) => data.task),
+    startRequest: ({ bookId, startChapter, endChapter, indexGroupKey = "characters" }) => apiPost(characterLibraryBuildsUrl(bookId), {
+      start_chapter: startChapter,
+      end_chapter: endChapter,
+      index_group_key: indexGroupKey
+    }).then((data) => data.task),
     failureMessage: "角色库更新失败",
     ready: !busy,
     setError
@@ -432,16 +437,13 @@ export default function App() {
               onAnalysisResume={() => analysisChannel.control("resume")}
             />
           ) : activeRoute === "characters" ? (
-            <section className="book-home-page">
-              <header className="page-hero">
-                <div>
-                  <span>书籍首页</span>
-                  <h2>角色库</h2>
-                  <p>角色库界面准备中</p>
-                </div>
-              </header>
-              <div className="empty-state">角色库界面准备中</div>
-            </section>
+            <CharacterLibraryPage
+              key={bookId}
+              bookId={bookId}
+              characterLibraryTask={characterLibraryTask}
+              characterLibraryBusy={characterLibraryBusy}
+              onStartCharacterLibrary={characterLibraryChannel.start}
+            />
           ) : (
             <DiagnosticsPage />
           )}
