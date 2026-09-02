@@ -33,13 +33,13 @@ const GENERIC_CHARACTER_NAMES = new Set([
 
 const DESCRIPTIVE_PREFIX_PATTERN = /^(?:某人|某个|一名|一个|那名|这名)/u;
 const RELATIONSHIP_SUFFIX_PATTERN = /的(?:父亲|母亲|兄弟|姐妹|师父|徒弟)$/u;
-const TEMPORARY_INJURY_HINT_PATTERN = /(?:病中|伤中|受伤|病后)/u;
-const TEMPORARY_INJURY_CONTEXT_PATTERN = /(?:受伤|伤病|重伤|战损|病了一场|(?:三|数)日后痊愈|伤愈|痊愈)/u;
+const INJURY_CHANGE_PATTERN = /(?:病中|伤中|受伤|病后|伤病|重伤|战损|断臂)/u;
+const TEMPORARY_INJURY_CONTEXT_PATTERN = /(?:病了一场|(?:三|数)日后恢复|伤愈|痊愈)/u;
 const TEMPORARY_EMOTION_HINT_PATTERN = /(?:愤怒|悲伤|哭泣|惊恐|醉态)/u;
 const EMOTION_CONTEXT_PATTERN = /(?:愤怒|怒不可遏|悲伤|哭泣|落泪|惊恐|恐惧|醉态|醉酒)/u;
-const TEMPORARY_EMOTION_CONTEXT_PATTERN = /(?:此刻|旋即恢复平静|一时|片刻)/u;
+const TEMPORARY_EMOTION_CONTEXT_PATTERN = /(?:此刻|旋即恢复平静)/u;
 const COVERING_HINT_PATTERN = /(?:蒙面|面纱|面罩)/u;
-const TEMPORARY_COVERING_CONTEXT_PATTERN = /(?:这一幕|当时|临时|离场后摘去|随后摘下)/u;
+const TEMPORARY_COVERING_CONTEXT_PATTERN = /(?:当时|离场后摘去|随后摘下)/u;
 const TEMPORARY_APPEARANCE_PATTERN = /(?:易容|单次情绪)/u;
 const TEMPORARY_CLOTHING_HINT_PATTERN = /^(?:换装|换衣)$/u;
 const EXPLICIT_TEMPORARY_PATTERN = /(?:短暂|临时|一时|片刻|转瞬|顷刻|一次性|单场景|这一幕|当晚|这次|随后换下|(?:离席便|离场便)(?:换回|换下|脱下)|事后换回|随后(?:恢复原状|恢复如常|变回)|只维持一场|仅维持一场)/u;
@@ -80,38 +80,23 @@ export function characterFactFingerprint(fact = {}) {
 
 export function resolveCharacterCandidates(facts = []) {
   const sourceFacts = Array.isArray(facts) ? facts : [];
-  const canonicalClaimers = new Set();
+  const strongAliasEdges = collectStrongAliasEdges(sourceFacts);
+  const incomingNames = new Set(strongAliasEdges.map(({ alias }) => alias));
+  const outgoingNames = new Set(strongAliasEdges.map(({ canonical }) => canonical));
+  const chainNames = new Set([...incomingNames].filter((name) => outgoingNames.has(name)));
   const claimsByAlias = new Map();
 
-  for (const fact of sourceFacts) {
-    const canonical = normalizeText(fact?.entity);
-    if (!isStrongAliasFact(fact, canonical)) continue;
-
-    const validatedAliases = [];
-    for (const value of fact.aliases) {
-      const alias = normalizeText(value);
-      if (
-        alias === canonical ||
-        !isStableCharacterName(alias) ||
-        !hasExplicitAliasRelationship(normalizeText(fact.fact), canonical, alias)
-      ) continue;
-
-      validatedAliases.push(alias);
-    }
-
-    if (!validatedAliases.length) continue;
-    canonicalClaimers.add(canonical);
-    for (const alias of validatedAliases) {
-      const claimers = claimsByAlias.get(alias) ?? new Set();
-      claimers.add(canonical);
-      claimsByAlias.set(alias, claimers);
-    }
+  for (const { canonical, alias } of strongAliasEdges) {
+    if (chainNames.has(canonical) || chainNames.has(alias)) continue;
+    const claimers = claimsByAlias.get(alias) ?? new Set();
+    claimers.add(canonical);
+    claimsByAlias.set(alias, claimers);
   }
 
   const canonicalByAlias = new Map();
   const aliasesByCanonical = new Map();
   for (const [alias, claimers] of claimsByAlias) {
-    if (claimers.size !== 1 || canonicalClaimers.has(alias)) continue;
+    if (claimers.size !== 1) continue;
 
     const [canonical] = claimers;
     canonicalByAlias.set(alias, canonical);
@@ -183,42 +168,61 @@ function isStrongAliasFact(fact, canonical) {
 }
 
 function isQualifiedStageFact(fact, stageName) {
-  const context = [
-    stageName,
-    normalizeText(fact?.fact),
-    ...(Array.isArray(fact?.evidence) ? fact.evidence.map(normalizeText) : [])
-  ].join(" ");
-
   return Boolean(
     stageName &&
-    !hasExplicitTemporaryContext(stageName, context) &&
+    !hasExplicitTemporaryContext(stageName, fact) &&
     fact?.stable_difference === true &&
     hasEvidence(fact.evidence)
   );
+}
+
+function collectStrongAliasEdges(facts) {
+  const edges = [];
+
+  for (const fact of facts) {
+    const canonical = normalizeText(fact?.entity);
+    if (!isStrongAliasFact(fact, canonical)) continue;
+
+    for (const value of fact.aliases) {
+      const alias = normalizeText(value);
+      if (
+        alias === canonical ||
+        !isStableCharacterName(alias) ||
+        !hasExplicitAliasRelationship(normalizeText(fact.fact), canonical, alias)
+      ) continue;
+      edges.push({ canonical, alias });
+    }
+  }
+
+  return edges;
 }
 
 function hasExplicitAliasRelationship(statement, canonical, alias) {
   const relationshipText = normalizeAliasRelationshipText(statement);
   const canonicalPattern = escapeRegExp(normalizeAliasRelationshipText(canonical));
   const aliasPattern = escapeRegExp(normalizeAliasRelationshipText(alias));
+  const leadingCanonicalPattern = `(?<![\\p{L}\\p{N}_])${canonicalPattern}`;
+  const leadingAliasPattern = `(?<![\\p{L}\\p{N}_])${aliasPattern}`;
   const gap = "\\s*";
-  const terminalAliasPattern = `${aliasPattern}(?=$|\\s|[，,。.!！?？；;：:、)）\\]】>》〉」』])`;
+  const terminalAliasPattern = `${aliasPattern}(?![\\p{L}\\p{N}_])`;
   const renameTimeAdverb = "(?:(?:后来|之后|此后|随后|最终)\\s*)?";
   const nameLabel = "(?:小名|乳名|昵称|绰号|别名|曾用名|原名|本名|真名|化名|称号)";
   const renameVerb = "(?:化名|改名|更名|易名)";
   const directTitle = "(?:又名|人称|号称|被称作|被称为|被唤作|被唤为)";
   const patterns = [
-    `${canonicalPattern}${gap}的?${gap}${nameLabel}${gap}(?:也?是|为|叫)?${gap}${terminalAliasPattern}`,
-    `${canonicalPattern}${gap}${renameTimeAdverb}(?:曾)?${renameVerb}${gap}(?:为|叫|作|成)?${gap}${terminalAliasPattern}`,
-    `${canonicalPattern}${gap}${directTitle}${gap}${terminalAliasPattern}`,
-    `${aliasPattern}${gap}(?:是|为)${gap}${canonicalPattern}${gap}的?${gap}${nameLabel}`
+    `${leadingCanonicalPattern}${gap}的?${gap}${nameLabel}${gap}(?:也?是|为|叫)?${gap}${terminalAliasPattern}`,
+    `${leadingCanonicalPattern}${gap}${renameTimeAdverb}(?:曾)?${renameVerb}${gap}(?:为|叫|作|成)?${gap}${terminalAliasPattern}`,
+    `${leadingCanonicalPattern}${gap}${directTitle}${gap}${terminalAliasPattern}`,
+    `${leadingAliasPattern}${gap}(?:是|为)${gap}${canonicalPattern}${gap}的?${gap}${nameLabel}`
   ];
 
   return patterns.some((pattern) => new RegExp(pattern, "u").test(relationshipText));
 }
 
-function hasExplicitTemporaryContext(stageName, context) {
-  if (TEMPORARY_INJURY_HINT_PATTERN.test(stageName)) return true;
+function hasExplicitTemporaryContext(stageName, fact) {
+  const sourceTexts = getStageSourceTexts(fact);
+  const context = [stageName, ...sourceTexts].join(" ");
+
   if (TEMPORARY_INJURY_CONTEXT_PATTERN.test(context)) return true;
   if (TEMPORARY_EMOTION_HINT_PATTERN.test(stageName)) return true;
   if (EMOTION_CONTEXT_PATTERN.test(context) && TEMPORARY_EMOTION_CONTEXT_PATTERN.test(context)) return true;
@@ -226,10 +230,29 @@ function hasExplicitTemporaryContext(stageName, context) {
   if (TEMPORARY_APPEARANCE_PATTERN.test(context)) return true;
   if (TEMPORARY_CLOTHING_HINT_PATTERN.test(stageName)) return true;
   if (EXPLICIT_TEMPORARY_PATTERN.test(context)) return true;
-  if (STABLE_DURATION_PATTERN.test(context)) return false;
+  if (hasStableStageEvidence(stageName, sourceTexts)) return false;
   return CLOTHING_CHANGE_PATTERN.test(context) ||
     TRANSFORMATION_CHANGE_PATTERN.test(context) ||
+    INJURY_CHANGE_PATTERN.test(context) ||
     COVERING_HINT_PATTERN.test(stageName);
+}
+
+function getStageSourceTexts(fact) {
+  return [
+    normalizeText(fact?.fact),
+    ...(Array.isArray(fact?.evidence) ? fact.evidence.map(normalizeText) : [])
+  ].filter(Boolean);
+}
+
+function hasStableStageEvidence(stageName, sourceTexts) {
+  const feature = stageName.replace(/(?:形态|形|时期|阶段|时代|期)$/u, "");
+  if (!feature) return false;
+
+  return sourceTexts
+    .flatMap((text) => text.split(/[，,。.!！?？；;：:\n]/u))
+    .map(normalizeText)
+    .filter(Boolean)
+    .some((clause) => STABLE_DURATION_PATTERN.test(clause) && clause.includes(feature));
 }
 
 function filterStagesWithIndependentEvidence(stageFacts) {

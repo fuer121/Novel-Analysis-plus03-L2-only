@@ -140,6 +140,35 @@ test("character library does not let weak alias facts occupy a strong alias", ()
   assert.equal(result[0].facts.length, 3);
 });
 
+test("character library isolates strong alias chains and cycles", () => {
+  const chain = characterLibrary.resolveCharacterCandidates([
+    {
+      entity: "沈昭",
+      aliases: ["昭昭"],
+      fact_type: "alias",
+      fact: "沈昭的小名是昭昭",
+      evidence: ["沈家人唤她昭昭"]
+    },
+    {
+      entity: "昭昭",
+      aliases: ["阿昭"],
+      fact_type: "alias",
+      fact: "昭昭的化名是阿昭",
+      evidence: ["昭昭以阿昭之名行走"]
+    },
+    { entity: "阿昭", fact_type: "appearance", fact: "阿昭身形高挑", evidence: ["阿昭身形高挑"] }
+  ]);
+  assert.deepEqual(new Set(chain.map((item) => item.canonical_name)), new Set(["沈昭", "昭昭", "阿昭"]));
+  assert.equal(chain.every((item) => item.aliases.length === 0), true);
+
+  const cycle = characterLibrary.resolveCharacterCandidates([
+    { entity: "沈昭", aliases: ["昭昭"], fact_type: "alias", fact: "沈昭又名昭昭", evidence: ["沈昭又名昭昭"] },
+    { entity: "昭昭", aliases: ["沈昭"], fact_type: "alias", fact: "昭昭又名沈昭", evidence: ["昭昭又名沈昭"] }
+  ]);
+  assert.deepEqual(new Set(cycle.map((item) => item.canonical_name)), new Set(["沈昭", "昭昭"]));
+  assert.equal(cycle.every((item) => item.aliases.length === 0), true);
+});
+
 test("character library rejects unrelated copula text as alias evidence", () => {
   const result = characterLibrary.resolveCharacterCandidates([
     {
@@ -214,19 +243,21 @@ test("character library accepts quoted names in explicit alias templates", () =>
 });
 
 test("character library requires a complete alias name boundary", () => {
-  const result = characterLibrary.resolveCharacterCandidates([
-    {
-      entity: "沈昭",
-      aliases: ["昭昭"],
-      fact_type: "alias",
-      fact: "沈昭的小名是昭昭姐",
-      evidence: ["沈昭提到了昭昭姐"]
-    },
-    { entity: "昭昭", fact_type: "appearance", fact: "昭昭眉尾有痣", evidence: ["昭昭眉尾那颗小痣"] }
-  ]);
+  const cases = [
+    "顾沈昭的小名是昭昭",
+    "沈昭的小名是昭昭姐",
+    "昭昭是顾沈昭的小名",
+    "阿昭昭是沈昭的小名"
+  ];
 
-  assert.deepEqual(result.map((item) => item.canonical_name), ["沈昭", "昭昭"]);
-  assert.deepEqual(result.find((item) => item.canonical_name === "沈昭").aliases, []);
+  for (const statement of cases) {
+    const result = characterLibrary.resolveCharacterCandidates([
+      { entity: "沈昭", aliases: ["昭昭"], fact_type: "alias", fact: statement, evidence: [statement] },
+      { entity: "昭昭", fact_type: "appearance", fact: "昭昭眉尾有痣", evidence: ["昭昭眉尾那颗小痣"] }
+    ]);
+    assert.deepEqual(result.map((item) => item.canonical_name), ["沈昭", "昭昭"], statement);
+    assert.deepEqual(result.find((item) => item.canonical_name === "沈昭").aliases, [], statement);
+  }
 });
 
 test("character stages split distinct stable forms and reject temporary injuries", () => {
@@ -405,6 +436,21 @@ test("character stages prioritize explicit temporary context over unrelated dura
   assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
 });
 
+test("character stages require duration evidence in the candidate state clause", () => {
+  const stages = characterLibrary.deriveCharacterStages("玄霜", [
+    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
+    { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
+    {
+      stage_hint: "白衣形态",
+      stable_difference: true,
+      fact: "此前始终穿青衣，宴会上换上白衣",
+      evidence: ["她在宴会上换了白衣"]
+    }
+  ]);
+
+  assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
+});
+
 test("character stages reject short illness and recovery states", () => {
   const stages = characterLibrary.deriveCharacterStages("玄霜", [
     { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
@@ -515,6 +561,27 @@ test("character stages recognize permanent form changes", () => {
   assert.deepEqual(stages.map(({ name, type }) => ({ name, type })), [
     { name: "人类形态", type: "form" },
     { name: "龙形", type: "form" }
+  ]);
+});
+
+test("character stages preserve permanent injuries", () => {
+  const stages = characterLibrary.deriveCharacterStages("沈昭", [
+    {
+      stage_hint: "双臂时期",
+      stable_difference: true,
+      evidence: ["此前双臂俱全"]
+    },
+    {
+      stage_hint: "断臂阶段",
+      stable_difference: true,
+      fact: "重伤断臂后再未恢复",
+      evidence: ["此后终生仅余右臂"]
+    }
+  ]);
+
+  assert.deepEqual(stages.map(({ name, type }) => ({ name, type })), [
+    { name: "双臂时期", type: "state" },
+    { name: "断臂阶段", type: "state" }
   ]);
 });
 
