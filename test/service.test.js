@@ -43,669 +43,194 @@ test("character library admits only stable named characters", () => {
   assert.equal(characterLibrary.isStableCharacterName("顾".repeat(81)), false);
 });
 
-test("character library merges aliases only with explicit relationship evidence", () => {
-  const aliasFact = {
-    chapter_index: 8,
-    entity: "沈昭",
-    aliases: ["昭昭"],
-    fact_type: "alias",
-    fact: "沈昭的小名是昭昭",
-    evidence: ["她自幼便被唤作昭昭"]
-  };
-  const aliasAppearance = {
-    chapter_index: 8,
-    entity: "昭昭",
-    aliases: [],
-    fact_type: "appearance",
-    fact: "昭昭眉尾有痣",
-    evidence: ["昭昭眉尾那颗小痣"]
-  };
-  const separateCharacter = {
-    chapter_index: 8,
-    entity: "沈姑娘",
-    aliases: ["沈昭"],
-    fact_type: "appearance",
-    fact: "沈姑娘与沈昭同章出现，面色苍白",
-    evidence: ["那沈姑娘面色苍白"]
-  };
-
-  const result = characterLibrary.resolveCharacterCandidates([
-    aliasFact,
-    aliasAppearance,
-    separateCharacter
-  ]);
-
-  assert.deepEqual(result.map((item) => item.canonical_name), ["沈姑娘", "沈昭"]);
-  assert.deepEqual(result.find((item) => item.canonical_name === "沈昭").aliases, ["昭昭"]);
-  assert.deepEqual(result.find((item) => item.canonical_name === "沈昭").facts, [
-    aliasFact,
-    aliasAppearance
-  ]);
-  assert.deepEqual(result.find((item) => item.canonical_name === "沈姑娘").facts, [separateCharacter]);
-});
-
-test("character library ignores weak and conflicting alias declarations", () => {
-  const result = characterLibrary.resolveCharacterCandidates([
-    {
-      entity: "陆岑",
-      aliases: ["阿岑"],
-      fact_type: "alias",
-      fact: "陆岑与阿岑同章出现",
-      evidence: ["两人先后走进庭院"]
-    },
-    { entity: "阿岑", fact_type: "appearance", fact: "阿岑身形高挑", evidence: ["阿岑身形高挑"] },
-    {
-      entity: "白清",
-      aliases: ["小雪"],
-      fact_type: "alias",
-      fact: "白清小名小雪",
-      evidence: ["白家人唤她小雪"]
-    },
-    {
-      entity: "苏晚",
-      aliases: ["小雪"],
-      fact_type: "alias",
-      fact: "苏晚的小名也是小雪",
-      evidence: ["苏母口中的小雪正是苏晚"]
-    },
-    { entity: "小雪", fact_type: "appearance", fact: "小雪穿着青衣", evidence: ["小雪穿着青衣"] }
-  ]);
-
-  assert.deepEqual(result.map((item) => item.canonical_name), ["阿岑", "白清", "陆岑", "苏晚", "小雪"]);
-  assert.deepEqual(result.find((item) => item.canonical_name === "白清").aliases, []);
-  assert.deepEqual(result.find((item) => item.canonical_name === "苏晚").aliases, []);
-});
-
-test("character library does not let weak alias facts occupy a strong alias", () => {
-  const result = characterLibrary.resolveCharacterCandidates([
-    {
-      entity: "沈昭",
-      aliases: ["昭昭"],
-      fact_type: "alias",
-      fact: "沈昭的小名是昭昭",
-      evidence: ["沈家人自幼唤她昭昭"]
-    },
-    {
-      entity: "昭昭",
-      aliases: ["阿昭"],
-      fact_type: "alias",
-      fact: "昭昭与阿昭同章出现",
-      evidence: ["昭昭与阿昭一同走进庭院"]
-    },
-    { entity: "昭昭", fact_type: "appearance", fact: "昭昭眉尾有痣", evidence: ["昭昭眉尾那颗小痣"] }
-  ]);
-
-  assert.deepEqual(result.map((item) => item.canonical_name), ["沈昭"]);
-  assert.deepEqual(result[0].aliases, ["昭昭"]);
-  assert.equal(result[0].facts.length, 3);
-});
-
-test("character library isolates strong alias chains and cycles", () => {
-  const chain = characterLibrary.resolveCharacterCandidates([
-    {
-      entity: "沈昭",
-      aliases: ["昭昭"],
-      fact_type: "alias",
-      fact: "沈昭的小名是昭昭",
-      evidence: ["沈家人唤她昭昭"]
-    },
-    {
-      entity: "昭昭",
-      aliases: ["阿昭"],
-      fact_type: "alias",
-      fact: "昭昭的化名是阿昭",
-      evidence: ["昭昭以阿昭之名行走"]
-    },
-    { entity: "阿昭", fact_type: "appearance", fact: "阿昭身形高挑", evidence: ["阿昭身形高挑"] }
-  ]);
-  assert.deepEqual(new Set(chain.map((item) => item.canonical_name)), new Set(["沈昭", "昭昭", "阿昭"]));
-  assert.equal(chain.every((item) => item.aliases.length === 0), true);
-
-  const cycle = characterLibrary.resolveCharacterCandidates([
-    { entity: "沈昭", aliases: ["昭昭"], fact_type: "alias", fact: "沈昭又名昭昭", evidence: ["沈昭又名昭昭"] },
-    { entity: "昭昭", aliases: ["沈昭"], fact_type: "alias", fact: "昭昭又名沈昭", evidence: ["昭昭又名沈昭"] }
-  ]);
-  assert.deepEqual(new Set(cycle.map((item) => item.canonical_name)), new Set(["沈昭", "昭昭"]));
-  assert.equal(cycle.every((item) => item.aliases.length === 0), true);
-});
-
-test("character library rejects unrelated copula text as alias evidence", () => {
-  const result = characterLibrary.resolveCharacterCandidates([
-    {
-      entity: "沈昭",
-      aliases: ["沈姑娘"],
-      fact_type: "alias",
-      fact: "沈昭就是不愿理会沈姑娘",
-      evidence: ["沈昭转身避开了沈姑娘"]
-    },
-    {
-      entity: "沈姑娘",
-      fact_type: "appearance",
-      fact: "沈姑娘面色苍白",
-      evidence: ["沈姑娘面色苍白"]
-    }
-  ]);
-
-  assert.deepEqual(result.map((item) => item.canonical_name), ["沈姑娘", "沈昭"]);
-  assert.deepEqual(result.find((item) => item.canonical_name === "沈昭").aliases, []);
-});
-
-test("character library rejects direct copula relationship sentences", () => {
-  const result = characterLibrary.resolveCharacterCandidates([
-    {
-      entity: "沈昭",
-      aliases: ["沈姑娘"],
-      fact_type: "alias",
-      fact: "沈昭就是沈姑娘的姐姐",
-      evidence: ["沈昭是沈姑娘的姐姐"]
-    },
-    { entity: "沈姑娘", fact_type: "appearance", fact: "沈姑娘面色苍白", evidence: ["面色苍白"] }
-  ]);
-
-  assert.deepEqual(result.map((item) => item.canonical_name), ["沈姑娘", "沈昭"]);
-});
-
-test("character library accepts only finite explicit alias templates", () => {
+test("character library accepts only the complete alias templates", () => {
   const cases = [
     ["沈昭小名昭昭", "昭昭"],
-    ["沈昭的化名是阿昭", "阿昭"],
-    ["沈昭的称号是昭月仙子", "昭月仙子"],
+    ["沈昭的小名是阿昭", "阿昭"],
     ["沈昭又名沈月", "沈月"],
-    ["沈昭改名为沈瑄", "沈瑄"],
-    ["沈昭后来改名为沈珩", "沈珩"],
-    ["沈昭被称为昭光居士", "昭光居士"]
+    ["沈昭化名为沈瑄", "沈瑄"],
+    ["沈昭的化名是“沈珩”", "沈珩"],
+    ["沈昭改名为沈宁", "沈宁"],
+    ["沈昭被称为昭光居士", "昭光居士"],
+    ["沈昭的称号是《昭月仙子》", "昭月仙子"],
+    ["昭华是沈昭的小名", "昭华"],
+    ["昭影是沈昭的化名", "昭影"],
+    ["昭君是沈昭的称号", "昭君"]
   ];
 
   for (const [statement, alias] of cases) {
-    const result = characterLibrary.resolveCharacterCandidates([
-      { entity: "沈昭", aliases: [alias], fact_type: "alias", fact: statement, evidence: [statement] },
-      { entity: alias, fact_type: "appearance", fact: `${alias}身形高挑`, evidence: [`${alias}身形高挑`] }
-    ]);
-    assert.deepEqual(result.map((item) => item.canonical_name), ["沈昭"], statement);
-    assert.deepEqual(result[0].aliases, [alias], statement);
+    const aliasFact = {
+      entity: "沈昭",
+      aliases: [alias],
+      fact_type: "alias",
+      fact: statement,
+      evidence: [statement]
+    };
+    const aliasAppearance = {
+      entity: alias,
+      fact_type: "appearance",
+      fact: `${alias}身形高挑`,
+      evidence: [`${alias}身形高挑`]
+    };
+    const result = characterLibrary.resolveCharacterCandidates([aliasAppearance, aliasFact]);
+
+    assert.deepEqual(result, [{ canonical_name: "沈昭", aliases: [alias], facts: [aliasAppearance, aliasFact] }], statement);
   }
 });
 
-test("character library accepts quoted names in explicit alias templates", () => {
+test("character library accepts only complete structured alias confirmation", () => {
+  const accepted = {
+    entity: "沈昭",
+    aliases: ["昭昭", "阿昭"],
+    fact_type: "alias",
+    fact: "上游结构化确认",
+    evidence: ["沈家旧谱记载"],
+    alias_relation: "confirmed",
+    alias_confidence: 0.9
+  };
+  const merged = characterLibrary.resolveCharacterCandidates([
+    accepted,
+    { entity: "昭昭", fact_type: "appearance", evidence: ["眉尾有痣"] },
+    { entity: "阿昭", fact_type: "appearance", evidence: ["身形高挑"] }
+  ]);
+  assert.deepEqual(merged.map((item) => item.canonical_name), ["沈昭"]);
+  assert.deepEqual(merged[0].aliases, ["阿昭", "昭昭"]);
+
+  const rejected = [
+    ["aliases alone", { fact_type: "appearance" }, ["沈昭", "昭昭"]],
+    ["missing evidence", { evidence: [] }, ["沈昭", "昭昭"]],
+    ["weak confidence", { alias_confidence: 0.89 }, ["沈昭", "昭昭"]],
+    ["unconfirmed relation", { alias_relation: "candidate" }, ["沈昭", "昭昭"]],
+    ["unstable canonical", { entity: "黑衣人" }, ["昭昭"]],
+    ["unstable alias", { aliases: ["侍卫"] }, ["沈昭"]]
+  ];
+
+  for (const [label, overrides, expectedNames] of rejected) {
+    const alias = overrides.aliases?.[0] ?? "昭昭";
+    const result = characterLibrary.resolveCharacterCandidates([
+      { ...accepted, aliases: ["昭昭"], ...overrides },
+      { entity: alias, fact_type: "appearance", evidence: ["独立事实"] }
+    ]);
+    assert.deepEqual(result.map((item) => item.canonical_name), expectedNames, label);
+    assert.equal(result.every((item) => item.aliases.length === 0), true, label);
+  }
+});
+
+test("character library rejects weak or extended alias statements", () => {
+  const statements = [
+    "沈昭与昭昭同章出现",
+    "沈昭的小名也是昭昭",
+    "沈昭后来改名为昭昭",
+    "沈昭的小名是昭昭，但关系未经确认"
+  ];
+
+  for (const statement of statements) {
+    const result = characterLibrary.resolveCharacterCandidates([
+      { entity: "沈昭", aliases: ["昭昭"], fact_type: "alias", fact: statement, evidence: [statement] },
+      { entity: "昭昭", fact_type: "appearance", evidence: ["眉尾有痣"] }
+    ]);
+    assert.deepEqual(result.map((item) => item.canonical_name), ["沈昭", "昭昭"], statement);
+  }
+});
+
+test("character library isolates aliases claimed by multiple canonical names", () => {
   const result = characterLibrary.resolveCharacterCandidates([
-    {
-      entity: "沈昭",
-      aliases: ["昭昭"],
-      fact_type: "alias",
-      fact: "沈昭的化名是“昭昭”",
-      evidence: ["她以《昭昭》之名行走江湖"]
-    },
-    { entity: "昭昭", fact_type: "appearance", fact: "昭昭身形高挑", evidence: ["昭昭身形高挑"] }
+    { entity: "白清", aliases: ["小雪"], fact_type: "alias", fact: "白清小名小雪", evidence: ["白家旧谱"] },
+    { entity: "苏晚", aliases: ["小雪"], fact_type: "alias", fact: "苏晚小名小雪", evidence: ["苏家旧谱"] },
+    { entity: "小雪", fact_type: "appearance", evidence: ["身着青衣"] }
   ]);
 
-  assert.deepEqual(result.map((item) => item.canonical_name), ["沈昭"]);
-  assert.deepEqual(result[0].aliases, ["昭昭"]);
+  assert.deepEqual(result.map((item) => item.canonical_name), ["白清", "苏晚", "小雪"]);
+  assert.equal(result.every((item) => item.aliases.length === 0), true);
 });
 
-test("character library requires a complete alias name boundary", () => {
+test("character library isolates alias chains and cycles", () => {
+  const chain = characterLibrary.resolveCharacterCandidates([
+    { entity: "沈昭", aliases: ["昭昭"], fact_type: "alias", fact: "沈昭小名昭昭", evidence: ["沈家旧谱"] },
+    { entity: "昭昭", aliases: ["阿昭"], fact_type: "alias", fact: "昭昭化名为阿昭", evidence: ["行走江湖"] },
+    { entity: "阿昭", fact_type: "appearance", evidence: ["身形高挑"] }
+  ]);
+  assert.deepEqual(chain.map((item) => item.canonical_name), ["阿昭", "沈昭", "昭昭"]);
+  assert.equal(chain.every((item) => item.aliases.length === 0), true);
+
+  const cycle = characterLibrary.resolveCharacterCandidates([
+    { entity: "沈昭", aliases: ["昭昭"], fact_type: "alias", fact: "沈昭又名昭昭", evidence: ["证据一"] },
+    { entity: "昭昭", aliases: ["沈昭"], fact_type: "alias", fact: "昭昭又名沈昭", evidence: ["证据二"] }
+  ]);
+  assert.deepEqual(cycle.map((item) => item.canonical_name), ["沈昭", "昭昭"]);
+  assert.equal(cycle.every((item) => item.aliases.length === 0), true);
+});
+
+test("character stages split only qualified structured stage facts", () => {
+  const facts = [
+    { stage_hint: "少年", stage_type: "age", stage_stability: "stable", stable_difference: true, evidence: ["身量未足"] },
+    { stage_hint: "人类形态", stage_type: "form", stage_stability: "stable", stable_difference: true, evidence: ["保持人身"] },
+    { stage_hint: "皇后时期", stage_type: "identity", stage_stability: "stable", stable_difference: true, evidence: ["册封为后"] }
+  ];
+
+  assert.deepEqual(characterLibrary.deriveCharacterStages("沈昭", facts), [
+    { name: "少年", type: "age", facts: [facts[0]] },
+    { name: "人类形态", type: "form", facts: [facts[1]] },
+    { name: "皇后时期", type: "identity", facts: [facts[2]] }
+  ]);
+});
+
+test("character stages require every structured contract field", () => {
+  const first = {
+    stage_hint: "少年",
+    stage_type: "age",
+    stage_stability: "stable",
+    stable_difference: true,
+    evidence: ["身量未足"]
+  };
+  const second = {
+    stage_hint: "成年",
+    stage_type: "age",
+    stage_stability: "stable",
+    stable_difference: true,
+    evidence: ["骨架高大"]
+  };
   const cases = [
-    "顾沈昭的小名是昭昭",
-    "沈昭的小名是昭昭姐",
-    "昭昭是顾沈昭的小名",
-    "阿昭昭是沈昭的小名"
+    ["stage hint", { stage_hint: "" }],
+    ["stage type", { stage_type: undefined }],
+    ["allowed stage type", { stage_type: "state" }],
+    ["stage stability", { stage_stability: undefined }],
+    ["stable stage", { stage_stability: "temporary" }],
+    ["stable difference", { stable_difference: undefined }],
+    ["confirmed difference", { stable_difference: false }],
+    ["evidence", { evidence: [] }]
   ];
 
-  for (const statement of cases) {
-    const result = characterLibrary.resolveCharacterCandidates([
-      { entity: "沈昭", aliases: ["昭昭"], fact_type: "alias", fact: statement, evidence: [statement] },
-      { entity: "昭昭", fact_type: "appearance", fact: "昭昭眉尾有痣", evidence: ["昭昭眉尾那颗小痣"] }
-    ]);
-    assert.deepEqual(result.map((item) => item.canonical_name), ["沈昭", "昭昭"], statement);
-    assert.deepEqual(result.find((item) => item.canonical_name === "沈昭").aliases, [], statement);
+  for (const [label, overrides] of cases) {
+    const facts = [first, { ...second, ...overrides }];
+    assert.deepEqual(characterLibrary.deriveCharacterStages("沈昭", facts), [
+      { name: "默认阶段", type: "default", facts }
+    ], label);
   }
 });
 
-test("character library rejects alias declarations negated in the adjacent clause", () => {
-  const rejectedStatements = [
-    "沈昭的小名是昭昭，但此传言未获证实",
-    "沈昭又名昭昭，实为旁人误传"
-  ];
-
-  for (const statement of rejectedStatements) {
-    const result = characterLibrary.resolveCharacterCandidates([
-      { entity: "沈昭", aliases: ["昭昭"], fact_type: "alias", fact: statement, evidence: [statement] },
-      { entity: "昭昭", fact_type: "appearance", fact: "昭昭眉尾有痣", evidence: ["昭昭眉尾那颗小痣"] }
-    ]);
-    assert.deepEqual(result.map((item) => item.canonical_name), ["沈昭", "昭昭"], statement);
-  }
-
-  const confirmed = characterLibrary.resolveCharacterCandidates([
-    {
-      entity: "沈昭",
-      aliases: ["昭昭"],
-      fact_type: "alias",
-      fact: "沈昭又名昭昭。众人转而谈论婚约。另一则身世传言未获证实",
-      evidence: ["沈昭又名昭昭"]
-    },
-    { entity: "昭昭", fact_type: "appearance", fact: "昭昭眉尾有痣", evidence: ["昭昭眉尾那颗小痣"] }
-  ]);
-  assert.deepEqual(confirmed.map((item) => item.canonical_name), ["沈昭"]);
-  assert.deepEqual(confirmed[0].aliases, ["昭昭"]);
-
-  const unrelatedNegation = characterLibrary.resolveCharacterCandidates([
-    {
-      entity: "沈昭",
-      aliases: ["昭昭"],
-      fact_type: "alias",
-      fact: "沈昭的小名是昭昭。她并非沈姑娘",
-      evidence: ["沈昭的小名是昭昭"]
-    },
-    { entity: "昭昭", fact_type: "appearance", fact: "昭昭眉尾有痣", evidence: ["昭昭眉尾那颗小痣"] }
-  ]);
-  assert.deepEqual(unrelatedNegation.map((item) => item.canonical_name), ["沈昭"]);
-  assert.deepEqual(unrelatedNegation[0].aliases, ["昭昭"]);
-});
-
-test("character stages split distinct stable forms and reject temporary injuries", () => {
-  const humanFact = {
-    chapter_index: 3,
-    stage_hint: "人类形态",
-    stable_difference: true,
-    evidence: ["她仍是人身"]
+test("character stages require independent evidence for every stage", () => {
+  const base = {
+    stage_type: "form",
+    stage_stability: "stable",
+    stable_difference: true
   };
-  const dragonFact = {
-    chapter_index: 40,
-    stage_hint: "龙形",
-    stable_difference: true,
-    evidence: ["此后常以银龙真身现世"]
-  };
-  const injuryFact = {
-    chapter_index: 41,
-    stage_hint: "受伤",
-    stable_difference: true,
-    evidence: ["左肩受伤"]
-  };
-
-  const stages = characterLibrary.deriveCharacterStages("玄霜", [humanFact, dragonFact, injuryFact]);
-
-  assert.deepEqual(stages, [
-    { name: "人类形态", type: "form", facts: [humanFact] },
-    { name: "龙形", type: "form", facts: [dragonFact] }
-  ]);
-});
-
-test("character stages distinguish age stages from forms", () => {
-  const stages = characterLibrary.deriveCharacterStages("林深", [
-    { stage_hint: "少年", stable_difference: true, evidence: ["少年时身量未足"] },
-    { stage_hint: "成年", stable_difference: true, evidence: ["成年后骨架高大"] }
-  ]);
-
-  assert.deepEqual(stages.map(({ name, type }) => ({ name, type })), [
-    { name: "少年", type: "age" },
-    { name: "成年", type: "age" }
-  ]);
-});
-
-test("character stages reject temporary semantics in facts and evidence", () => {
-  const stages = characterLibrary.deriveCharacterStages("玄霜", [
-    {
-      stage_hint: "人类形态",
-      stable_difference: true,
-      fact: "她长期保持人身",
-      evidence: ["她仍是人身"]
-    },
-    {
-      stage_hint: "龙形",
-      stable_difference: true,
-      fact: "此后常以银龙真身现世",
-      evidence: ["银龙真身盘旋于云上"]
-    },
-    {
-      stage_hint: "白衣形态",
-      stable_difference: true,
-      fact: "她只是临时换装，只维持一场",
-      evidence: ["这身白衣仅在宴会上穿过一次"]
-    }
-  ]);
-
-  assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
-});
-
-test("character stages reject one-off clothing actions", () => {
-  const stages = characterLibrary.deriveCharacterStages("玄霜", [
-    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
-    { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
-    {
-      stage_hint: "白衣形态",
-      stable_difference: true,
-      fact: "她在宴会上换上白衣",
-      evidence: ["她在宴会上换上白衣"]
-    }
-  ]);
-
-  assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
-});
-
-test("character stages reject clothing changes that explicitly revert", () => {
-  const stages = characterLibrary.deriveCharacterStages("玄霜", [
-    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
-    { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
-    {
-      stage_hint: "白衣形态",
-      stable_difference: true,
-      fact: "舞会上换上白衣",
-      evidence: ["离席便换回常服"]
-    }
-  ]);
-
-  assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
-});
-
-test("character stages preserve clothing changes with stable duration evidence", () => {
-  const stages = characterLibrary.deriveCharacterStages("沈昭", [
-    {
-      stage_hint: "流亡时期",
-      stable_difference: true,
-      fact: "流亡后长期以布衣示人",
-      evidence: ["流亡后多年一直穿着布衣"]
-    },
-    {
-      stage_hint: "皇后时期",
-      stable_difference: true,
-      fact: "册封后从此换上皇后冠服",
-      evidence: ["自册封起始终穿皇后冠服"]
-    }
-  ]);
-
-  assert.deepEqual(stages.map(({ name, type }) => ({ name, type })), [
-    { name: "流亡时期", type: "state" },
-    { name: "皇后时期", type: "state" }
-  ]);
-});
-
-test("character stages preserve lasting wardrobe changes that remove old clothing", () => {
-  const stages = characterLibrary.deriveCharacterStages("沈昭", [
-    {
-      stage_hint: "流亡时期",
-      stable_difference: true,
-      fact: "流亡后长期以布衣示人",
-      evidence: ["流亡后多年一直穿着布衣"]
-    },
-    {
-      stage_hint: "皇后时期",
-      stable_difference: true,
-      fact: "册封后从此换下旧袍，穿上皇后冠服",
-      evidence: ["此后始终着皇后冠服"]
-    }
-  ]);
-
-  assert.deepEqual(stages.map(({ name, type }) => ({ name, type })), [
-    { name: "流亡时期", type: "state" },
-    { name: "皇后时期", type: "state" }
-  ]);
-});
-
-test("character stages preserve lasting retirement changes that restore ordinary clothing", () => {
-  const stages = characterLibrary.deriveCharacterStages("沈昭", [
-    {
-      stage_hint: "皇后时期",
-      stable_difference: true,
-      fact: "册封后从此穿上皇后冠服",
-      evidence: ["自册封起始终着皇后冠服"]
-    },
-    {
-      stage_hint: "退隐阶段",
-      stable_difference: true,
-      fact: "退隐后从此换回常服",
-      evidence: ["此后一直以常服示人"]
-    }
-  ]);
-
-  assert.deepEqual(stages.map(({ name, type }) => ({ name, type })), [
-    { name: "皇后时期", type: "state" },
-    { name: "退隐阶段", type: "state" }
-  ]);
-});
-
-test("character stages prioritize explicit temporary context over unrelated duration", () => {
-  const stages = characterLibrary.deriveCharacterStages("玄霜", [
-    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
-    { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
-    {
-      stage_hint: "白衣形态",
-      stable_difference: true,
-      fact: "宴会上临时换装白衣",
-      evidence: ["此前一直穿青衣，当晚换上白衣"]
-    }
-  ]);
-
-  assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
-});
-
-test("character stages require duration evidence in the candidate state clause", () => {
-  const stages = characterLibrary.deriveCharacterStages("玄霜", [
-    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
-    { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
-    {
-      stage_hint: "白衣形态",
-      stable_difference: true,
-      fact: "此前始终穿青衣，宴会上换上白衣",
-      evidence: ["她在宴会上换了白衣"]
-    }
-  ]);
-
-  assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
-});
-
-test("character stages split raw narrative transitions before normalization", () => {
   const cases = [
-    {
-      fact: "此前始终穿青衣后来在宴会上换上白衣",
-      evidence: ["她在宴会上换了白衣"]
-    },
-    {
-      fact: "她在宴会上换上白衣",
-      evidence: ["此前始终穿青衣\n宴会上换上白衣"]
-    }
+    [
+      { ...base, stage_hint: "人类形态", evidence: ["共享证据"] },
+      { ...base, stage_hint: "龙形", evidence: [" 共享证据 "] }
+    ],
+    [
+      { ...base, stage_hint: "人类形态", evidence: ["共享证据", "人身独立证据"] },
+      { ...base, stage_hint: "龙形", evidence: ["共享证据"] }
+    ]
   ];
 
-  for (const candidate of cases) {
-    const stages = characterLibrary.deriveCharacterStages("玄霜", [
-      { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
-      { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
-      { stage_hint: "白衣形态", stable_difference: true, ...candidate }
+  for (const facts of cases) {
+    assert.deepEqual(characterLibrary.deriveCharacterStages("玄霜", facts), [
+      { name: "默认阶段", type: "default", facts }
     ]);
-
-    assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"], candidate.fact);
   }
-});
-
-test("character stages reject short illness and recovery states", () => {
-  const stages = characterLibrary.deriveCharacterStages("玄霜", [
-    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
-    { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
-    {
-      stage_hint: "病中形态",
-      stable_difference: true,
-      fact: "她病了一场",
-      evidence: ["三日后痊愈"]
-    },
-    {
-      stage_hint: "伤中形态",
-      stable_difference: true,
-      fact: "她肩头带伤",
-      evidence: ["不久便伤愈"]
-    },
-    {
-      stage_hint: "病后形态",
-      stable_difference: true,
-      fact: "病后一时懔悴",
-      evidence: ["数日后痊愈"]
-    }
-  ]);
-
-  assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
-});
-
-test("character stages reject single-scene emotional states", () => {
-  const stages = characterLibrary.deriveCharacterStages("玄霜", [
-    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
-    { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
-    {
-      stage_hint: "愤怒形态",
-      stable_difference: true,
-      fact: "此刻怒不可遏",
-      evidence: ["她旋即恢复平静"]
-    }
-  ]);
-
-  assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
-});
-
-test("character stages reject one-off coverings but preserve stable coverings", () => {
-  const temporaryStages = characterLibrary.deriveCharacterStages("玄霜", [
-    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
-    { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
-    {
-      stage_hint: "蒙面形态",
-      stable_difference: true,
-      fact: "这一幕她以黑纱蒙面",
-      evidence: ["离场后摘去黑纱"]
-    }
-  ]);
-  assert.deepEqual(temporaryStages.map((stage) => stage.name), ["人类形态", "龙形"]);
-
-  const stableStages = characterLibrary.deriveCharacterStages("沈昭", [
-    { stage_hint: "未遮挡时期", stable_difference: true, evidence: ["早年以真容示人"] },
-    {
-      stage_hint: "蒙面形态",
-      stable_difference: true,
-      fact: "此后从此以黑纱蒙面",
-      evidence: ["多年来始终戴着黑纱"]
-    }
-  ]);
-  assert.deepEqual(stableStages.map((stage) => stage.name), ["未遮挡时期", "蒙面形态"]);
-});
-
-test("character stages reject reverted mutations but preserve stable mutations", () => {
-  const temporaryStages = characterLibrary.deriveCharacterStages("玄霜", [
-    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
-    { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
-    {
-      stage_hint: "赤瞳异变",
-      stable_difference: true,
-      fact: "力量爆发后双目化作赤色",
-      evidence: ["转瞬便恢复原状"]
-    }
-  ]);
-  assert.deepEqual(temporaryStages.map((stage) => stage.name), ["人类形态", "龙形"]);
-
-  const stableStages = characterLibrary.deriveCharacterStages("沈昭", [
-    { stage_hint: "黑瞳时期", stable_difference: true, evidence: ["早年双眸漆黑"] },
-    {
-      stage_hint: "赤瞳形态",
-      stable_difference: true,
-      fact: "力量觉醒后从此双目化作赤色",
-      evidence: ["此后始终保持赤瞳"]
-    }
-  ]);
-  assert.deepEqual(stableStages.map((stage) => stage.name), ["黑瞳时期", "赤瞳形态"]);
-});
-
-test("character stages recognize permanent form changes", () => {
-  const stages = characterLibrary.deriveCharacterStages("玄霜", [
-    {
-      stage_hint: "人类形态",
-      stable_difference: true,
-      evidence: ["她仍是人身"]
-    },
-    {
-      stage_hint: "龙形",
-      stable_difference: true,
-      fact: "她永久化作银龙真身",
-      evidence: ["银龙真身盘旋云上"]
-    }
-  ]);
-
-  assert.deepEqual(stages.map(({ name, type }) => ({ name, type })), [
-    { name: "人类形态", type: "form" },
-    { name: "龙形", type: "form" }
-  ]);
-});
-
-test("character stages preserve permanent injuries", () => {
-  const stages = characterLibrary.deriveCharacterStages("沈昭", [
-    {
-      stage_hint: "双臂时期",
-      stable_difference: true,
-      evidence: ["此前双臂俱全"]
-    },
-    {
-      stage_hint: "独臂时期",
-      stable_difference: true,
-      fact: "重伤断臂后再未恢复",
-      evidence: ["此后终生仅余右臂"]
-    }
-  ]);
-
-  assert.deepEqual(stages.map(({ name, type }) => ({ name, type })), [
-    { name: "双臂时期", type: "state" },
-    { name: "独臂时期", type: "state" }
-  ]);
-});
-
-test("character stages keep identity periods distinct from age and form types", () => {
-  const stages = characterLibrary.deriveCharacterStages("沈昭", [
-    { stage_hint: "少年", stable_difference: true, evidence: ["少年时身量未足"] },
-    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
-    { stage_hint: "皇后时期", stable_difference: true, evidence: ["册封后冠服与仪态长期改变"] },
-    { stage_hint: "流亡时期", stable_difference: true, evidence: ["流亡后长期以布衣示人"] }
-  ]);
-
-  assert.deepEqual(stages.map(({ name, type }) => ({ name, type })), [
-    { name: "少年", type: "age" },
-    { name: "人类形态", type: "form" },
-    { name: "皇后时期", type: "state" },
-    { name: "流亡时期", type: "state" }
-  ]);
-});
-
-test("character stages require independent evidence across stage hints", () => {
-  const facts = [
-    { stage_hint: "人类形态", stable_difference: true, evidence: ["同一段未分化证据"] },
-    { stage_hint: "龙形", stable_difference: true, evidence: [" 同一段未分化证据 "] }
-  ];
-
-  assert.deepEqual(characterLibrary.deriveCharacterStages("玄霜", facts), [
-    { name: "默认阶段", type: "default", facts }
-  ]);
-});
-
-test("character stages require unique evidence for every stage", () => {
-  const facts = [
-    {
-      stage_hint: "人类形态",
-      stable_difference: true,
-      evidence: ["共享证据", "人身独立证据"]
-    },
-    {
-      stage_hint: "龙形",
-      stable_difference: true,
-      evidence: [" 共享证据 "]
-    }
-  ];
-
-  assert.deepEqual(characterLibrary.deriveCharacterStages("玄霜", facts), [
-    { name: "默认阶段", type: "default", facts }
-  ]);
-});
-
-test("character stages fall back when fewer than two distinct stages qualify", () => {
-  const facts = [
-    { stage_hint: "龙形", stable_difference: true, evidence: ["第一处龙形证据"] },
-    { stage_hint: "龙形", stable_difference: true, evidence: ["第二处龙形证据"] },
-    { stage_hint: "人类形态", stable_difference: false, evidence: ["仅是模型推测"] },
-    { stage_hint: "成年", stable_difference: true, evidence: [] }
-  ];
-
-  assert.deepEqual(characterLibrary.deriveCharacterStages("玄霜", facts), [
-    { name: "默认阶段", type: "default", facts }
-  ]);
 });
 
 test("character fact fingerprints survive L2 UUID replacement", () => {
