@@ -32,7 +32,7 @@
 - [`books/README.md`](books/README.md)：书籍工作区目录职责、批次规则和迁移要求
 - [《凰宫梦》179 人正式角色基线](books/1836527-凰宫梦/final/characters/README.md)：当前样板书的正式成果入口和校验证据
 - [《逆天邪神》角色形象生成与质检 SOP](books/148431-逆天邪神/inputs/prompts/角色形象生成与质检SOP.md)：单书实践记录，不作为跨书籍默认配置
-- `docs/superpowers/`：2026-08-27 工作区迁移期的计划、评审与评估档案，只作历史背景，不作当前规则
+- [`docs/superpowers/README.md`](docs/superpowers/README.md)：设计评审、实施计划和专项评估工作区的目录职责与状态判定规则；`plans/` 可同时包含活跃、已完成和已替代计划，不得仅按目录或创建日期判断是否当前生效
 
 删除影响：执行者会重复猜测规则，或把单书案例、历史 PNG 产物和一次性数字误当成新任务的通用标准
 
