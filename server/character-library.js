@@ -108,24 +108,27 @@ export function resolveCharacterCandidates(facts = []) {
 export function deriveCharacterStages(_name, facts = []) {
   const sourceFacts = Array.isArray(facts) ? facts : [];
   const stages = new Map();
+  let hasStageTypeConflict = false;
   for (const fact of sourceFacts) {
     const stageName = normalizeText(fact?.stage_hint);
     if (!isQualifiedStageFact(fact, stageName)) continue;
-
     const stage = stages.get(stageName) ?? { type: fact.stage_type, facts: [] };
-    if (stage.type !== fact.stage_type) stage.type = null;
+    if (stage.type !== fact.stage_type) hasStageTypeConflict = true;
     stage.facts.push(fact);
     stages.set(stageName, stage);
   }
-  for (const [stageName, stage] of stages) if (!stage.type) stages.delete(stageName);
-  if (stages.size < 2 || !everyStageHasIndependentEvidence(stages)) {
+  if (hasStageTypeConflict || stages.size < 2 || !everyStageHasIndependentEvidence(stages)) {
     return [{ name: "默认阶段", type: "default", facts: sourceFacts }];
   }
-
-  return [...stages].map(([name, stage]) => ({
+  const sortedStages = [...stages].sort(([leftName, left], [rightName, right]) => {
+    const leftChapter = Math.min(...left.facts.map((fact) => normalizeChapterIndex(fact.chapter_index)).filter(Boolean), Number.MAX_SAFE_INTEGER);
+    const rightChapter = Math.min(...right.facts.map((fact) => normalizeChapterIndex(fact.chapter_index)).filter(Boolean), Number.MAX_SAFE_INTEGER);
+    return leftChapter - rightChapter || compareChineseNames(leftName, rightName) || left.type.localeCompare(right.type);
+  });
+  return sortedStages.map(([name, stage]) => ({
     name,
     type: stage.type,
-    facts: stage.facts
+    facts: [...stage.facts].sort((left, right) => characterFactFingerprint(left).localeCompare(characterFactFingerprint(right)))
   }));
 }
 
@@ -137,7 +140,6 @@ function isStrongAliasFact(fact, canonical) {
     hasEvidence(fact.evidence)
   );
 }
-
 function isQualifiedStageFact(fact, stageName) {
   return Boolean(
     typeof fact?.stage_hint === "string" &&
@@ -148,13 +150,11 @@ function isQualifiedStageFact(fact, stageName) {
     hasEvidence(fact.evidence)
   );
 }
-
 function collectStrongAliasEdges(facts) {
   const edges = [];
   for (const fact of facts) {
     const canonical = normalizeText(fact?.entity);
     if (!isStrongAliasFact(fact, canonical)) continue;
-
     for (const value of fact.aliases) {
       const alias = normalizeText(value);
       if (
@@ -174,7 +174,6 @@ function hasConfirmedAliasRelationship(fact, canonical, alias) {
     Number.isFinite(fact.alias_confidence) &&
     fact.alias_confidence >= 0.9
   ) return true;
-
   const statement = normalizeAliasRelationshipText(fact.fact);
   const templates = [
     `${canonical}小名${alias}`,

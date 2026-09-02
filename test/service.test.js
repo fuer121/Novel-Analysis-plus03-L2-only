@@ -163,9 +163,9 @@ test("character library isolates alias chains and cycles", () => {
 
 test("character stages split only qualified structured stage facts", () => {
   const facts = [
-    { stage_hint: "少年", stage_type: "age", stage_stability: "stable", stable_difference: true, evidence: ["身量未足"] },
-    { stage_hint: "人类形态", stage_type: "form", stage_stability: "stable", stable_difference: true, evidence: ["保持人身"] },
-    { stage_hint: "皇后时期", stage_type: "identity", stage_stability: "stable", stable_difference: true, evidence: ["册封为后"] }
+    { chapter_index: 1, stage_hint: "少年", stage_type: "age", stage_stability: "stable", stable_difference: true, evidence: ["身量未足"] },
+    { chapter_index: 2, stage_hint: "人类形态", stage_type: "form", stage_stability: "stable", stable_difference: true, evidence: ["保持人身"] },
+    { chapter_index: 3, stage_hint: "皇后时期", stage_type: "identity", stage_stability: "stable", stable_difference: true, evidence: ["册封为后"] }
   ];
 
   assert.deepEqual(characterLibrary.deriveCharacterStages("沈昭", facts), [
@@ -211,11 +211,32 @@ test("character stages require every structured contract field", () => {
   const conflictingFacts = [
     first,
     { ...first, stage_type: "identity", evidence: ["身份发生变化"] },
-    second
+    second,
+    {
+      stage_hint: "人类形态",
+      stage_type: "form",
+      stage_stability: "stable",
+      stable_difference: true,
+      evidence: ["保持人身"]
+    }
   ];
   assert.deepEqual(characterLibrary.deriveCharacterStages("沈昭", conflictingFacts), [
     { name: "默认阶段", type: "default", facts: conflictingFacts }
   ], "conflicting stage type");
+});
+
+test("character stages sort qualified output independently of input order", () => {
+  const facts = [
+    { stage_hint: "后期", stage_type: "identity", stage_stability: "stable", stable_difference: true, evidence: ["后期证据一"] },
+    { chapter_index: 2, stage_hint: "早期", stage_type: "age", stage_stability: "stable", stable_difference: true, evidence: ["早期证据"] },
+    { stage_hint: "乙阶段", stage_type: "form", stage_stability: "stable", stable_difference: true, evidence: ["乙阶段证据"] },
+    { chapter_index: 10, stage_hint: "后期", stage_type: "identity", stage_stability: "stable", stable_difference: true, evidence: ["后期证据二"] },
+    { chapter_index: "invalid", stage_hint: "甲阶段", stage_type: "identity", stage_stability: "stable", stable_difference: true, evidence: ["甲阶段证据"] }
+  ];
+  const reorderedFacts = [facts[4], facts[2], facts[1], facts[3], facts[0]];
+  const stages = characterLibrary.deriveCharacterStages("沈昭", facts);
+  assert.deepEqual(characterLibrary.deriveCharacterStages("沈昭", reorderedFacts), stages);
+  assert.deepEqual(stages.map((stage) => stage.name), ["早期", "后期", "甲阶段", "乙阶段"]);
 });
 
 test("character stages require independent evidence for every stage", () => {
