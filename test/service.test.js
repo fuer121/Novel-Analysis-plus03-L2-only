@@ -378,6 +378,124 @@ test("character fact fingerprints survive L2 UUID replacement", () => {
   assert.equal(left, right);
 });
 
+test("character library persists and atomically replaces the current projection", () => {
+  const bookId = "character-persistence-book";
+  db.ensureBook(bookId, "角色持久化测试书");
+
+  const firstBuild = db.createCharacterLibraryBuild({
+    bookId,
+    indexGroupKey: "characters",
+    startChapter: 1,
+    endChapter: 20,
+    sourceFingerprint: "source-v1"
+  });
+  assert.equal(firstBuild.status, "running");
+  assert.throws(
+    () => db.createCharacterLibraryBuild({ bookId, indexGroupKey: "characters", startChapter: 1, endChapter: 20, sourceFingerprint: "source-concurrent" }),
+    /unfinished character library build/i
+  );
+
+  db.replaceCharacterProjection(firstBuild.id, [{
+    id: `${bookId}:shen-zhao`,
+    book_id: bookId,
+    canonical_name: "沈昭",
+    aliases: ["昭昭"],
+    gender: "女",
+    stages: [{
+      id: `${bookId}:shen-zhao:default`,
+      name: "默认阶段",
+      stable_appearance: "眉尾有痣",
+      stable_temperament: "冷静克制",
+      original_facial_features: "眉尾有痣",
+      designed_facial_features: "窄长眼型，眉峰平直",
+      design_basis: ["眉尾有痣", "冷静克制"],
+      facts: [{ fingerprint: "fact-1", chapter_index: 8, fact_type: "appearance", fact: "眉尾有痣", evidence: ["眉尾那颗痣"] }]
+    }]
+  }], { coverage: { end_chapter: 20 }, quality: { warning_count: 0 } });
+
+  const firstStatus = db.getCharacterLibraryStatus(bookId);
+  assert.equal(firstStatus.build_id, firstBuild.id);
+  assert.equal(firstStatus.status, "completed");
+  assert.equal(firstStatus.is_current, true);
+  assert.equal(firstStatus.coverage.end_chapter, 20);
+  assert.equal(firstStatus.character_count, 1);
+  assert.equal(firstStatus.stage_count, 1);
+  assert.equal(firstStatus.fact_count, 1);
+
+  const firstDetail = db.getCharacterLibraryCharacter(bookId, `${bookId}:shen-zhao`);
+  assert.equal(firstDetail.canonical_name, "沈昭");
+  assert.equal(firstDetail.stages[0].designed_facial_features, "窄长眼型，眉峰平直");
+  assert.equal(firstDetail.stages[0].facts[0].fingerprint, "fact-1");
+
+  const secondBuild = db.createCharacterLibraryBuild({
+    bookId,
+    indexGroupKey: "characters",
+    startChapter: 1,
+    endChapter: 30,
+    sourceFingerprint: "source-v2"
+  });
+  db.replaceCharacterProjection(secondBuild.id, [
+    {
+      id: `${bookId}:shen-zhao`,
+      book_id: bookId,
+      canonical_name: "沈昭",
+      aliases: ["昭昭"],
+      stages: [{ id: `${bookId}:shen-zhao:default`, name: "默认阶段", facts: [] }]
+    },
+    {
+      id: `${bookId}:other-shen-zhao`,
+      book_id: bookId,
+      canonical_name: "沈昭",
+      aliases: ["另一个沈昭"],
+      stages: [
+        { id: `${bookId}:other-shen-zhao:early`, name: "早期", start_chapter: 1, facts: [{ fingerprint: "fact-2", chapter_index: 2, fact: "早期事实", evidence: ["早期证据"] }] },
+        { id: `${bookId}:other-shen-zhao:late`, name: "后期", start_chapter: 20, facts: [] }
+      ]
+    }
+  ], { status: "partial", coverage: { end_chapter: 30, is_partial: true } });
+
+  const secondStatus = db.getCharacterLibraryStatus(bookId);
+  assert.equal(secondStatus.build_id, secondBuild.id);
+  assert.equal(secondStatus.status, "partial");
+  assert.equal(secondStatus.character_count, 2);
+  assert.equal(secondStatus.stage_count, 3);
+  assert.equal(secondStatus.fact_count, 1);
+  assert.deepEqual(db.listCharacterLibraryCharacters({ bookId }).map((item) => item.id), [
+    `${bookId}:other-shen-zhao`,
+    `${bookId}:shen-zhao`
+  ]);
+  assert.deepEqual(db.listCharacterLibraryCharacters({ bookId, search: "另一个" }).map((item) => item.id), [`${bookId}:other-shen-zhao`]);
+  assert.deepEqual(db.listCharacterLibraryCharacters({ bookId, filter: "multi_stage" }).map((item) => item.id), [`${bookId}:other-shen-zhao`]);
+  assert.equal(db.listCharacterLibraryCharacters({ bookId, filter: "incomplete" }).length, 2);
+  assert.equal(db.listCharacterLibraryCharacters({ bookId, sort: "facts" })[0].id, `${bookId}:other-shen-zhao`);
+});
+
+test("character library rejects invalid projections without replacing the current version", () => {
+  const bookId = "character-rollback-book";
+  db.ensureBook(bookId, "角色回滚测试书");
+  const currentBuild = db.createCharacterLibraryBuild({ bookId, indexGroupKey: "characters", startChapter: 1, endChapter: 10, sourceFingerprint: "valid" });
+  db.replaceCharacterProjection(currentBuild.id, [{
+    id: `${bookId}:valid`,
+    book_id: bookId,
+    canonical_name: "顾南风",
+    stages: [{ id: `${bookId}:valid:default`, name: "默认阶段", facts: [] }]
+  }]);
+
+  const failedBuild = db.createCharacterLibraryBuild({ bookId, indexGroupKey: "characters", startChapter: 1, endChapter: 12, sourceFingerprint: "invalid" });
+  assert.throws(() => db.replaceCharacterProjection(failedBuild.id, [{
+    id: `${bookId}:invalid`,
+    book_id: "another-book",
+    canonical_name: "错误归属",
+    stages: [{ id: `${bookId}:invalid:default`, name: "默认阶段", facts: [] }]
+  }]), /character book_id must match build book_id/i);
+
+  assert.equal(db.getCharacterLibraryStatus(bookId).build_id, currentBuild.id);
+  assert.equal(db.getCharacterLibraryCharacter(bookId, `${bookId}:valid`).canonical_name, "顾南风");
+  db.updateCharacterLibraryBuild(failedBuild.id, { status: "failed", errorSummary: "invalid projection" });
+  assert.throws(() => db.updateCharacterLibraryBuild(failedBuild.id, { status: "running" }), /terminal character library build/i);
+  assert.equal(db.createCharacterLibraryBuild({ bookId, indexGroupKey: "characters", startChapter: 1, endChapter: 12, sourceFingerprint: "retry" }).status, "running");
+});
+
 test("character fact fingerprints normalize invalid chapter indexes", () => {
   const base = {
     book_id: "book-1",

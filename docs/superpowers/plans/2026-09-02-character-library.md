@@ -217,7 +217,7 @@ git commit -m "feat: add conservative character grouping"
 - Modify: `server/db.js`
 - Test: `test/service.test.js`
 
-- [ ] **Step 1: 写持久化和稳定 ID 失败测试**
+- [x] **Step 1: 写持久化和稳定 ID 失败测试**
 
 ```js
 test("persists rebuildable character library projections", () => {
@@ -262,13 +262,13 @@ test("persists rebuildable character library projections", () => {
 - 同书已有未终结 build 时拒绝创建第二个 build，防止较旧输入较晚完成后覆盖新结果
 - 角色必须属于本次 build 的书籍，阶段和事实链接必须引用本次输入集合中的父对象
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `node --test --test-name-pattern="rebuildable character library projections" test/service.test.js`
 
 Expected: FAIL，提示 `createCharacterLibraryBuild` 未定义
 
-- [ ] **Step 3: 新增四张表和索引**
+- [x] **Step 3: 新增四张表和索引**
 
 在 `server/db.js` 初始化 SQL 中新增：
 
@@ -355,7 +355,7 @@ CREATE TABLE IF NOT EXISTS character_fact_links (
 );
 ```
 
-- [ ] **Step 4: 实现事务写入和公开查询方法**
+- [x] **Step 4: 实现事务写入和公开查询方法**
 
 在 `server/db.js` 导出以下精确接口：
 
@@ -378,18 +378,27 @@ export function getCharacterLibraryCharacter(bookId, characterId)
 
 角色和阶段 ID 由上游提供并保持稳定。`character_fact_links` 只保存 `stage_id`，角色归属通过 `character_stages.character_id` 获取，避免冗余角色引用与阶段归属不一致。查询方法只返回当前 build 的投影，并返回解析后的 JSON，不暴露 SQLite JSON 字符串，JSON 字段统一使用现有 `stringifyJsonArray`、`parseJsonArray`、`parseJsonObject`
 
-- [ ] **Step 5: 运行持久化测试**
+- [x] **Step 5: 运行持久化测试**
 
 Run: `node --test --test-name-pattern="character library projections" test/service.test.js`
 
 Expected: PASS，并能从数据库读回设计五官和事实证据
 
-- [ ] **Step 6: 提交数据模型**
+- [x] **Step 6: 提交数据模型**
 
 ```bash
 git add server/db.js test/service.test.js
 git commit -m "feat: persist character library projections"
 ```
+
+**2026-09-02 封板记录：**
+
+- 状态：完成，Task 3 从此冻结，后续契约生成和构建编排分别进入 Task 4 和 Task 5
+- 持久化边界：构建记录历史、单份当前投影、稳定角色与阶段 ID、稳定事实指纹链接
+- 失败语义：单书单写者，新投影写入与激活原子提交，失败保留上一版，已终结 build 不可重开
+- 规格审查：通过，未进入 Dify、工作流、API 或前端职责
+- 质量审查：通过，终态反向迁移缺陷已修复
+- 验证：角色持久化聚焦 2/2、`test/service.test.js` 85/85、全量 `npm test` 113/113、`npm run lint` 和 `git diff --check` 通过
 
 ### Task 4: 增加角色核心档案 Dify 契约
 
