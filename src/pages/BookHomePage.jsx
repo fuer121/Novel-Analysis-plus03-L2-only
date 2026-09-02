@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { AlignLeft, ArrowRight, Database, MessageCircle, Settings } from "lucide-react";
-import { formatTime } from "../api.js";
+import { AlignLeft, ArrowRight, Database, MessageCircle, Settings, Users } from "lucide-react";
+import { apiGet, characterLibraryUrl, formatTime } from "../api.js";
 import { EntryCard } from "../components/book/EntryCard.jsx";
 import { BookSettingsPanel } from "../components/book/BookSettingsPanel.jsx";
 import { taskProgressPercent } from "../utils/taskProgress.js";
@@ -19,16 +19,18 @@ export function BookHomePage({
   l1Task,
   l2Task,
   analysisTask,
+  characterLibraryTask,
   onLoadBookIndexGroups,
   onSaveBookMeta
 }) {
   const { books, setError } = useAppContext();
   const book = books.find((entry) => entry.book_id === bookId) || null;
   const { aggregatesByBook, liveTasks } = useWorkbenchData({
-    channelTasks: [importTask, l1Task, l2Task, analysisTask],
+    channelTasks: [importTask, l1Task, l2Task, analysisTask, characterLibraryTask],
     setError
   });
   const [indexGroups, setIndexGroups] = useState([]);
+  const [characterLibrary, setCharacterLibrary] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
 
   const loadGroupsRef = useRef(onLoadBookIndexGroups);
@@ -53,6 +55,21 @@ export function BookHomePage({
     };
   }, [bookId, setError]);
 
+  useEffect(() => {
+    if (!bookId) return;
+    let cancelled = false;
+    apiGet(characterLibraryUrl(bookId))
+      .then((data) => {
+        if (!cancelled) setCharacterLibrary(data.library || null);
+      })
+      .catch((error) => {
+        if (!cancelled) setError(error.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bookId, characterLibraryTask?.id, characterLibraryTask?.status, setError]);
+
   if (!book) return null;
 
   const aggregate = aggregatesByBook.get(bookId) || null;
@@ -60,6 +77,7 @@ export function BookHomePage({
   const journey = deriveJourney(journeyInputForBook({ book, aggregate, tasks: bookTasks }));
   const liveL1 = bookTasks.find((task) => task.type === "l1-index") || null;
   const liveL2 = bookTasks.find((task) => task.type === "l2-index") || null;
+  const liveCharacterLibrary = bookTasks.find((task) => task.type === "character-library") || null;
 
   const l1Stat = liveL1
     ? `${liveL1.progress?.current || "准备中"} · ${taskProgressPercent(liveL1)}%`
@@ -71,6 +89,11 @@ export function BookHomePage({
       : "未创建索引组";
   const askCount = sumCounts(aggregate?.analyses);
   const askStat = askCount ? `${askCount} 个提问任务` : "暂无提问任务";
+  const characterLibraryStat = liveCharacterLibrary
+    ? `${liveCharacterLibrary.progress?.current || "构建中"} · ${taskProgressPercent(liveCharacterLibrary)}%`
+    : characterLibrary
+      ? `${characterLibrary.character_count} 个角色 · ${characterLibrary.stage_count} 个阶段 · ${characterLibrary.status}`
+      : "尚未建立";
 
   return (
     <section className="book-home-page">
@@ -132,6 +155,16 @@ export function BookHomePage({
           stat={askStat}
           actionLabel="进入提问"
           onClick={() => navigate(paths.ask(bookId))}
+        />
+        <EntryCard
+          icon={Users}
+          title="角色库"
+          description="聚合角色事实与阶段档案，查看稳定角色信息。"
+          stat={characterLibraryStat}
+          actionLabel="进入角色库"
+          running={Boolean(liveCharacterLibrary)}
+          percent={taskProgressPercent(liveCharacterLibrary)}
+          onClick={() => navigate(paths.characters(bookId))}
         />
       </div>
     </section>

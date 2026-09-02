@@ -26,6 +26,7 @@ export function WorkbenchPage({
   l1Task,
   l2Task,
   analysisTask,
+  characterLibraryTask,
   onStartImport,
   onImportCancel,
   onImportPause,
@@ -33,7 +34,7 @@ export function WorkbenchPage({
 }) {
   const { books, config, setError } = useAppContext();
   const { aggregatesByBook, liveTasks } = useWorkbenchData({
-    channelTasks: [importTask, l1Task, l2Task, analysisTask],
+    channelTasks: [importTask, l1Task, l2Task, analysisTask, characterLibraryTask],
     setError
   });
   const [showImportForm, setShowImportForm] = useState(false);

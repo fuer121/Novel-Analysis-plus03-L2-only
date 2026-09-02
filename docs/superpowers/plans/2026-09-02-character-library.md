@@ -762,7 +762,7 @@ git commit -m "feat: expose character library API"
 - Modify: `src/pages/BookHomePage.jsx`
 - Modify: `test/journey.test.js`
 
-- [ ] **Step 1: 写路由与旅程回归失败测试**
+- [x] **Step 1: 写路由与旅程回归失败测试**
 
 ```js
 test("character library route preserves the book id", () => {
@@ -780,17 +780,17 @@ test("character library task does not replace the L1 and L2 journey", () => {
 })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `node --test test/journey.test.js`
 
 Expected: 新增路由测试 FAIL
 
-- [ ] **Step 3: 增加角色库路由**
+- [x] **Step 3: 增加角色库路由**
 
 在 `src/router.js` 增加 `paths.characters(bookId)` 和对应解析分支，页面名固定为 `characters`
 
-- [ ] **Step 4: 在 App 建立全局任务通道**
+- [x] **Step 4: 在 App 建立全局任务通道**
 
 在 `src/App.jsx` 使用现有 `useTaskChannel` 创建：
 
@@ -809,22 +809,33 @@ const characterLibraryChannel = useTaskChannel({
 
 把任务加入顶部任务栏和书籍任务聚合，页面切换后 SSE 继续运行
 
-- [ ] **Step 5: 新增书籍首页入口卡**
+- [x] **Step 5: 新增书籍首页入口卡**
 
 在 `BookHomePage.jsx` 使用 Lucide `Users` 图标新增“角色库”入口，状态只展示角色数、阶段数和构建状态，不显示图片入口
 
-- [ ] **Step 6: 运行旅程测试和构建**
+- [x] **Step 6: 运行旅程测试和构建**
 
 Run: `node --test test/journey.test.js && npm run build`
 
 Expected: tests PASS，Vite build completed
 
-- [ ] **Step 7: 提交入口和任务通道**
+- [x] **Step 7: 提交入口和任务通道**
 
 ```bash
 git add src/router.js src/App.jsx src/pages/BookHomePage.jsx test/journey.test.js
 git commit -m "feat: add character library navigation"
 ```
+
+**2026-09-02 封板记录：**
+
+- 状态：完成，Task 7 双审与浏览器验收通过，Task 8 等待授权
+- 实现：characters 路由、全局 character-library 任务通道、顶部任务提示、书籍与工作台任务聚合、书籍首页入口和最小过渡页
+- 聚焦测试：16/16
+- 全仓测试：140/140
+- build、lint 与 `git diff --check`：PASS
+- 浏览器验收：书籍首页入口、角色库路由、面包屑和过渡页通过，控制台无应用错误
+- 审查：规格审查 PASS，代码质量审查 PASS，Node 导入污染在一轮修复内完成收敛
+- 剩余风险：SSE 恢复、任务终态刷新和无效书籍跳转缺少组件级行为测试，不阻断封板
 
 ### Task 8: 实现 B 方案全宽表格与详情抽屉
 

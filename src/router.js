@@ -13,10 +13,11 @@ export const paths = {
   l2: (bookId) => `/book/${encodeURIComponent(bookId)}/l2`,
   l2New: (bookId) => `/book/${encodeURIComponent(bookId)}/l2/new`,
   ask: (bookId) => `/book/${encodeURIComponent(bookId)}/ask`,
+  characters: (bookId) => `/book/${encodeURIComponent(bookId)}/characters`,
   diagnostics: () => "/diagnostics"
 };
 
-const MANAGE_SUBROUTES = new Set(["l1", "l2", "ask"]);
+const MANAGE_SUBROUTES = new Set(["l1", "l2", "ask", "characters"]);
 
 const listeners = new Set();
 
@@ -24,18 +25,26 @@ function emitLocationChange() {
   listeners.forEach((listener) => listener());
 }
 
-window.addEventListener("popstate", emitLocationChange);
-window.addEventListener("hashchange", emitLocationChange);
+if (typeof window !== "undefined") {
+  window.addEventListener("popstate", emitLocationChange);
+  window.addEventListener("hashchange", emitLocationChange);
+}
+
+function browserWindow() {
+  if (typeof window === "undefined") throw new Error("Router navigation requires a browser window");
+  return window;
+}
 
 export function navigate(path, { replace = false, scroll = true } = {}) {
+  const targetWindow = browserWindow();
   const url = `#${path}`;
   if (replace) {
-    window.history.replaceState({}, "", url);
+    targetWindow.history.replaceState({}, "", url);
   } else {
-    window.history.pushState({}, "", url);
+    targetWindow.history.pushState({}, "", url);
   }
   emitLocationChange();
-  if (scroll) window.scrollTo(0, 0);
+  if (scroll) targetWindow.scrollTo(0, 0);
 }
 
 function safeDecode(segment) {
@@ -55,7 +64,7 @@ function parseQuery(queryString) {
   return query;
 }
 
-function routeFromHash(hash) {
+export function parseHash(hash) {
   const raw = String(hash || "").replace(/^#/, "") || "/";
   const queryIndex = raw.indexOf("?");
   const path = queryIndex >= 0 ? raw.slice(0, queryIndex) : raw;
@@ -84,11 +93,12 @@ function routeFromHash(hash) {
 let snapshot = null;
 
 function getSnapshot() {
-  const key = `${window.location.pathname}${window.location.hash}`;
+  const targetWindow = browserWindow();
+  const key = `${targetWindow.location.pathname}${targetWindow.location.hash}`;
   if (!snapshot || snapshot.key !== key) {
     snapshot = {
       key,
-      ...routeFromHash(window.location.hash)
+      ...parseHash(targetWindow.location.hash)
     };
   }
   return snapshot;

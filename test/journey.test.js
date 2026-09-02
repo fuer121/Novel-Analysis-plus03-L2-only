@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 const { deriveJourney, journeyInputForBook } = await import("../src/utils/journey.js");
+const { parseHash, paths } = await import("../src/router.js");
+const { TASK_TYPES, taskDisplayName } = await import("../src/constants/index.js");
+const { breadcrumbParts } = await import("../src/utils/breadcrumbs.js");
 
 function liveTask(type, bookId = "book-1") {
   return { id: `${type}-1`, type, status: "running", payload: { bookId } };
@@ -100,4 +104,45 @@ test("journeyInputForBook: 空聚合与空任务等价于刚导入", () => {
   const input = journeyInputForBook({ book: { book_id: "b", chapter_count: 10 } });
   const next = deriveJourney(input);
   assert.equal(next.stage, "构建章节线索");
+});
+
+test("router: 生成并解析角色库书籍路由", () => {
+  assert.equal(paths.characters("book/1"), "/book/book%2F1/characters");
+  assert.deepEqual(parseHash("#/book/book-1/characters"), {
+    route: "characters",
+    bookId: "book-1",
+    query: {}
+  });
+});
+
+test("character library: 注册任务类型与面包屑", () => {
+  assert.equal(TASK_TYPES.CHARACTER_LIBRARY, "character-library");
+  assert.equal(taskDisplayName(TASK_TYPES.CHARACTER_LIBRARY), "角色库");
+  assert.deepEqual(breadcrumbParts({ route: "characters", bookId: "book-1", bookName: "示例书" }), [
+    { label: "工作台", path: "/" },
+    { label: "示例书", path: "/book/book-1" },
+    { label: "角色库" }
+  ]);
+});
+
+test("character library: 任务不改变 L1/L2 旅程优先级", () => {
+  const input = journeyInputForBook({
+    book: { book_id: "book-1", chapter_count: 100 },
+    aggregate: { l1: { completed: 100 }, index_groups: 1 },
+    tasks: [liveTask("character-library")]
+  });
+  assert.equal(deriveJourney(input).stage, "创建事实索引组");
+});
+
+test("character library: App 和书籍入口接入全局任务通道", async () => {
+  const [appSource, bookSource, workbenchSource] = await Promise.all([
+    readFile(new URL("../src/App.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/BookHomePage.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/WorkbenchPage.jsx", import.meta.url), "utf8")
+  ]);
+  assert.match(appSource, /const characterLibraryChannel = useTaskChannel\(/);
+  assert.match(appSource, /activeRoute === "characters"/);
+  assert.match(bookSource, /title="角色库"/);
+  assert.match(bookSource, /paths\.characters\(bookId\)/);
+  assert.match(workbenchSource, /characterLibraryTask/);
 });
