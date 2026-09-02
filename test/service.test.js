@@ -309,6 +309,21 @@ test("character stages reject one-off clothing actions", () => {
   assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
 });
 
+test("character stages reject clothing changes that explicitly revert", () => {
+  const stages = characterLibrary.deriveCharacterStages("玄霜", [
+    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
+    { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
+    {
+      stage_hint: "白衣形态",
+      stable_difference: true,
+      fact: "舞会上换上白衣",
+      evidence: ["离席便换回常服"]
+    }
+  ]);
+
+  assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
+});
+
 test("character stages preserve clothing changes with stable duration evidence", () => {
   const stages = characterLibrary.deriveCharacterStages("沈昭", [
     {
@@ -411,6 +426,31 @@ test("character stages reject one-off coverings but preserve stable coverings", 
     }
   ]);
   assert.deepEqual(stableStages.map((stage) => stage.name), ["未遮挡时期", "蒙面形态"]);
+});
+
+test("character stages reject reverted mutations but preserve stable mutations", () => {
+  const temporaryStages = characterLibrary.deriveCharacterStages("玄霜", [
+    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
+    { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
+    {
+      stage_hint: "赤瞳异变",
+      stable_difference: true,
+      fact: "力量爆发后双目化作赤色",
+      evidence: ["转瞬便恢复原状"]
+    }
+  ]);
+  assert.deepEqual(temporaryStages.map((stage) => stage.name), ["人类形态", "龙形"]);
+
+  const stableStages = characterLibrary.deriveCharacterStages("沈昭", [
+    { stage_hint: "黑瞳时期", stable_difference: true, evidence: ["早年双眸漆黑"] },
+    {
+      stage_hint: "赤瞳形态",
+      stable_difference: true,
+      fact: "力量觉醒后从此双目化作赤色",
+      evidence: ["此后始终保持赤瞳"]
+    }
+  ]);
+  assert.deepEqual(stableStages.map((stage) => stage.name), ["黑瞳时期", "赤瞳形态"]);
 });
 
 test("character stages keep identity periods distinct from age and form types", () => {

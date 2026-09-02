@@ -44,7 +44,10 @@ const TEMPORARY_APPEARANCE_PATTERN = /(?:易容|单次情绪)/u;
 const TEMPORARY_CLOTHING_HINT_PATTERN = /^(?:换装|换衣)$/u;
 const EXPLICIT_TEMPORARY_PATTERN = /(?:短暂|临时|一时|片刻|一次性|单场景|当晚|这次|随后换下|只维持一场|仅维持一场)/u;
 const LIMITED_SCENE_PATTERN = /(?:宴会中|宴会上|宴会期间)/u;
-const CLOTHING_CHANGE_PATTERN = /(?:换装|换上|换下|改穿|穿上)/u;
+const CLOTHING_CHANGE_PATTERN = /(?:换装|换上|换下|换回|改穿|穿上|脱下)/u;
+const CLOTHING_REVERSION_PATTERN = /(?:换回(?:常服|原装)|换下|脱下|离席便|离场便|事后换回)/u;
+const SHORT_MUTATION_PATTERN = /(?:转瞬|顷刻|片刻后)/u;
+const MUTATION_REVERSION_PATTERN = /(?:恢复原状|恢复如常|变回)/u;
 const STABLE_DURATION_PATTERN = /(?:从此|此后|始终|常年|长期|一直|自[^，。；;]{0,12}起)/u;
 const AGE_STAGE_PATTERN = /(?:婴儿|幼年|童年|少年|青年|成年|中年|老年|晚年)/u;
 const FORM_STAGE_PATTERN = /(?:形态|人身|真身|鬼魂|魂体|非人|形$)/u;
@@ -226,6 +229,8 @@ function hasExplicitTemporaryContext(stageName, context) {
   if (TEMPORARY_APPEARANCE_PATTERN.test(context)) return true;
   if (TEMPORARY_CLOTHING_HINT_PATTERN.test(stageName)) return true;
   if (EXPLICIT_TEMPORARY_PATTERN.test(context)) return true;
+  if (CLOTHING_CHANGE_PATTERN.test(context) && CLOTHING_REVERSION_PATTERN.test(context)) return true;
+  if (SHORT_MUTATION_PATTERN.test(context) && MUTATION_REVERSION_PATTERN.test(context)) return true;
   return CLOTHING_CHANGE_PATTERN.test(context) &&
     LIMITED_SCENE_PATTERN.test(context) &&
     !STABLE_DURATION_PATTERN.test(context);
