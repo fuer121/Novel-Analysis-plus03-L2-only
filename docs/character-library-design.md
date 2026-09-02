@@ -183,6 +183,34 @@ L1 是章节线索和角色路标，不是事实索引；角色事实来自 L2 �
 - 阶段拆分必须全部具备独立证据
 - 设计五官与原文事实混写为 0
 
+### 9.6 结构化投影输入契约
+
+角色库投影层只消费已经完成语义判断的结构化字段，不负责从自然语言事实正文推导别名关系、阶段稳定性或持续时间
+
+角色别名字段：
+
+- `alias_relation`：只允许 `confirmed`、`candidate`、`rejected`
+- `alias_confidence`：0 至 1 的数值
+- `evidence`：至少一条非空原文证据
+- 自动归并只接受 `alias_relation=confirmed` 且 `alias_confidence>=0.9` 的别名
+- 为兼容既有事实，投影层保留少量完整匹配的原文明示别名模板作为封闭白名单，不解析附加分句，不继续扩充自然语言表达变体
+- `candidate`、`rejected`、低置信度、字段缺失、冲突、链式或不确定关系一律保持独立
+
+角色阶段字段：
+
+- `stage_hint`：阶段稳定名称
+- `stage_type`：只允许 `age`、`form`、`identity`
+- `stage_stability`：只允许 `stable`、`temporary`、`uncertain`
+- `stable_difference`：布尔值，表示相对其他阶段存在稳定差异
+- `evidence`：至少一条非空原文证据，每个阶段必须具备其他阶段不共享的独立证据
+- `quality_warnings`：结构化质量警告数组，用于暴露证据不足、语境冲突和低置信度判断
+- 自动拆分只接受 `stage_stability=stable`、`stable_difference=true`、类型合法且证据独立的阶段
+- `temporary`、`uncertain`、字段缺失、类型冲突、证据不独立或少于两个合格阶段时统一回退默认阶段
+
+Task 4 的 Dify Schema、Prompt 和输出归一化函数必须正式产出并校验以上字段，Task 2 只执行确定性准入、冲突隔离、去重和稳定排序
+
+换装、伤病、情绪、遮挡、形态持续时间、别名是否明确和阶段是否稳定等自然语言语义判断属于 Dify 结构化契约职责，不在投影层通过追加正则解析
+
 ## 10. 构建与更新流程
 
 角色库是 L2 之上的持久化、可重建投影层，不直接修改 L2 事实

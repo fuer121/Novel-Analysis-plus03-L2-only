@@ -128,12 +128,19 @@ git commit -m "feat: add character library identity rules"
 - Modify: `server/character-library.js`
 - Test: `test/service.test.js`
 
-- [ ] **Step 1: 写别名和阶段规则失败测试**
+- [ ] **Step 1: 写结构化别名和阶段契约失败测试**
 
 ```js
-test("character library merges aliases only with explicit evidence", () => {
+test("character library merges only confirmed high-confidence aliases", () => {
   const result = characterLibrary.resolveCharacterCandidates([
-    { entity: "沈昭", aliases: ["昭昭"], fact_type: "alias", fact: "沈昭小名昭昭", evidence: ["她自幼便被唤作昭昭"] },
+    {
+      entity: "沈昭",
+      aliases: ["昭昭"],
+      fact_type: "alias",
+      alias_relation: "confirmed",
+      alias_confidence: 0.96,
+      evidence: ["她自幼便被唤作昭昭"]
+    },
     { entity: "昭昭", aliases: [], fact_type: "appearance", fact: "昭昭眉尾有痣", evidence: ["昭昭眉尾那颗小痣"] },
     { entity: "沈姑娘", aliases: [], fact_type: "appearance", fact: "沈姑娘面色苍白", evidence: ["那沈姑娘面色苍白"] }
   ])
@@ -143,9 +150,9 @@ test("character library merges aliases only with explicit evidence", () => {
 
 test("character stages split only when all conservative conditions hold", () => {
   const stages = characterLibrary.deriveCharacterStages("玄霜", [
-    { chapter_index: 3, stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
-    { chapter_index: 40, stage_hint: "龙形", stable_difference: true, evidence: ["此后常以银龙真身现世"] },
-    { chapter_index: 41, stage_hint: "受伤", stable_difference: true, evidence: ["左肩受伤"] }
+    { chapter_index: 3, stage_hint: "人类形态", stage_type: "form", stage_stability: "stable", stable_difference: true, evidence: ["她仍是人身"] },
+    { chapter_index: 40, stage_hint: "龙形", stage_type: "form", stage_stability: "stable", stable_difference: true, evidence: ["银龙真身盘旋云上"] },
+    { chapter_index: 41, stage_hint: "受伤", stage_type: "form", stage_stability: "temporary", stable_difference: true, evidence: ["左肩受伤"] }
   ])
   assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"])
 })
@@ -157,51 +164,25 @@ Run: `node --test --test-name-pattern="merges aliases|stages split" test/service
 
 Expected: FAIL，提示目标函数未定义
 
-- [ ] **Step 3: 实现强证据归并和阶段白名单**
+- [ ] **Step 3: 实现确定性投影规则**
 
-在 `server/character-library.js` 增加：
+在 `server/character-library.js` 增加以下确定性接口：
 
 ```js
-const TEMPORARY_STAGE_HINTS = new Set(["受伤", "哭泣", "战损", "换装", "易容", "戴面罩", "戴面纱"])
-
 export function resolveCharacterCandidates(facts = []) {
-  const explicitAliases = new Map()
-  for (const fact of facts) {
-    if (fact.fact_type !== "alias" || !isStableCharacterName(fact.entity)) continue
-    const aliases = (fact.aliases || []).filter(isStableCharacterName)
-    if (aliases.length && (fact.evidence || []).length) explicitAliases.set(fact.entity, new Set(aliases))
-  }
-  const canonicalFor = (name) => {
-    for (const [canonical, aliases] of explicitAliases) if (aliases.has(name)) return canonical
-    return name
-  }
-  const groups = new Map()
-  for (const fact of facts) {
-    if (!isStableCharacterName(fact.entity)) continue
-    const canonical = canonicalFor(fact.entity)
-    const group = groups.get(canonical) || { canonical_name: canonical, aliases: [], facts: [] }
-    group.facts.push(fact)
-    group.aliases = [...new Set([...(explicitAliases.get(canonical) || []), ...group.aliases])].sort()
-    groups.set(canonical, group)
-  }
-  return [...groups.values()].sort((a, b) => a.canonical_name.localeCompare(b.canonical_name, "zh-CN"))
+  // 只接受 confirmed 且 alias_confidence >= 0.9 的结构化关系
+  // 保留少量完整匹配的原文明示模板作为封闭兼容白名单
+  // 任一冲突、链式、环形或多主体关系都保持独立
 }
 
 export function deriveCharacterStages(_name, facts = []) {
-  const qualified = facts.filter((fact) =>
-    fact.stage_hint &&
-    !TEMPORARY_STAGE_HINTS.has(fact.stage_hint) &&
-    fact.stable_difference === true &&
-    (fact.evidence || []).length > 0
-  )
-  if (qualified.length < 2) return [{ name: "默认阶段", type: "default", facts }]
-  return [...new Set(qualified.map((fact) => fact.stage_hint))].map((name) => ({
-    name,
-    type: /形|态/.test(name) ? "form" : "age",
-    facts: qualified.filter((fact) => fact.stage_hint === name)
-  }))
+  // 只接受 stage_type 合法、stage_stability=stable、stable_difference=true 且有证据的结构化输入
+  // 每个阶段必须有独立证据，缺字段、类型冲突或少于两个合格阶段时回退默认阶段
+  // 不读取 fact 正文推断临时状态、持续时间或阶段类型
 }
 ```
+
+封闭别名模板只包含当前测试锁定的完整单句形式，后续自然语言变体不在 Task 2 增加。阶段类型只允许 `age`、`form`、`identity`，`temporary` 和 `uncertain` 不参与自动拆分
 
 - [ ] **Step 4: 运行角色规则测试**
 
@@ -380,21 +361,36 @@ git commit -m "feat: persist character library projections"
 - [ ] **Step 1: 写事实层与设计层分离失败测试**
 
 ```js
-test("normalizes character profiles without mixing design into facts", () => {
+test("normalizes character profile and projection signals", () => {
   const profile = dify.normalizeCharacterProfileOutput({ result: JSON.stringify({
     canonical_name: "沈昭",
     gender: "女",
+    aliases: [{
+      name: "昭昭",
+      alias_relation: "confirmed",
+      alias_confidence: 0.96,
+      evidence: ["她自幼便被唤作昭昭"],
+      quality_warnings: []
+    }],
     stages: [{
       name: "默认阶段",
+      stage_hint: "成年",
+      stage_type: "age",
+      stage_stability: "stable",
+      stable_difference: true,
       age: "二十岁左右",
       identity_profession: "医者",
       stable_appearance: "清瘦，眉尾有痣",
       stable_temperament: "冷静克制",
       original_facial_features: "眉尾有痣",
       designed_facial_features: "窄长眼型，眉峰平直",
-      design_basis: ["清瘦", "冷静克制"]
+      design_basis: ["清瘦", "冷静克制"],
+      evidence: ["她约莫二十岁，身形清瘦"],
+      quality_warnings: []
     }]
   }) })
+  assert.equal(profile.aliases[0].alias_relation, "confirmed")
+  assert.equal(profile.stages[0].stage_stability, "stable")
   assert.equal(profile.stages[0].original_facial_features, "眉尾有痣")
   assert.equal(profile.stages[0].designed_facial_features, "窄长眼型，眉峰平直")
   assert.deepEqual(profile.stages[0].design_basis, ["清瘦", "冷静克制"])
@@ -409,12 +405,27 @@ Expected: FAIL，提示 `normalizeCharacterProfileOutput` 未定义
 
 - [ ] **Step 3: 增加 Schema 与 Prompt builder**
 
-在 `server/indexing-inputs.js` 导出 `characterProfileSchema()` 和 `buildCharacterProfileInputs({ book, character, stages })`，Schema 强制每个阶段分别返回：
+在 `server/indexing-inputs.js` 导出 `characterProfileSchema()` 和 `buildCharacterProfileInputs({ book, character, stages })`。Schema 强制别名判断分别返回：
 
 ```js
 {
   name: "string",
-  stage_type: "default|age|form",
+  alias_relation: "confirmed|candidate|rejected",
+  alias_confidence: "number 0..1",
+  evidence: ["string"],
+  quality_warnings: ["string"]
+}
+```
+
+Schema 强制每个阶段分别返回：
+
+```js
+{
+  name: "string",
+  stage_hint: "string",
+  stage_type: "age|form|identity",
+  stage_stability: "stable|temporary|uncertain",
+  stable_difference: "boolean",
   age: "string",
   identity_profession: "string",
   stable_appearance: "string",
@@ -422,15 +433,16 @@ Expected: FAIL，提示 `normalizeCharacterProfileOutput` 未定义
   original_facial_features: "string",
   designed_facial_features: "string",
   design_basis: ["string"],
+  evidence: ["string"],
   quality_warnings: ["string"]
 }
 ```
 
-Prompt 明确禁止把受伤、哭泣、单次遮挡写入稳定外形，禁止用设计五官覆盖原文五官，未知字段返回空字符串
+Prompt 负责判断别名是否明确、阶段是否稳定、阶段类型和持续性，并返回证据、置信度与质量警告。Prompt 明确禁止把受伤、哭泣、单次遮挡写入稳定外形，禁止用设计五官覆盖原文五官，未知字段返回空字符串
 
 - [ ] **Step 4: 增加输出归一化**
 
-在 `server/dify.js` 导出 `normalizeCharacterProfileOutput(output)`，复用现有 Dify envelope 解包逻辑，截断异常长文本，数组去空值，缺失字段返回空字符串，不允许设计字段回填原文字段
+在 `server/dify.js` 导出 `normalizeCharacterProfileOutput(output)`，复用现有 Dify envelope 解包逻辑，严格枚举 `alias_relation`、`stage_type` 和 `stage_stability`，将置信度限制在 0 至 1，校验 `stable_difference` 为布尔值，证据为空时降级为候选或不稳定并写入 `quality_warnings`。同时截断异常长文本、数组去空值、缺失字段返回保守默认值，不允许设计字段回填原文字段
 
 - [ ] **Step 5: 运行契约测试**
 
