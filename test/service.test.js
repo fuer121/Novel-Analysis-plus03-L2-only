@@ -76,6 +76,35 @@ test("character fact fingerprints normalize invalid chapter indexes", () => {
   );
 });
 
+test("character fact fingerprints include every stable source field", () => {
+  const base = {
+    book_id: "book-1",
+    index_group_key: "characters",
+    chapter_index: 12,
+    fact: "顾南风有一双狭长凤眼",
+    evidence: ["他 眸光沉静", "那双狭长的凤眼微微抬起"]
+  };
+  const fingerprint = characterLibrary.characterFactFingerprint(base);
+
+  assert.notEqual(fingerprint, characterLibrary.characterFactFingerprint({ ...base, book_id: "book-2" }));
+  assert.notEqual(fingerprint, characterLibrary.characterFactFingerprint({ ...base, index_group_key: "people" }));
+  assert.notEqual(fingerprint, characterLibrary.characterFactFingerprint({ ...base, chapter_index: 13 }));
+  assert.notEqual(fingerprint, characterLibrary.characterFactFingerprint({ ...base, evidence: ["不同证据"] }));
+});
+
+test("character fact fingerprint matches the fixed SHA-256 contract", () => {
+  assert.equal(
+    characterLibrary.characterFactFingerprint({
+      book_id: "book-1",
+      index_group_key: "characters",
+      chapter_index: 12,
+      fact: "顾南风有一双狭长凤眼",
+      evidence: ["他 眸光沉静", "那双狭长的凤眼微微抬起"]
+    }),
+    "8cd8aba48ee91709ea85f624479a4f7ca44976b260ba4364a4fb22d26104b8ff"
+  );
+});
+
 test("builds Dify batches and normalizes chapter output", () => {
   assert.deepEqual(dify.buildChapterBatches(1, 25, 10), [
     { startChapter: 1, endChapter: 10 },
