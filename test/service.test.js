@@ -840,6 +840,284 @@ test("character library API exposes queries, builds, events, and controls", asyn
   }
 });
 
+test("character profile Dify context is deterministic, deduplicated, and budgeted", () => {
+  const book = { book_id: "character-budget-view-book", book_name: "角色输入预算测试书", updated_at: "storage-only" };
+  const makeFact = ({ chapterIndex, factType, suffix, ...signals }) => ({
+    book_id: book.book_id,
+    index_group_key: "characters",
+    chapter_index: chapterIndex,
+    category: "character",
+    entity: "沈昭",
+    aliases: factType === "alias" ? ["昭昭"] : [],
+    fact_type: factType,
+    fact: `第${chapterIndex}章${factType}-${suffix}-${"设定".repeat(900)}`,
+    evidence: [`第${chapterIndex}章证据-${suffix}-${"原文".repeat(180)}`],
+    source_hash: "storage-only",
+    prompt_hash: "storage-only",
+    model: "storage-only",
+    schema_version: "storage-only",
+    review_source: "storage-only",
+    ...signals
+  });
+  const aliasFact = makeFact({
+    chapterIndex: 12,
+    factType: "alias",
+    suffix: "alias",
+    alias_relation: "confirmed",
+    alias_confidence: 0.98
+  });
+  const stageFact = makeFact({
+    chapterIndex: 11,
+    factType: "identity",
+    suffix: "stage",
+    stage_hint: "成年",
+    stage_type: "age",
+    stage_stability: "stable",
+    stable_difference: true
+  });
+  const ordinaryFacts = Array.from({ length: 120 }, (_, index) => makeFact({
+    chapterIndex: (index % 12) + 1,
+    factType: ["age", "identity", "appearance", "personality", "background"][index % 5],
+    suffix: String(index).padStart(3, "0")
+  }));
+  const oversized = {
+    ...makeFact({ chapterIndex: 6, factType: "appearance", suffix: "oversized" }),
+    fact: "超长事实".repeat(50000)
+  };
+  const facts = [oversized, ...ordinaryFacts, stageFact, aliasFact, { ...aliasFact }];
+  const character = {
+    id: "storage-character-id",
+    canonical_name: "沈昭",
+    aliases: ["昭昭", "昭昭"],
+    facts,
+    stages: [{ id: "storage-stage-id", name: "默认阶段", type: "default", facts }],
+    quality_warnings: ["storage-only"]
+  };
+  const stages = [{ id: "storage-stage-id", name: "默认阶段", type: "default", facts }];
+
+  const context = workflows.buildCharacterProfileContext({ book, character, stages });
+  const reversed = workflows.buildCharacterProfileContext({
+    book,
+    character: { ...character, facts: [...facts].reverse() },
+    stages: [{ ...stages[0], facts: [...facts].reverse() }]
+  });
+
+  assert.deepEqual(context, reversed);
+  assert.ok(JSON.stringify(context).length <= 180000);
+  assert.deepEqual(context.book, { book_id: book.book_id, book_name: book.book_name });
+  assert.deepEqual(context.character, { canonical_name: "沈昭", aliases: ["昭昭"] });
+  assert.equal(Object.hasOwn(context.character, "facts"), false);
+  assert.equal(Object.hasOwn(context.character, "stages"), false);
+  assert.deepEqual(Object.keys(context.stages[0]).sort(), ["facts", "name", "type"]);
+
+  const sentFacts = context.stages.flatMap((stage) => stage.facts);
+  const sentFingerprints = sentFacts.map((fact) => fact.fingerprint);
+  const sourceFingerprints = new Set(facts.map((fact) => characterLibrary.characterFactFingerprint(fact)));
+  assert.equal(new Set(sentFingerprints).size, sentFingerprints.length);
+  assert.equal(sentFingerprints.every((fingerprint) => sourceFingerprints.has(fingerprint)), true);
+  assert.equal(sentFingerprints.includes(characterLibrary.characterFactFingerprint(aliasFact)), true);
+  assert.equal(sentFingerprints.includes(characterLibrary.characterFactFingerprint(stageFact)), true);
+  assert.equal(sentFingerprints.includes(characterLibrary.characterFactFingerprint(oversized)), false);
+  assert.deepEqual([...new Set(sentFacts.map((fact) => fact.chapter_index))].sort((left, right) => left - right),
+    Array.from({ length: 12 }, (_, index) => index + 1));
+  assert.equal(sentFacts.find((fact) => fact.chapter_index === 1).fact_type, "age");
+  assert.equal(sentFacts.every((fact) => fact.evidence.length > 0 && fact.evidence.every(Boolean)), true);
+  assert.equal(sentFacts.some((fact) => Object.hasOwn(fact, "source_hash")), false);
+  const allowedFactFields = new Set([
+    "fingerprint", "chapter_index", "entity", "aliases", "fact_type", "fact", "evidence",
+    "alias_relation", "alias_confidence", "stage_hint", "stage_type", "stage_stability", "stable_difference"
+  ]);
+  assert.equal(sentFacts.every((fact) => Object.keys(fact).every((field) => allowedFactFields.has(field))), true);
+  assert.equal(sentFacts.length < sourceFingerprints.size, true);
+});
+
+test("character library rejects oversized fixed Dify metadata before fetch and preserves the previous projection", async () => {
+  const bookId = "character-fixed-budget-".padEnd(180200, "x");
+  seedCharacterLibraryWorkflowBook(bookId, [
+    { category: "character", entity: "沈昭", fact_type: "appearance", fact: "沈昭眉尾有痣", evidence: ["眉尾有痣"] }
+  ]);
+  const fact = db.listCharacterL2FactsPage({ bookId, indexGroupKey: "characters", startChapter: 1, endChapter: 1 }).items[0];
+  const previousBuild = db.createCharacterLibraryBuild({
+    bookId,
+    indexGroupKey: "characters",
+    startChapter: 1,
+    endChapter: 1,
+    sourceFingerprint: "fixed-budget-previous"
+  });
+  db.replaceCharacterProjection(previousBuild.id, [{
+    id: "fixed-budget-previous-character",
+    canonical_name: "沈昭",
+    profile_status: "complete",
+    stages: [{
+      id: "fixed-budget-previous-stage",
+      name: "默认阶段",
+      facts: [{ ...fact, fingerprint: "fixed-budget-previous-fact" }]
+    }]
+  }]);
+
+  const previousFetch = global.fetch;
+  let fetchCalls = 0;
+  global.fetch = async () => {
+    fetchCalls += 1;
+    throw new Error("oversized fixed metadata must be rejected before Dify");
+  };
+  try {
+    const task = workflows.startCharacterLibraryTask({
+      book_id: bookId,
+      index_group_key: "characters",
+      start_chapter: 1,
+      end_chapter: 1
+    });
+    await waitForTask(task);
+
+    assert.equal(fetchCalls, 0);
+    const status = db.getCharacterLibraryStatus(bookId);
+    assert.equal(status.status, "partial");
+    const character = db.getCharacterLibraryCharacter(bookId, "fixed-budget-previous-character");
+    assert.equal(character.profile_status, "partial");
+    assert.equal(character.stages[0].facts[0].fingerprint, "fixed-budget-previous-fact");
+    const failedItem = db.listCharacterLibraryBuildItems(status.build_id).find((item) => item.status === "failed");
+    assert.match(failedItem.error_summary, /fixed context exceeds 180000 characters/);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test("character library rejects an empty budgeted fact set before fetch and preserves the previous projection", async () => {
+  const bookId = "character-empty-budget-book";
+  seedCharacterLibraryWorkflowBook(bookId, [{
+    category: "character",
+    entity: "沈昭",
+    fact_type: "appearance",
+    fact: "唯一超长事实".repeat(40000),
+    evidence: ["唯一原文证据"]
+  }]);
+  const fact = db.listCharacterL2FactsPage({ bookId, indexGroupKey: "characters", startChapter: 1, endChapter: 1 }).items[0];
+  const previousBuild = db.createCharacterLibraryBuild({
+    bookId,
+    indexGroupKey: "characters",
+    startChapter: 1,
+    endChapter: 1,
+    sourceFingerprint: "empty-budget-previous"
+  });
+  db.replaceCharacterProjection(previousBuild.id, [{
+    id: "empty-budget-previous-character",
+    canonical_name: "沈昭",
+    profile_status: "complete",
+    stages: [{
+      id: "empty-budget-previous-stage",
+      name: "默认阶段",
+      facts: [{ ...fact, fingerprint: "empty-budget-previous-fact" }]
+    }]
+  }]);
+
+  const previousFetch = global.fetch;
+  let fetchCalls = 0;
+  global.fetch = async () => {
+    fetchCalls += 1;
+    throw new Error("empty budgeted facts must be rejected before Dify");
+  };
+  try {
+    const task = workflows.startCharacterLibraryTask({
+      book_id: bookId,
+      index_group_key: "characters",
+      start_chapter: 1,
+      end_chapter: 1
+    });
+    await waitForTask(task);
+
+    assert.equal(fetchCalls, 0);
+    const status = db.getCharacterLibraryStatus(bookId);
+    assert.equal(status.status, "partial");
+    const character = db.getCharacterLibraryCharacter(bookId, "empty-budget-previous-character");
+    assert.equal(character.profile_status, "partial");
+    assert.equal(character.stages[0].facts[0].fingerprint, "empty-budget-previous-fact");
+    const failedItem = db.listCharacterLibraryBuildItems(status.build_id).find((item) => item.status === "failed");
+    assert.match(failedItem.error_summary, /has no facts within the 180000 character budget/);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test("character library budgets both Dify phases without trimming persisted source facts", async () => {
+  const bookId = "character-budget-build-book";
+  const chapterCount = 4;
+  const factsPerChapter = 30;
+  db.ensureBook(bookId, "角色输入预算构建测试书");
+  const group = db.createBookIndexGroup(bookId, {
+    group_key: "characters",
+    name: "角色",
+    category_scope: ["character"],
+    l2_index_prompt: "角色事实"
+  });
+  const prompts = db.getBookIndexPrompts(bookId);
+  for (let chapterIndex = 1; chapterIndex <= chapterCount; chapterIndex += 1) {
+    db.saveChapter({ bookId, chapterIndex, title: `第${chapterIndex}章`, content: `${bookId}第${chapterIndex}章原文` });
+    const chapter = db.getChapterMetadata(bookId, chapterIndex);
+    db.saveL1ChapterIndex({
+      bookId,
+      chapterIndex,
+      status: "completed",
+      sourceHash: chapter.content_hash,
+      model: workflows.l1IndexExecutionSignature(),
+      promptHash: db.bookL1IndexPromptHash(prompts),
+      value: {}
+    });
+    db.saveL2ChapterFacts({
+      bookId,
+      indexGroupKey: "characters",
+      chapterIndex,
+      status: "completed",
+      sourceHash: chapter.content_hash,
+      model: workflows.l2IndexExecutionSignature(),
+      promptHash: db.indexGroupL2PromptHash(group),
+      schemaVersion: "l2-facts-v1",
+      facts: Array.from({ length: factsPerChapter }, (_, index) => ({
+        category: "character",
+        entity: "沈昭",
+        aliases: [],
+        fact_type: ["age", "identity", "appearance", "personality", "background"][index % 5],
+        fact: `第${chapterIndex}章角色事实${index}-${"完整事实".repeat(700)}`,
+        evidence: [`第${chapterIndex}章原文证据${index}-${"证据".repeat(80)}`],
+        importance: 0.9,
+        confidence: 0.98
+      }))
+    });
+  }
+
+  const contexts = [];
+  const previousFetch = global.fetch;
+  global.fetch = async (_url, request = {}) => {
+    const contextJson = JSON.parse(request.body).inputs.context_json;
+    contexts.push({ json: contextJson, value: JSON.parse(contextJson) });
+    return difyWorkflowResponse({ result: JSON.stringify(characterProfileFixture("沈昭")) });
+  };
+  try {
+    const task = workflows.startCharacterLibraryTask({
+      book_id: bookId,
+      index_group_key: "characters",
+      start_chapter: 1,
+      end_chapter: chapterCount
+    });
+    await waitForTask(task);
+
+    assert.equal(contexts.length, 2);
+    assert.equal(contexts.every(({ json }) => json.length <= 180000), true);
+    assert.equal(contexts.every(({ value }) => !Object.hasOwn(value.character, "facts") && !Object.hasOwn(value.character, "stages")), true);
+    const fullFactCount = chapterCount * factsPerChapter;
+    assert.equal(contexts.every(({ value }) => value.stages.flatMap((stage) => stage.facts).length < fullFactCount), true);
+
+    const status = db.getCharacterLibraryStatus(bookId);
+    const character = db.getCharacterLibraryCharacter(bookId, db.listCharacterLibraryCharacters({ bookId })[0].id);
+    assert.equal(character.stages.flatMap((stage) => stage.facts).length, fullFactCount);
+    const items = db.listCharacterLibraryBuildItems(status.build_id);
+    assert.equal(new Set(items.at(-1).source_fact_fingerprints).size, fullFactCount);
+    assert.ok(JSON.stringify(items.at(-1).input_payload).length > 200000);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
 test("character library unchanged character is reused without a Dify call", async () => {
   const bookId = "character-zero-call-reuse-book";
   seedCharacterLibraryWorkflowBook(bookId, [

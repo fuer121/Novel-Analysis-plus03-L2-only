@@ -111,6 +111,15 @@ const L2_HISTORICAL_RESCAN_MAX_CHAPTERS = 80;
 const MAGICAL_CREATURE_CATEGORY = "magical_creature";
 const CHARACTER_PROFILE_SCHEMA_VERSION = "character-profile-v1";
 const CHARACTER_L2_SCHEMA_VERSION = "l2-facts-v1";
+const CHARACTER_PROFILE_INPUT_MAX_CHARS = 180_000;
+const CHARACTER_FACT_TYPE_PRIORITY = new Map([
+  ["alias", 0],
+  ["age", 1],
+  ["identity", 2],
+  ["appearance", 3],
+  ["personality", 4],
+  ["background", 5]
+]);
 const MAGICAL_CREATURE_SCOPE_BASES = new Set([
   "explicit_nonhuman_species",
   "explicit_sentience",
@@ -802,8 +811,97 @@ function loadCharacterBuildSnapshot({ bookId, indexGroupKey, startChapter, endCh
   } });
 }
 
+export function buildCharacterProfileContext({ book = {}, character = {}, stages = [] } = {}) {
+  const sourceStages = Array.isArray(stages) && stages.length
+    ? stages
+    : Array.isArray(character?.stages) && character.stages.length
+      ? character.stages
+      : [{ name: "默认阶段", type: "default", facts: [] }];
+  const preparedStages = sourceStages.map((stage, sourceIndex) => ({
+    sourceIndex,
+    name: String(stage?.name || "默认阶段").trim() || "默认阶段",
+    type: String(stage?.type || stage?.stage_type || "default").trim() || "default",
+    facts: Array.isArray(stage?.facts) ? stage.facts : []
+  })).sort((left, right) =>
+    compareStableText(left.name, right.name) ||
+    compareStableText(left.type, right.type) ||
+    left.sourceIndex - right.sourceIndex
+  );
+  const context = {
+    book: {
+      book_id: String(book?.book_id || "").trim(),
+      book_name: String(book?.book_name || "").trim()
+    },
+    character: {
+      canonical_name: String(character?.canonical_name || "").trim(),
+      aliases: normalizeStableStrings(character?.aliases)
+    },
+    stages: preparedStages.map(({ name, type }) => ({ name, type, facts: [] }))
+  };
+  if (JSON.stringify(context).length > CHARACTER_PROFILE_INPUT_MAX_CHARS) {
+    throw new Error(`Dify character profile fixed context exceeds ${CHARACTER_PROFILE_INPUT_MAX_CHARS} characters`);
+  }
+  const representatives = new Map();
+  const collectFact = (fact, stageIndex) => {
+    if (!fact || typeof fact !== "object") return;
+    const normalized = compactCharacterProfileFact(fact);
+    if (!normalized.evidence.length) return;
+    const fingerprint = characterFactFingerprint(fact);
+    normalized.fingerprint = fingerprint;
+    const candidate = { fact: normalized, stageIndex };
+    const current = representatives.get(fingerprint);
+    if (!current || compareCharacterProfileFactCandidates(candidate, current) < 0) {
+      representatives.set(fingerprint, candidate);
+    }
+  };
+  preparedStages.forEach((stage, stageIndex) => {
+    stage.facts.forEach((fact) => collectFact(fact, stageIndex));
+  });
+  const firstStageIndex = 0;
+  for (const fact of Array.isArray(character?.facts) ? character.facts : []) {
+    const fingerprint = characterFactFingerprint(fact);
+    if (!representatives.has(fingerprint)) collectFact(fact, firstStageIndex);
+  }
+
+  const candidates = [...representatives.values()];
+  const signals = candidates.filter(({ fact }) => hasStructuredCharacterProfileSignal(fact))
+    .sort(compareCharacterProfileFactCandidates);
+  const remainingByChapter = new Map();
+  for (const candidate of candidates.filter(({ fact }) => !hasStructuredCharacterProfileSignal(fact))) {
+    const chapterIndex = normalizeCharacterProfileChapterIndex(candidate.fact.chapter_index);
+    const chapterFacts = remainingByChapter.get(chapterIndex) || [];
+    chapterFacts.push(candidate);
+    remainingByChapter.set(chapterIndex, chapterFacts);
+  }
+  for (const facts of remainingByChapter.values()) facts.sort(compareCharacterProfileFactCandidates);
+  const chapters = [...remainingByChapter.keys()].sort((left, right) => left - right);
+  const roundRobin = [];
+  for (let round = 0; ; round += 1) {
+    let added = false;
+    for (const chapter of chapters) {
+      const candidate = remainingByChapter.get(chapter)[round];
+      if (!candidate) continue;
+      roundRobin.push(candidate);
+      added = true;
+    }
+    if (!added) break;
+  }
+
+  for (const candidate of [...signals, ...roundRobin]) {
+    const stage = context.stages[candidate.stageIndex] || context.stages[firstStageIndex];
+    stage.facts.push(candidate.fact);
+    if (JSON.stringify(context).length <= CHARACTER_PROFILE_INPUT_MAX_CHARS) continue;
+    stage.facts.pop();
+  }
+  if (candidates.length && context.stages.every((stage) => stage.facts.length === 0)) {
+    throw new Error(`Dify character profile context has no facts within the ${CHARACTER_PROFILE_INPUT_MAX_CHARS} character budget`);
+  }
+  return context;
+}
+
 async function callCharacterProfile(bookId, character, stages) {
-  const inputs = buildCharacterProfileInputs({ book: getBook(bookId), character, stages });
+  const context = buildCharacterProfileContext({ book: getBook(bookId), character, stages });
+  const inputs = buildCharacterProfileInputs({ book: context.book, character: context.character, stages: context.stages });
   const outputs = await runDifyWorkflow({
     target: "analysis_summary",
     apiKey: config.dify.analysisSummaryWorkflowApiKey,
@@ -815,14 +913,63 @@ async function callCharacterProfile(bookId, character, stages) {
       schema_name: "character_profile",
       schema_json: JSON.stringify(characterProfileSchema()),
       strict_json_schema: "true",
-      context_json: JSON.stringify({
-        book: JSON.parse(inputs.book_json),
-        character: JSON.parse(inputs.character_json),
-        stages: JSON.parse(inputs.stages_json)
-      })
+      context_json: JSON.stringify(context)
     }
   });
   return normalizeCharacterProfileOutput(outputs);
+}
+
+function compactCharacterProfileFact(fact) {
+  const compact = {
+    chapter_index: normalizeCharacterProfileChapterIndex(fact.chapter_index),
+    entity: String(fact.entity || "").trim(),
+    aliases: normalizeStableStrings(fact.aliases),
+    fact_type: String(fact.fact_type || "").trim(),
+    fact: String(fact.fact || "").trim(),
+    evidence: normalizeStableStrings(fact.evidence)
+  };
+  for (const field of ["alias_relation", "stage_hint", "stage_type", "stage_stability"]) {
+    if (Object.hasOwn(fact, field)) compact[field] = String(fact[field] ?? "").trim();
+  }
+  if (Object.hasOwn(fact, "alias_confidence")) compact.alias_confidence = Number(fact.alias_confidence);
+  if (Object.hasOwn(fact, "stable_difference")) compact.stable_difference = fact.stable_difference === true;
+  return compact;
+}
+
+function normalizeStableStrings(values) {
+  return [...new Set((Array.isArray(values) ? values : [])
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean))]
+    .sort(compareStableText);
+}
+
+function normalizeCharacterProfileChapterIndex(value) {
+  const chapterIndex = Number(value);
+  return Number.isInteger(chapterIndex) && chapterIndex > 0 ? chapterIndex : 0;
+}
+
+function hasStructuredCharacterProfileSignal(fact) {
+  return ["alias_relation", "alias_confidence", "stage_hint", "stage_type", "stage_stability", "stable_difference"]
+    .some((field) => Object.hasOwn(fact, field));
+}
+
+function compareCharacterProfileFactCandidates(left, right) {
+  const leftSignal = hasStructuredCharacterProfileSignal(left.fact) ? 0 : 1;
+  const rightSignal = hasStructuredCharacterProfileSignal(right.fact) ? 0 : 1;
+  return leftSignal - rightSignal ||
+    normalizeCharacterProfileChapterIndex(left.fact.chapter_index) - normalizeCharacterProfileChapterIndex(right.fact.chapter_index) ||
+    characterProfileFactTypePriority(left.fact.fact_type) - characterProfileFactTypePriority(right.fact.fact_type) ||
+    compareStableText(left.fact.fingerprint, right.fact.fingerprint) ||
+    left.stageIndex - right.stageIndex ||
+    compareStableText(JSON.stringify(left.fact), JSON.stringify(right.fact));
+}
+
+function characterProfileFactTypePriority(value) {
+  return CHARACTER_FACT_TYPE_PRIORITY.get(String(value || "").trim()) ?? CHARACTER_FACT_TYPE_PRIORITY.size;
+}
+
+function compareStableText(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 async function waitForCharacterBuildControl(task, buildId) {
