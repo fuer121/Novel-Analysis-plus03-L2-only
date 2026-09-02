@@ -35,6 +35,8 @@ const DESCRIPTIVE_PREFIX_PATTERN = /^(?:某人|某个|一名|一个|那名|这�
 const RELATIONSHIP_SUFFIX_PATTERN = /的(?:父亲|母亲|兄弟|姐妹|师父|徒弟)$/u;
 const STAGE_TYPES = new Set(["age", "form", "identity"]);
 const STAGE_SIGNAL_FIELDS = ["stage_hint", "stage_type", "stage_stability", "stable_difference"];
+export const CHARACTER_PROJECTION_RULE_VERSION = "character-projection-v1";
+const CHARACTER_FACT_TYPES = new Set(["identity", "alias", "appearance", "age", "personality", "background"]);
 
 export function isStableCharacterName(value) {
   if (typeof value !== "string") return false;
@@ -134,6 +136,249 @@ export function deriveCharacterStages(_name, facts = []) {
     type: stage.type,
     facts: deduplicateFacts(stage.facts)
   }));
+}
+
+export function assignStableCharacterIds(bookId, candidates = [], previousCharacters = []) {
+  const next = (Array.isArray(candidates) ? candidates : []).map((candidate) => normalizeIdentityCandidate(candidate));
+  const previous = (Array.isArray(previousCharacters) ? previousCharacters : []).map((character) => normalizePreviousCharacter(character));
+  const scores = next.map((candidate) => previous.map((character) => characterMatchScore(candidate, character)));
+  const bestPrevious = scores.map(uniqueBestIndex);
+  const bestNext = previous.map((_, previousIndex) => uniqueBestIndex(scores.map((row) => row[previousIndex])));
+
+  return next.map((candidate, candidateIndex) => {
+    const previousIndex = bestPrevious[candidateIndex];
+    const matched = previousIndex >= 0 && bestNext[previousIndex] === candidateIndex ? previous[previousIndex] : null;
+    const warnings = [...candidate.quality_warnings];
+    if (!matched && previous.length && scores[candidateIndex].some((score) => score[0] > 0 || score[1] > 0)) {
+      warnings.push("identity_ambiguous");
+    }
+    const id = matched?.id || stableId("character", [bookId, candidate.canonical_name, candidate.aliases, candidate.fact_fingerprints]);
+    return {
+      ...candidate.source,
+      id,
+      facts: candidate.facts,
+      quality_warnings: [...new Set(warnings)],
+      stages: assignStableStageIds(id, candidate.stages, matched?.stages || [])
+    };
+  });
+}
+
+export function prepareCharacterLibraryBuild({ facts = [], coverage = {}, versions = {} } = {}) {
+  const accepted = (Array.isArray(facts) ? facts : []).filter((fact) =>
+    fact?.category === "character" && CHARACTER_FACT_TYPES.has(fact?.fact_type) && isStableCharacterName(fact?.entity)
+  );
+  const fingerprinted = accepted.map((fact) => ({ ...fact, fingerprint: characterFactFingerprint(fact) }));
+  const candidates = resolveCharacterCandidates(fingerprinted).map((candidate) => ({
+    ...candidate,
+    stages: deriveCharacterStages(candidate.canonical_name, candidate.facts),
+    candidate_fingerprint: stableDigest([candidate.canonical_name, candidate.aliases, candidate.facts.map((fact) => fact.fingerprint).sort()])
+  }));
+  const source_fingerprint = stableDigest({
+    facts: fingerprinted.map((fact) => fact.fingerprint).sort(),
+    coverage,
+    versions: { task2: CHARACTER_PROJECTION_RULE_VERSION, ...versions }
+  });
+  return {
+    source_fingerprint,
+    coverage,
+    candidates,
+    quality: {
+      accepted_fact_count: accepted.length,
+      rejected_fact_count: Math.max(0, (Array.isArray(facts) ? facts.length : 0) - accepted.length),
+      conflict_count: 0,
+      warning_count: 0
+    }
+  };
+}
+
+export function applyClassificationSignals(candidate, profile = {}) {
+  const facts = [...(Array.isArray(candidate?.facts) ? candidate.facts : [])];
+  for (const alias of Array.isArray(profile.aliases) ? profile.aliases : []) {
+    facts.push({
+      book_id: facts[0]?.book_id,
+      index_group_key: facts[0]?.index_group_key,
+      chapter_index: facts[0]?.chapter_index,
+      category: "character",
+      entity: candidate.canonical_name,
+      aliases: [alias.name],
+      fact_type: "alias",
+      fact: `structured alias: ${alias.name}`,
+      evidence: alias.evidence,
+      alias_relation: alias.alias_relation,
+      alias_confidence: alias.alias_confidence
+    });
+  }
+  for (const stage of Array.isArray(profile.stages) ? profile.stages : []) {
+    if (stage.stage_stability !== "stable" || stage.stable_difference !== true || !stage.evidence?.length) continue;
+    facts.push({
+      book_id: facts[0]?.book_id,
+      index_group_key: facts[0]?.index_group_key,
+      chapter_index: facts[0]?.chapter_index,
+      category: "character",
+      entity: candidate.canonical_name,
+      fact_type: "identity",
+      fact: `structured stage: ${stage.stage_hint || stage.name}`,
+      evidence: stage.evidence,
+      stage_hint: stage.stage_hint || stage.name,
+      stage_type: stage.stage_type,
+      stage_stability: stage.stage_stability,
+      stable_difference: stage.stable_difference
+    });
+  }
+  return facts;
+}
+
+export function computeAffectedCharacterClosure(previousCharacters = [], nextCandidates = [], { compareAliases = true } = {}) {
+  const previous = previousCharacters.map(normalizeIdentityCandidate);
+  const next = nextCandidates.map(normalizeIdentityCandidate);
+  const oldByCanonical = new Map(previous.map((item) => [item.canonical_name, item]));
+  const nextByCanonical = new Map(next.map((item) => [item.canonical_name, item]));
+  const seeds = new Set();
+  for (const name of new Set([...oldByCanonical.keys(), ...nextByCanonical.keys()])) {
+    const oldItem = oldByCanonical.get(name);
+    const nextItem = nextByCanonical.get(name);
+    const changed = !oldItem || !nextItem || stableDigest(compareAliases ? [oldItem.aliases, oldItem.fact_fingerprints] : oldItem.fact_fingerprints)
+      !== stableDigest(compareAliases ? [nextItem.aliases, nextItem.fact_fingerprints] : nextItem.fact_fingerprints);
+    if (changed) {
+      seeds.add(name);
+    }
+  }
+  const graphs = [buildAliasGraph(previous), buildAliasGraph(next)];
+  const affectedNames = new Set(seeds);
+  const queue = [...seeds];
+  while (queue.length) {
+    const name = queue.shift();
+    for (const graph of graphs) {
+      for (const related of graph.get(name) || []) {
+        if (affectedNames.has(related)) continue;
+        affectedNames.add(related);
+        queue.push(related);
+      }
+    }
+  }
+  const affectedCanonicalNames = new Set();
+  for (const item of [...previous, ...next]) {
+    if ([item.canonical_name, ...item.aliases].some((name) => affectedNames.has(name))) affectedCanonicalNames.add(item.canonical_name);
+  }
+  return { affected_names: [...affectedCanonicalNames].sort(compareChineseNames), full_rebuild: false };
+}
+
+function assignStableStageIds(characterId, stages, previousStages) {
+  const next = stages.map((stage) => normalizeIdentityStage(stage));
+  const previous = previousStages.map((stage) => normalizeIdentityStage(stage));
+  const scores = next.map((stage) => previous.map((oldStage) => stageMatchScore(stage, oldStage)));
+  const bestPrevious = scores.map(uniqueBestIndex);
+  const bestNext = previous.map((_, previousIndex) => uniqueBestIndex(scores.map((row) => row[previousIndex])));
+  return next.map((stage, stageIndex) => {
+    const previousIndex = bestPrevious[stageIndex];
+    const matched = previousIndex >= 0 && bestNext[previousIndex] === stageIndex ? previous[previousIndex] : null;
+    const warnings = Array.isArray(stage.source.quality_warnings) ? [...stage.source.quality_warnings] : [];
+    if (!matched && previous.length && scores[stageIndex].some((score) => score[0] > 0 || score[1] > 0)) warnings.push("stage_identity_ambiguous");
+    return {
+      ...stage.source,
+      id: matched?.id || stableId("stage", [characterId, stage.type, stage.name, stage.fact_fingerprints]),
+      facts: stage.facts,
+      quality_warnings: [...new Set(warnings)]
+    };
+  });
+}
+
+function buildAliasGraph(characters) {
+  const graph = new Map();
+  for (const character of characters) {
+    for (const alias of character.aliases) {
+      for (const [left, right] of [[character.canonical_name, alias], [alias, character.canonical_name]]) {
+        const neighbors = graph.get(left) || new Set();
+        neighbors.add(right);
+        graph.set(left, neighbors);
+      }
+    }
+  }
+  return graph;
+}
+
+function normalizeIdentityCandidate(candidate = {}) {
+  const facts = normalizeIdentityFacts([
+    ...(Array.isArray(candidate.facts) ? candidate.facts : []),
+    ...(Array.isArray(candidate.stages) ? candidate.stages.flatMap((stage) => Array.isArray(stage?.facts) ? stage.facts : []) : [])
+  ]);
+  return {
+    source: candidate,
+    canonical_name: normalizeText(candidate.canonical_name),
+    aliases: [...new Set((Array.isArray(candidate.aliases) ? candidate.aliases : []).map(normalizeText).filter(Boolean))].sort(compareChineseNames),
+    facts,
+    fact_fingerprints: [...new Set(facts.map(identityFactFingerprint))].sort(),
+    stages: Array.isArray(candidate.stages) ? candidate.stages : [],
+    quality_warnings: Array.isArray(candidate.quality_warnings) ? candidate.quality_warnings : []
+  };
+}
+
+function normalizePreviousCharacter(character = {}) {
+  return { ...normalizeIdentityCandidate(character), id: String(character.id || ""), stages: Array.isArray(character.stages) ? character.stages : [] };
+}
+
+function normalizeIdentityStage(stage = {}) {
+  const facts = normalizeIdentityFacts(stage.facts);
+  return {
+    source: stage,
+    id: String(stage.id || ""),
+    name: normalizeText(stage.name || stage.stage_hint || "默认阶段"),
+    type: normalizeText(stage.type || stage.stage_type || "default"),
+    facts,
+    fact_fingerprints: facts.map(identityFactFingerprint).sort()
+  };
+}
+
+function normalizeIdentityFacts(facts) {
+  return Array.isArray(facts) ? facts : [];
+}
+
+function identityFactFingerprint(fact) {
+  return normalizeText(fact?.fingerprint) || characterFactFingerprint(fact);
+}
+
+function characterMatchScore(candidate, previous) {
+  const sharedFacts = intersectionCount(candidate.fact_fingerprints, previous.fact_fingerprints);
+  const candidateNames = new Set([candidate.canonical_name, ...candidate.aliases]);
+  const previousNames = new Set([previous.canonical_name, ...previous.aliases]);
+  return [sharedFacts, [...candidateNames].some((name) => previousNames.has(name)) ? 1 : 0];
+}
+
+function stageMatchScore(stage, previous) {
+  const sharedFacts = intersectionCount(stage.fact_fingerprints, previous.fact_fingerprints);
+  const sameSignal = stage.type === previous.type && stage.name === previous.name ? 1 : 0;
+  return [sharedFacts, sameSignal];
+}
+
+function uniqueBestIndex(scores) {
+  let best = [-1, -1];
+  let index = -1;
+  let tied = false;
+  scores.forEach((score, candidateIndex) => {
+    const comparison = score[0] - best[0] || score[1] - best[1];
+    if (comparison > 0) {
+      best = score;
+      index = candidateIndex;
+      tied = false;
+    } else if (comparison === 0) {
+      tied = true;
+    }
+  });
+  return !tied && (best[0] > 0 || best[1] > 0) ? index : -1;
+}
+
+function intersectionCount(left, right) {
+  const values = new Set(left);
+  return right.reduce((count, value) => count + (values.has(value) ? 1 : 0), 0);
+}
+
+function stableId(prefix, parts) {
+  const digest = crypto.createHash("sha256").update(JSON.stringify(parts), "utf8").digest("hex").slice(0, 24);
+  return `${prefix}:${digest}`;
+}
+
+function stableDigest(value) {
+  return crypto.createHash("sha256").update(JSON.stringify(value), "utf8").digest("hex");
 }
 
 function isStrongAliasFact(fact, canonical) {

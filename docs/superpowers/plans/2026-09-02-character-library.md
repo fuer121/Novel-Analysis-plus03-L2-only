@@ -540,7 +540,7 @@ git commit -m "feat: define character profile workflow contract"
 - Modify: `server/db.js`
 - Test: `test/service.test.js`
 
-- [ ] **Step 1: 写暂存恢复、部分构建和增量更新失败测试**
+- [x] **Step 1: 写暂存恢复、部分构建和增量更新失败测试**
 
 ```js
 test("character library build persists partial coverage and reuses stable ids", async () => {
@@ -577,13 +577,13 @@ test("character library build persists partial coverage and reuses stable ids", 
 - 稳定 ID 只在唯一双向匹配时复用，拆分、合并和并列生成新 ID并告警
 - L2 事实跨页完整读取且顺序稳定，激活前来源指纹变化使构建失效
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `node --test --test-name-pattern="character library build persists" test/service.test.js`
 
 Expected: FAIL，提示 `startCharacterLibraryTask` 未定义
 
-- [ ] **Step 3: 实现稳定分页、来源指纹和增量闭包**
+- [x] **Step 3: 实现稳定分页、来源指纹和增量闭包**
 
 在 `server/db.js` 增加角色构建专用 keyset 分页接口，固定按 `chapter_index ASC, id ASC` 排序，以 `(chapter_index, id)` 为游标完整读取，不复用 `listL2Facts` 的单次 limit 语义
 
@@ -613,7 +613,7 @@ Expected: FAIL，提示 `startCharacterLibraryTask` 未定义
 
 只读取 `category === "character"`、状态完成、索引组匹配且章节在范围内的事实，`fact_type` 限制为设计规格中的六种类型。闭包不唯一时升级为全书候选重建，激活前重新计算覆盖和来源指纹
 
-- [ ] **Step 4: 实现暂存模型和任务编排**
+- [x] **Step 4: 实现暂存模型和任务编排**
 
 在 `server/workflows.js` 导出 `startCharacterLibraryTask(payload)`，结构遵循现有 `startL2IndexTask`：
 
@@ -633,22 +633,32 @@ export function startCharacterLibraryTask(payload = {}) {
 
 暂停时停止领取新 item，恢复时处理 `pending`、可重试 `failed` 和陈旧 `running`，取消时不激活。每完成一个角色都持久化断点，最终只通过完整集合调用一次 `replaceCharacterProjection`
 
-- [ ] **Step 5: 覆盖失败回退和 partial 激活**
+- [x] **Step 5: 覆盖失败回退和 partial 激活**
 
 增加测试让更新构建中的一个角色 Dify 调用失败，断言该角色沿用上一版并标记失败或过期，其他成功角色使用新结果，完整集合以 `partial` 原子激活。首次构建失败候选不进入投影，但必须进入质量摘要和待重试清单
 
-- [ ] **Step 6: 运行任务相关测试**
+- [x] **Step 6: 运行任务相关测试**
 
 Run: `node --test --test-name-pattern="character library build|character library failure" test/service.test.js`
 
 Expected: PASS
 
-- [ ] **Step 7: 提交构建任务**
+- [x] **Step 7: 提交构建任务**
 
 ```bash
 git add server/character-library.js server/workflows.js server/db.js test/service.test.js
 git commit -m "feat: build character library projections"
 ```
+
+**2026-09-02 封板记录：**
+
+- 状态：完成，Task 5 与 Task 5B 双审通过，Task 6 等待授权
+- 实现：角色级暂存、跨进程恢复、稳定分页、来源指纹、两阶段 Dify、增量闭包、稳定 ID、partial 回退和原子激活
+- Task 5 聚焦测试：27/27
+- service tests：104/104
+- 全仓测试：132/132
+- lint 与 `git diff --check`：PASS
+- 剩余风险：缺少事实链接的旧角色在 partial 更新中保守保留；旧库 CHECK、主流程拆分和分布式锁留作 FOLLOW_UP
 
 ### Task 6: 暴露角色库 API 和全局任务控制
 

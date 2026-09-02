@@ -1,12 +1,13 @@
 # Task 5 控制卡：可恢复的角色库构建任务
 
 - 日期：2026-09-02
-- 当前关卡：Task 5A 契约已收口，等待用户批准实现关
+- 当前关卡：PASS，Task 5 已封板
 - 执行方式：subagent
 - 负责方：总控维护控制卡、裁决、验收和统一提交；只读设计 subagent 负责构建链路审查
 - 设计基线：[`docs/character-library-design.md`](../character-library-design.md)
 - 实施计划：[`docs/superpowers/plans/2026-09-02-character-library.md`](../superpowers/plans/2026-09-02-character-library.md)
 - 契约收口：[`docs/task-controls/2026-09-02-character-library-task-5a.md`](2026-09-02-character-library-task-5a.md)
+- 增量语义修正：[`docs/task-controls/2026-09-02-character-library-task-5b.md`](2026-09-02-character-library-task-5b.md)
 
 ## 目标
 
@@ -62,7 +63,7 @@
 
 ## BLOCKER
 
-- BLOCKER: Task 5 实现关尚未获得用户批准
+- 无
 
 ## FOLLOW_UP
 
@@ -140,4 +141,19 @@ FOLLOW_UP：
 
 ## 当前授权
 
-Task 5A 已完成，Task 5 实现关仍未获用户批准，不得派发实现 subagent、修改生产代码或进入 Task 6
+Task 5 已封板，立即停止修改，不得进入 Task 6，等待用户下一次授权
+
+## 封板记录
+
+- 最终状态：PASS
+- 实际实现：build items、`control_state`、稳定分页、新鲜覆盖、来源指纹、两阶段 Dify、Task 2 衔接、稳定 ID、增量闭包、完整集合原子激活、断点恢复和任务控制
+- 失败保护：更新失败角色沿用上一版，首次失败候选进入待重试清单，partial 覆盖按角色来源章节区分 stale 保留与可确认删除
+- Task 5B 规格审查：PASS
+- Task 5B 代码质量审查：PASS
+- Task 5 聚焦测试：27/27
+- `node --test test/service.test.js`：104/104
+- `npm test`：132/132
+- `npm run lint`：PASS
+- `git diff --check`：PASS
+- 剩余风险：缺少事实链接的旧角色在 partial 构建中保守保留，可能形成过期项但不会静默丢失
+- FOLLOW_UP：旧数据库 `control_state` CHECK 约束一致性、主构建流程有限拆分、多进程 item 领取和分布式锁

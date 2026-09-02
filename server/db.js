@@ -223,6 +223,7 @@ db.exec(`
     end_chapter INTEGER NOT NULL,
     source_fingerprint TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('running', 'completed', 'partial', 'failed', 'cancelled')),
+    control_state TEXT NOT NULL DEFAULT 'active' CHECK (control_state IN ('active', 'pause_requested', 'paused', 'cancel_requested')),
     is_current INTEGER NOT NULL DEFAULT 0 CHECK (is_current IN (0, 1)),
     coverage TEXT NOT NULL DEFAULT '{}',
     quality TEXT NOT NULL DEFAULT '{}',
@@ -303,6 +304,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_character_fact_links_source
     ON character_fact_links(book_id, index_group_key, chapter_index);
 `);
+
+ensureCharacterLibraryBuildSchema();
 
 assertPlaintextSchema();
 seedDefaultPrompts();
@@ -892,10 +895,102 @@ export function createCharacterLibraryBuild({ bookId, indexGroupKey, startChapte
   const now = nowIso();
   db.prepare(`INSERT INTO character_library_builds (
     id, book_id, index_group_key, start_chapter, end_chapter, source_fingerprint,
-    status, is_current, coverage, quality, error_summary, created_at, updated_at
-  ) VALUES (?, ?, ?, ?, ?, ?, 'running', 0, '{}', '{}', '', ?, ?)`)
+    status, control_state, is_current, coverage, quality, error_summary, created_at, updated_at
+  ) VALUES (?, ?, ?, ?, ?, ?, 'running', 'active', 0, '{}', '{}', '', ?, ?)`)
     .run(buildId, id, groupKey, range.startChapter, range.endChapter, fingerprint, now, now);
   return characterLibraryBuildRow(buildId);
+}
+
+export function updateCharacterLibraryBuildControl(id, controlState) {
+  const buildId = String(id || "").trim();
+  const state = String(controlState || "").trim();
+  if (!["active", "pause_requested", "paused", "cancel_requested"].includes(state)) {
+    throw new Error("invalid character library build control state");
+  }
+  const current = characterLibraryBuildRow(buildId);
+  if (!current) throw new Error("character library build not found");
+  if (current.status !== "running") throw new Error("terminal character library build cannot be controlled");
+  db.prepare("UPDATE character_library_builds SET control_state = ?, updated_at = ? WHERE id = ?")
+    .run(state, nowIso(), buildId);
+  return characterLibraryBuildRow(buildId);
+}
+
+export function getCharacterLibraryBuild(id) {
+  return characterLibraryBuildRow(id);
+}
+
+export function saveCharacterLibraryBuildItem(buildId, value = {}) {
+  const id = String(buildId || "").trim();
+  if (!characterLibraryBuildRow(id)) throw new Error("character library build not found");
+  const itemKey = String(value.item_key || value.itemKey || "").trim();
+  const candidateFingerprint = String(value.candidate_fingerprint || value.candidateFingerprint || "").trim();
+  if (!itemKey || !candidateFingerprint) throw new Error("character library build item identity is required");
+  const status = String(value.status || "pending").trim();
+  if (!["pending", "running", "succeeded", "failed", "reused", "cancelled"].includes(status)) {
+    throw new Error("invalid character library build item status");
+  }
+  const current = db.prepare("SELECT * FROM character_library_build_items WHERE build_id = ? AND item_key = ?").get(id, itemKey);
+  const now = nowIso();
+  db.prepare(`INSERT INTO character_library_build_items (
+    build_id, item_key, candidate_fingerprint, source_fact_fingerprints, input_payload,
+    classification_output, profile_output, fallback_payload, previous_character_id,
+    identity_match, quality_warnings, status, attempt_count, error_summary, started_at,
+    heartbeat_at, completed_at, created_at, updated_at
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(build_id, item_key) DO UPDATE SET
+    candidate_fingerprint = excluded.candidate_fingerprint,
+    source_fact_fingerprints = excluded.source_fact_fingerprints,
+    input_payload = excluded.input_payload,
+    classification_output = excluded.classification_output,
+    profile_output = excluded.profile_output,
+    fallback_payload = excluded.fallback_payload,
+    previous_character_id = excluded.previous_character_id,
+    identity_match = excluded.identity_match,
+    quality_warnings = excluded.quality_warnings,
+    status = excluded.status,
+    attempt_count = excluded.attempt_count,
+    error_summary = excluded.error_summary,
+    started_at = excluded.started_at,
+    heartbeat_at = excluded.heartbeat_at,
+    completed_at = excluded.completed_at,
+    updated_at = excluded.updated_at`)
+    .run(
+      id, itemKey, candidateFingerprint,
+      stringifyJsonArray(value.source_fact_fingerprints ?? parseJsonArray(current?.source_fact_fingerprints)),
+      stringifyJsonObject(value.input_payload ?? parseJsonObject(current?.input_payload)),
+      stringifyJsonObject(value.classification_output ?? parseJsonObject(current?.classification_output)),
+      stringifyJsonObject(value.profile_output ?? parseJsonObject(current?.profile_output)),
+      stringifyJsonObject(value.fallback_payload ?? parseJsonObject(current?.fallback_payload)),
+      String(value.previous_character_id ?? current?.previous_character_id ?? ""),
+      stringifyJsonObject(value.identity_match ?? parseJsonObject(current?.identity_match)),
+      stringifyJsonArray(value.quality_warnings ?? parseJsonArray(current?.quality_warnings)),
+      status, Number(value.attempt_count ?? current?.attempt_count ?? 0),
+      String(value.error_summary ?? current?.error_summary ?? ""),
+      String(value.started_at ?? current?.started_at ?? ""),
+      String(value.heartbeat_at ?? current?.heartbeat_at ?? ""),
+      String(value.completed_at ?? current?.completed_at ?? ""), current?.created_at || now, now
+    );
+  return publicCharacterLibraryBuildItem(db.prepare("SELECT * FROM character_library_build_items WHERE build_id = ? AND item_key = ?").get(id, itemKey));
+}
+
+export function listCharacterLibraryBuildItems(buildId) {
+  return db.prepare("SELECT * FROM character_library_build_items WHERE build_id = ? ORDER BY item_key ASC")
+    .all(String(buildId || "")).map(publicCharacterLibraryBuildItem);
+}
+
+export function resetStaleCharacterLibraryBuildItems(buildId, { staleBefore } = {}) {
+  const cutoff = String(staleBefore || nowIso());
+  return Number(db.prepare(`UPDATE character_library_build_items
+    SET status = 'pending', started_at = '', heartbeat_at = '', updated_at = ?
+    WHERE build_id = ? AND status = 'running' AND heartbeat_at <> '' AND heartbeat_at < ?`)
+    .run(nowIso(), String(buildId || ""), cutoff).changes || 0);
+}
+
+export function cancelPendingCharacterLibraryBuildItems(buildId) {
+  return Number(db.prepare(`UPDATE character_library_build_items
+    SET status = 'cancelled', completed_at = ?, updated_at = ?
+    WHERE build_id = ? AND status = 'pending'`)
+    .run(nowIso(), nowIso(), String(buildId || "")).changes || 0);
 }
 
 export function updateCharacterLibraryBuild(id, { status, coverage, quality, errorSummary } = {}) {
@@ -1496,6 +1591,72 @@ export function listL2Facts({ bookId, indexGroupKeys = [BASE_INDEX_GROUP_KEY], s
   return rows.map((row) => (includeContent ? publicL2FactWithContent(row) : publicL2Fact(row)));
 }
 
+export function listCharacterL2FactsPage({ bookId, indexGroupKey, startChapter, endChapter, chapterIndexes = [], cursor = null, pageSize = 200 } = {}) {
+  const range = normalizeRange(startChapter, endChapter);
+  const params = [normalizeBookId(bookId), normalizeIndexGroupKey(indexGroupKey), range.startChapter, range.endChapter];
+  const where = ["book_id = ?", "index_group_key = ?", "chapter_index BETWEEN ? AND ?", "status = 'completed'", "category = 'character'"];
+  const indexes = normalizeChapterIndexList(chapterIndexes);
+  if (indexes.length) {
+    where.push(`chapter_index IN (${indexes.map(() => "?").join(", ")})`);
+    params.push(...indexes);
+  }
+  const chapterIndex = Number(cursor?.chapter_index);
+  const factId = String(cursor?.id || "");
+  if (Number.isInteger(chapterIndex) && chapterIndex > 0 && factId) {
+    where.push("(chapter_index > ? OR (chapter_index = ? AND id > ?))");
+    params.push(chapterIndex, chapterIndex, factId);
+  }
+  const size = Math.max(1, Math.min(500, Number(pageSize) || 200));
+  const rows = db.prepare(`SELECT * FROM l2_facts WHERE ${where.join(" AND ")}
+    ORDER BY chapter_index ASC, id ASC LIMIT ?`).all(...params, size + 1);
+  const hasMore = rows.length > size;
+  const pageRows = hasMore ? rows.slice(0, size) : rows;
+  const last = pageRows.at(-1);
+  return {
+    items: pageRows.map(publicL2FactWithContent),
+    next_cursor: hasMore && last ? { chapter_index: last.chapter_index, id: last.id } : null
+  };
+}
+
+export function listFreshCharacterChapterIndexes({ bookId, indexGroupKey, startChapter, endChapter, l1Model, l1PromptHash, l2Model, l2PromptHash, l2SchemaVersion } = {}) {
+  return listFreshCharacterChapterSources({ bookId, indexGroupKey, startChapter, endChapter, l1Model, l1PromptHash, l2Model, l2PromptHash, l2SchemaVersion })
+    .map((row) => row.chapter_index);
+}
+
+export function listFreshCharacterChapterSources({ bookId, indexGroupKey, startChapter, endChapter, l1Model, l1PromptHash, l2Model, l2PromptHash, l2SchemaVersion } = {}) {
+  const range = normalizeRange(startChapter, endChapter);
+  return db.prepare(`SELECT c.chapter_index, l1.source_hash AS l1_source_hash, l2.source_hash AS l2_source_hash
+    FROM chapters c
+    JOIN l1_chapter_indexes l1 ON l1.book_id = c.book_id AND l1.chapter_index = c.chapter_index
+    JOIN l2_chapter_statuses l2 ON l2.book_id = c.book_id AND l2.chapter_index = c.chapter_index AND l2.index_group_key = ?
+    WHERE c.book_id = ? AND c.chapter_index BETWEEN ? AND ?
+      AND l1.status = 'completed' AND l1.source_hash = c.content_hash
+      AND l1.model = ? AND l1.prompt_hash = ?
+      AND l2.status = 'completed' AND l2.source_hash = c.content_hash
+      AND l2.model = ? AND l2.prompt_hash = ? AND l2.schema_version = ?
+    ORDER BY c.chapter_index ASC`)
+    .all(normalizeIndexGroupKey(indexGroupKey), normalizeBookId(bookId), range.startChapter, range.endChapter,
+      String(l1Model || ""), String(l1PromptHash || ""), String(l2Model || ""), String(l2PromptHash || ""), String(l2SchemaVersion || ""))
+    .map((row) => ({ ...row, chapter_index: Number(row.chapter_index) }));
+}
+
+export function listCharacterChapterSourceStates({ bookId, indexGroupKey, startChapter, endChapter } = {}) {
+  const range = normalizeRange(startChapter, endChapter);
+  return db.prepare(`SELECT c.chapter_index, c.content_hash,
+      COALESCE(l1.status, 'missing') AS l1_status, COALESCE(l1.source_hash, '') AS l1_source_hash,
+      COALESCE(l1.model, '') AS l1_model, COALESCE(l1.prompt_hash, '') AS l1_prompt_hash,
+      COALESCE(l2.status, 'missing') AS l2_status, COALESCE(l2.source_hash, '') AS l2_source_hash,
+      COALESCE(l2.model, '') AS l2_model, COALESCE(l2.prompt_hash, '') AS l2_prompt_hash,
+      COALESCE(l2.schema_version, '') AS l2_schema_version
+    FROM chapters c
+    LEFT JOIN l1_chapter_indexes l1 ON l1.book_id = c.book_id AND l1.chapter_index = c.chapter_index
+    LEFT JOIN l2_chapter_statuses l2 ON l2.book_id = c.book_id AND l2.chapter_index = c.chapter_index AND l2.index_group_key = ?
+    WHERE c.book_id = ? AND c.chapter_index BETWEEN ? AND ?
+    ORDER BY c.chapter_index ASC`)
+    .all(normalizeIndexGroupKey(indexGroupKey), normalizeBookId(bookId), range.startChapter, range.endChapter)
+    .map((row) => ({ ...row, chapter_index: Number(row.chapter_index) }));
+}
+
 function normalizeChapterIndexList(values) {
   const input = Array.isArray(values) ? values : [];
   const seen = new Set();
@@ -1765,6 +1926,37 @@ function assertPlaintextSchema() {
   }
 }
 
+function ensureCharacterLibraryBuildSchema() {
+  const columns = db.prepare("PRAGMA table_info(character_library_builds)").all();
+  if (columns.length && !columns.some((entry) => entry.name === "control_state")) {
+    db.exec("ALTER TABLE character_library_builds ADD COLUMN control_state TEXT NOT NULL DEFAULT 'active'");
+  }
+  db.exec(`CREATE TABLE IF NOT EXISTS character_library_build_items (
+    build_id TEXT NOT NULL,
+    item_key TEXT NOT NULL,
+    candidate_fingerprint TEXT NOT NULL,
+    source_fact_fingerprints TEXT NOT NULL DEFAULT '[]',
+    input_payload TEXT NOT NULL DEFAULT '{}',
+    classification_output TEXT NOT NULL DEFAULT '{}',
+    profile_output TEXT NOT NULL DEFAULT '{}',
+    fallback_payload TEXT NOT NULL DEFAULT '{}',
+    previous_character_id TEXT NOT NULL DEFAULT '',
+    identity_match TEXT NOT NULL DEFAULT '{}',
+    quality_warnings TEXT NOT NULL DEFAULT '[]',
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'succeeded', 'failed', 'reused', 'cancelled')),
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    error_summary TEXT NOT NULL DEFAULT '',
+    started_at TEXT NOT NULL DEFAULT '',
+    heartbeat_at TEXT NOT NULL DEFAULT '',
+    completed_at TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (build_id, item_key),
+    UNIQUE (build_id, candidate_fingerprint),
+    FOREIGN KEY (build_id) REFERENCES character_library_builds(id) ON DELETE CASCADE
+  )`);
+}
+
 function publicBookIndexPrompts(row) {
   if (!row) return null;
   const prompts = {
@@ -1929,6 +2121,20 @@ function publicCharacterLibraryBuild(row) {
     character_count: Number(row.character_count || 0),
     stage_count: Number(row.stage_count || 0),
     fact_count: Number(row.fact_count || 0)
+  };
+}
+
+function publicCharacterLibraryBuildItem(row) {
+  return {
+    ...row,
+    source_fact_fingerprints: parseJsonArray(row.source_fact_fingerprints),
+    input_payload: parseJsonObject(row.input_payload),
+    classification_output: parseJsonObject(row.classification_output),
+    profile_output: parseJsonObject(row.profile_output),
+    fallback_payload: parseJsonObject(row.fallback_payload),
+    identity_match: parseJsonObject(row.identity_match),
+    quality_warnings: parseJsonArray(row.quality_warnings),
+    attempt_count: Number(row.attempt_count || 0)
   };
 }
 
