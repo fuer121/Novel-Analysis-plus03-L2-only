@@ -29,6 +29,7 @@
 - [`docs/character-image-generation-rules.md`](docs/character-image-generation-rules.md)：跨书籍角色形象提炼、生图、JPEG 输出、质检、重绘和上传规则
 - [`docs/orchestration-rules.md`](docs/orchestration-rules.md)：总控与执行线程分工、执行单要素、状态记录和验收约定
 - [`docs/task-control-card.md`](docs/task-control-card.md)：非简单 Task 的开工控制卡模板，固定范围、契约、停止条件、审查关和完成证据
+- [`docs/agent-handoff-template.md`](docs/agent-handoff-template.md)：总控向 subagent 或新线程派发任务及执行方回传结果的统一模板
 - [`docs/character-library-design.md`](docs/character-library-design.md)：角色库产品边界、事实质量、聚合模型、页面结构和验收基线
 - [`books/README.md`](books/README.md)：书籍工作区目录职责、批次规则和迁移要求
 - [《凰宫梦》179 人正式角色基线](books/1836527-凰宫梦/final/characters/README.md)：当前样板书的正式成果入口和校验证据
@@ -58,6 +59,7 @@
 - 哨兵触发后暂停实现，核对文件规格与层级职责，列出保留、删除、下沉和延期项，压缩实现后再进行有边界的最终审查
 - 总控负责判断审查意见是否属于阻断项，不把范围裁决权完全交给审查线程
 - 非简单 Task 开始前必须建立任务控制卡，涉及主键、持久化、历史数据、迁移、删除、对外 API 或不可逆写入时，实施前必须通过不可逆设计审查关
+- 总控默认使用短生命周期 subagent 承担边界明确的调研、实现、测试和审查；跨多轮用户裁决、需要长期恢复或独立工作区的任务升级为新线程
 
 删除影响：审查循环可能演变为隐含需求生成器，单个任务膨胀为不可维护的规则引擎并长期无法封板
 
