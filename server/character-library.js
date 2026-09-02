@@ -113,7 +113,7 @@ export function deriveCharacterStages(_name, facts = []) {
     stages.set(stageName, stage);
   }
   if (hasStageTypeConflict || stages.size < 2 || !everyStageHasIndependentEvidence(stages)) {
-    return [{ name: "默认阶段", type: "default", facts: sourceFacts }];
+    return [{ name: "默认阶段", type: "default", facts: deduplicateStageFacts(sourceFacts) }];
   }
   const sortedStages = [...stages].sort(([leftName, left], [rightName, right]) => {
     const leftChapter = Math.min(...left.facts.map((fact) => normalizeChapterIndex(fact.chapter_index)).filter(Boolean), Number.MAX_SAFE_INTEGER);

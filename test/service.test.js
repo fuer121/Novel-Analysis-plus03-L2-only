@@ -30,6 +30,8 @@ test.after(async () => {
   await fs.rm(tempDir, { recursive: true, force: true });
 });
 
+const stableStageFacts = (facts) => facts.map((fact) => JSON.parse(JSON.stringify(fact))).sort((left, right) => characterLibrary.characterFactFingerprint(left).localeCompare(characterLibrary.characterFactFingerprint(right)));
+
 test("character library admits only stable named characters", () => {
   assert.equal(characterLibrary.isStableCharacterName("顾南风"), true);
   assert.equal(characterLibrary.isStableCharacterName("黑衣人"), false);
@@ -197,7 +199,7 @@ test("character stages require every structured contract field", () => {
   for (const [label, overrides] of cases) {
     const facts = [first, { ...second, ...overrides }];
     assert.deepEqual(characterLibrary.deriveCharacterStages("沈昭", facts), [
-      { name: "默认阶段", type: "default", facts }
+      { name: "默认阶段", type: "default", facts: stableStageFacts(facts) }
     ], label);
   }
 
@@ -214,7 +216,7 @@ test("character stages require every structured contract field", () => {
     }
   ];
   assert.deepEqual(characterLibrary.deriveCharacterStages("沈昭", conflictingFacts), [
-    { name: "默认阶段", type: "default", facts: conflictingFacts }
+    { name: "默认阶段", type: "default", facts: stableStageFacts(conflictingFacts) }
   ], "conflicting stage type");
 });
 
@@ -248,19 +250,26 @@ test("character stages require independent evidence for every stage", () => {
   };
   const cases = [
     [
-      { ...base, stage_hint: "人类形态", evidence: ["共享证据"] },
-      { ...base, stage_hint: "龙形", evidence: [" 共享证据 "] }
+      { ...base, stage_hint: "人类形态", fact: "人身事实", evidence: ["共享证据"] },
+      { ...base, stage_hint: "龙形", fact: "龙形事实", evidence: [" 共享证据 "] }
     ],
     [
-      { ...base, stage_hint: "人类形态", evidence: ["共享证据", "人身独立证据"] },
-      { ...base, stage_hint: "龙形", evidence: ["共享证据"] }
+      { ...base, stage_hint: "人类形态", fact: "人身事实", evidence: ["共享证据", "人身独立证据"] },
+      { ...base, stage_hint: "龙形", fact: "龙形事实", evidence: ["共享证据"] }
     ]
   ];
   for (const facts of cases) {
     assert.deepEqual(characterLibrary.deriveCharacterStages("玄霜", facts), [
-      { name: "默认阶段", type: "default", facts }
+      { name: "默认阶段", type: "default", facts: stableStageFacts(facts) }
     ]);
   }
+  const sharedFact = { ...base, book_id: "book-1", chapter_index: 3, stage_hint: "人类形态", fact: "相同来源事实", evidence: ["相同来源证据"] };
+  const duplicateA = { ...sharedFact, id: "volatile-z", source_rank: "beta" };
+  const duplicateB = { ...sharedFact, id: "volatile-a", source_rank: "alpha" };
+  const forward = characterLibrary.deriveCharacterStages("玄霜", [duplicateA, duplicateB]);
+  const reversed = characterLibrary.deriveCharacterStages("玄霜", [duplicateB, duplicateA]);
+  assert.deepEqual(reversed, forward);
+  assert.deepEqual(forward[0].facts, [{ ...sharedFact, source_rank: "alpha" }]);
 });
 
 test("character fact fingerprints survive L2 UUID replacement", () => {
