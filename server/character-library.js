@@ -33,7 +33,7 @@ const GENERIC_CHARACTER_NAMES = new Set([
 
 const DESCRIPTIVE_PREFIX_PATTERN = /^(?:某人|某个|一名|一个|那名|这名)/u;
 const RELATIONSHIP_SUFFIX_PATTERN = /的(?:父亲|母亲|兄弟|姐妹|师父|徒弟)$/u;
-const INJURY_CHANGE_PATTERN = /(?:病中|伤中|受伤|病后|伤病|重伤|战损|断臂)/u;
+const INJURY_CHANGE_PATTERN = /(?:病中|伤中|受伤|病后|伤病|重伤|战损|断臂|独臂)/u;
 const TEMPORARY_INJURY_CONTEXT_PATTERN = /(?:病了一场|(?:三|数)日后恢复|伤愈|痊愈)/u;
 const TEMPORARY_EMOTION_HINT_PATTERN = /(?:愤怒|悲伤|哭泣|惊恐|醉态)/u;
 const EMOTION_CONTEXT_PATTERN = /(?:愤怒|怒不可遏|悲伤|哭泣|落泪|惊恐|恐惧|醉态|醉酒)/u;
@@ -46,6 +46,10 @@ const EXPLICIT_TEMPORARY_PATTERN = /(?:短暂|临时|一时|片刻|转瞬|顷刻
 const CLOTHING_CHANGE_PATTERN = /(?:换装|换上|换下|换回|改穿|穿上|脱下)/u;
 const TRANSFORMATION_CHANGE_PATTERN = /(?:异变|化作|变成|变为|力量爆发|恢复原状|恢复如常|变回)/u;
 const STABLE_DURATION_PATTERN = /(?:从此|此后|始终|常年|长期|一直|永久|永远|再未恢复|不可逆|终生|自[^，。；;]{0,12}起)/u;
+const IRREVERSIBLE_INJURY_PATTERN = /(?:再未恢复|不可逆|终生|永久)/u;
+const ALIAS_NEGATION_PATTERN = /(?:未获证实|未经证实|误传|不实|并非|不是|否认)/u;
+const CLAUSE_BOUNDARY_PATTERN = /[，,。.!！？?；;：:\r\n]+/u;
+const STAGE_CLAUSE_BOUNDARY_PATTERN = /[，,。.!！？?；;：:\r\n]+|(?:后来|随后|之后|而后|但|却)/u;
 const AGE_STAGE_PATTERN = /(?:婴儿|幼年|童年|少年|青年|成年|中年|老年|晚年)/u;
 const FORM_STAGE_PATTERN = /(?:形态|人身|真身|鬼魂|魂体|非人|形$)/u;
 
@@ -188,7 +192,7 @@ function collectStrongAliasEdges(facts) {
       if (
         alias === canonical ||
         !isStableCharacterName(alias) ||
-        !hasExplicitAliasRelationship(normalizeText(fact.fact), canonical, alias)
+        !hasExplicitAliasRelationship(fact.fact, canonical, alias)
       ) continue;
       edges.push({ canonical, alias });
     }
@@ -198,7 +202,6 @@ function collectStrongAliasEdges(facts) {
 }
 
 function hasExplicitAliasRelationship(statement, canonical, alias) {
-  const relationshipText = normalizeAliasRelationshipText(statement);
   const canonicalPattern = escapeRegExp(normalizeAliasRelationshipText(canonical));
   const aliasPattern = escapeRegExp(normalizeAliasRelationshipText(alias));
   const leadingCanonicalPattern = `(?<![\\p{L}\\p{N}_])${canonicalPattern}`;
@@ -216,12 +219,18 @@ function hasExplicitAliasRelationship(statement, canonical, alias) {
     `${leadingAliasPattern}${gap}(?:是|为)${gap}${canonicalPattern}${gap}的?${gap}${nameLabel}`
   ];
 
-  return patterns.some((pattern) => new RegExp(pattern, "u").test(relationshipText));
+  const clauses = splitSourceClauses(statement, CLAUSE_BOUNDARY_PATTERN);
+  return clauses.some((clause, index) => {
+    const relationshipText = normalizeAliasRelationshipText(clause);
+    if (!patterns.some((pattern) => new RegExp(pattern, "u").test(relationshipText))) return false;
+
+    return ![clause, clauses[index + 1]].some((item) => ALIAS_NEGATION_PATTERN.test(item ?? ""));
+  });
 }
 
 function hasExplicitTemporaryContext(stageName, fact) {
   const sourceTexts = getStageSourceTexts(fact);
-  const context = [stageName, ...sourceTexts].join(" ");
+  const context = [stageName, ...sourceTexts].map(normalizeText).join(" ");
 
   if (TEMPORARY_INJURY_CONTEXT_PATTERN.test(context)) return true;
   if (TEMPORARY_EMOTION_HINT_PATTERN.test(stageName)) return true;
@@ -239,20 +248,26 @@ function hasExplicitTemporaryContext(stageName, fact) {
 
 function getStageSourceTexts(fact) {
   return [
-    normalizeText(fact?.fact),
-    ...(Array.isArray(fact?.evidence) ? fact.evidence.map(normalizeText) : [])
-  ].filter(Boolean);
+    fact?.fact,
+    ...(Array.isArray(fact?.evidence) ? fact.evidence : [])
+  ].filter((value) => normalizeText(value));
 }
 
 function hasStableStageEvidence(stageName, sourceTexts) {
   const feature = stageName.replace(/(?:形态|形|时期|阶段|时代|期)$/u, "");
   if (!feature) return false;
 
-  return sourceTexts
-    .flatMap((text) => text.split(/[，,。.!！?？；;：:\n]/u))
-    .map(normalizeText)
-    .filter(Boolean)
-    .some((clause) => STABLE_DURATION_PATTERN.test(clause) && clause.includes(feature));
+  const clauses = sourceTexts.flatMap((text) =>
+    splitSourceClauses(text, STAGE_CLAUSE_BOUNDARY_PATTERN)
+  );
+  if (
+    INJURY_CHANGE_PATTERN.test(stageName) &&
+    clauses.some((clause) => IRREVERSIBLE_INJURY_PATTERN.test(clause))
+  ) return true;
+
+  return clauses.some((clause) =>
+    STABLE_DURATION_PATTERN.test(clause) && clause.includes(feature)
+  );
 }
 
 function filterStagesWithIndependentEvidence(stageFacts) {
@@ -294,6 +309,13 @@ function escapeRegExp(value) {
 
 function normalizeAliasRelationshipText(value) {
   return normalizeText(value).replace(/["'“”‘’《》〈〉「」『』【】〔〕]/gu, "");
+}
+
+function splitSourceClauses(value, boundaryPattern) {
+  return String(value ?? "")
+    .split(boundaryPattern)
+    .map(normalizeText)
+    .filter(Boolean);
 }
 
 function normalizeText(value) {

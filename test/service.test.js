@@ -260,6 +260,34 @@ test("character library requires a complete alias name boundary", () => {
   }
 });
 
+test("character library rejects alias declarations negated in the adjacent clause", () => {
+  const rejectedStatements = [
+    "沈昭的小名是昭昭，但此传言未获证实",
+    "沈昭又名昭昭，实为旁人误传"
+  ];
+
+  for (const statement of rejectedStatements) {
+    const result = characterLibrary.resolveCharacterCandidates([
+      { entity: "沈昭", aliases: ["昭昭"], fact_type: "alias", fact: statement, evidence: [statement] },
+      { entity: "昭昭", fact_type: "appearance", fact: "昭昭眉尾有痣", evidence: ["昭昭眉尾那颗小痣"] }
+    ]);
+    assert.deepEqual(result.map((item) => item.canonical_name), ["沈昭", "昭昭"], statement);
+  }
+
+  const confirmed = characterLibrary.resolveCharacterCandidates([
+    {
+      entity: "沈昭",
+      aliases: ["昭昭"],
+      fact_type: "alias",
+      fact: "沈昭又名昭昭。众人转而谈论婚约。另一则身世传言未获证实",
+      evidence: ["沈昭又名昭昭"]
+    },
+    { entity: "昭昭", fact_type: "appearance", fact: "昭昭眉尾有痣", evidence: ["昭昭眉尾那颗小痣"] }
+  ]);
+  assert.deepEqual(confirmed.map((item) => item.canonical_name), ["沈昭"]);
+  assert.deepEqual(confirmed[0].aliases, ["昭昭"]);
+});
+
 test("character stages split distinct stable forms and reject temporary injuries", () => {
   const humanFact = {
     chapter_index: 3,
@@ -451,6 +479,29 @@ test("character stages require duration evidence in the candidate state clause",
   assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
 });
 
+test("character stages split raw narrative transitions before normalization", () => {
+  const cases = [
+    {
+      fact: "此前始终穿青衣后来在宴会上换上白衣",
+      evidence: ["她在宴会上换了白衣"]
+    },
+    {
+      fact: "她在宴会上换上白衣",
+      evidence: ["此前始终穿青衣\n宴会上换上白衣"]
+    }
+  ];
+
+  for (const candidate of cases) {
+    const stages = characterLibrary.deriveCharacterStages("玄霜", [
+      { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
+      { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
+      { stage_hint: "白衣形态", stable_difference: true, ...candidate }
+    ]);
+
+    assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"], candidate.fact);
+  }
+});
+
 test("character stages reject short illness and recovery states", () => {
   const stages = characterLibrary.deriveCharacterStages("玄霜", [
     { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
@@ -572,7 +623,7 @@ test("character stages preserve permanent injuries", () => {
       evidence: ["此前双臂俱全"]
     },
     {
-      stage_hint: "断臂阶段",
+      stage_hint: "独臂时期",
       stable_difference: true,
       fact: "重伤断臂后再未恢复",
       evidence: ["此后终生仅余右臂"]
@@ -581,7 +632,7 @@ test("character stages preserve permanent injuries", () => {
 
   assert.deepEqual(stages.map(({ name, type }) => ({ name, type })), [
     { name: "双臂时期", type: "state" },
-    { name: "断臂阶段", type: "state" }
+    { name: "独臂时期", type: "state" }
   ]);
 });
 
