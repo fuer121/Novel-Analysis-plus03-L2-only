@@ -48,6 +48,9 @@ const TRANSFORMATION_CHANGE_PATTERN = /(?:异变|化作|变成|变为|力量爆�
 const STABLE_DURATION_PATTERN = /(?:从此|此后|始终|常年|长期|一直|永久|永远|再未恢复|不可逆|终生|自[^，。；;]{0,12}起)/u;
 const IRREVERSIBLE_INJURY_PATTERN = /(?:再未恢复|不可逆|终生|永久)/u;
 const ALIAS_NEGATION_PATTERN = /(?:未获证实|未经证实|误传|不实|并非|不是|否认)/u;
+const ALIAS_REPORT_NEGATION_PATTERN = /(?:未获证实|未经证实|误传|不实|否认)/u;
+const ALIAS_CLAIM_REFERENCE_PATTERN = /(?:此传言|这个说法|该称呼|此名)/u;
+const IMPLICIT_ALIAS_NEGATION_PATTERN = /^(?:实为|乃是|只是|纯属|系为)(?:旁人)?(?:误传|不实)$/u;
 const CLAUSE_BOUNDARY_PATTERN = /[，,。.!！？?；;：:\r\n]+/u;
 const STAGE_CLAUSE_BOUNDARY_PATTERN = /[，,。.!！？?；;：:\r\n]+|(?:后来|随后|之后|而后|但|却)/u;
 const AGE_STAGE_PATTERN = /(?:婴儿|幼年|童年|少年|青年|成年|中年|老年|晚年)/u;
@@ -224,8 +227,19 @@ function hasExplicitAliasRelationship(statement, canonical, alias) {
     const relationshipText = normalizeAliasRelationshipText(clause);
     if (!patterns.some((pattern) => new RegExp(pattern, "u").test(relationshipText))) return false;
 
-    return ![clause, clauses[index + 1]].some((item) => ALIAS_NEGATION_PATTERN.test(item ?? ""));
+    return !ALIAS_NEGATION_PATTERN.test(clause) &&
+      !hasAdjacentAliasNegation(clauses[index + 1], canonical, alias);
   });
+}
+
+function hasAdjacentAliasNegation(clause, canonical, alias) {
+  const text = normalizeAliasRelationshipText(clause);
+  if (!ALIAS_NEGATION_PATTERN.test(text)) return false;
+  if (ALIAS_CLAIM_REFERENCE_PATTERN.test(text)) return true;
+  if (IMPLICIT_ALIAS_NEGATION_PATTERN.test(text)) return true;
+
+  return ALIAS_REPORT_NEGATION_PATTERN.test(text) &&
+    [canonical, alias].some((name) => text.includes(normalizeAliasRelationshipText(name)));
 }
 
 function hasExplicitTemporaryContext(stageName, fact) {

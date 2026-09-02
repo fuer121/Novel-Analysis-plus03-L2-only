@@ -286,6 +286,19 @@ test("character library rejects alias declarations negated in the adjacent claus
   ]);
   assert.deepEqual(confirmed.map((item) => item.canonical_name), ["沈昭"]);
   assert.deepEqual(confirmed[0].aliases, ["昭昭"]);
+
+  const unrelatedNegation = characterLibrary.resolveCharacterCandidates([
+    {
+      entity: "沈昭",
+      aliases: ["昭昭"],
+      fact_type: "alias",
+      fact: "沈昭的小名是昭昭。她并非沈姑娘",
+      evidence: ["沈昭的小名是昭昭"]
+    },
+    { entity: "昭昭", fact_type: "appearance", fact: "昭昭眉尾有痣", evidence: ["昭昭眉尾那颗小痣"] }
+  ]);
+  assert.deepEqual(unrelatedNegation.map((item) => item.canonical_name), ["沈昭"]);
+  assert.deepEqual(unrelatedNegation[0].aliases, ["昭昭"]);
 });
 
 test("character stages split distinct stable forms and reject temporary injuries", () => {
