@@ -126,7 +126,11 @@ test("character library does not fall back from explicit alias relation states",
   for (const overrides of [
     { alias_relation: "candidate", alias_confidence: 0.99 },
     { alias_relation: "rejected", alias_confidence: 0.99 },
-    { alias_relation: "confirmed", alias_confidence: 0.89 }
+    { alias_relation: "unknown", alias_confidence: 0.99 },
+    { alias_relation: "confirmed", alias_confidence: 0.89 },
+    { alias_relation: "confirmed", alias_confidence: 1.2 },
+    { alias_relation: "confirmed", alias_confidence: Number.NaN },
+    { alias_relation: "confirmed", alias_confidence: "0.95" }
   ]) {
     const result = characterLibrary.resolveCharacterCandidates([{ ...aliasFact, ...overrides }, appearance]);
     assert.deepEqual(result.map((item) => item.canonical_name), ["沈昭", "昭昭"]);
@@ -135,6 +139,28 @@ test("character library does not fall back from explicit alias relation states",
     characterLibrary.resolveCharacterCandidates([aliasFact, appearance]).map((item) => item.canonical_name),
     ["沈昭"]
   );
+});
+
+test("character library blocks conflicting assertions for the same alias pair", () => {
+  const confirmed = {
+    entity: "沈昭",
+    aliases: ["昭昭"],
+    fact_type: "alias",
+    fact: "结构化确认",
+    evidence: ["确认证据"],
+    alias_relation: "confirmed",
+    alias_confidence: 0.95
+  };
+  const legacy = { ...confirmed, fact: "沈昭小名昭昭", evidence: ["旧谱证据"] };
+  delete legacy.alias_relation;
+  delete legacy.alias_confidence;
+  const rejected = { ...confirmed, fact: "结构化拒绝", evidence: ["拒绝证据"], alias_relation: "rejected" };
+  const candidate = { ...confirmed, fact: "结构化候选", evidence: ["候选证据"], alias_relation: "candidate" };
+  const appearance = { entity: "昭昭", fact_type: "appearance", evidence: ["眉尾有痣"] };
+  for (const assertions of [[confirmed, rejected], [confirmed, candidate], [legacy, rejected]]) {
+    const result = characterLibrary.resolveCharacterCandidates([...assertions, appearance]);
+    assert.deepEqual(result.map((item) => item.canonical_name), ["沈昭", "昭昭"]);
+  }
 });
 
 test("character library returns deterministic deduplicated candidate facts", () => {
@@ -203,7 +229,8 @@ test("character stages split only qualified structured stage facts", () => {
   const facts = [
     { chapter_index: 1, stage_hint: "少年", stage_type: "age", stage_stability: "stable", stable_difference: true, evidence: ["身量未足"] },
     { chapter_index: 2, stage_hint: "人类形态", stage_type: "form", stage_stability: "stable", stable_difference: true, evidence: ["保持人身"] },
-    { chapter_index: 3, stage_hint: "皇后时期", stage_type: "identity", stage_stability: "stable", stable_difference: true, evidence: ["册封为后"] }
+    { chapter_index: 3, stage_hint: "皇后时期", stage_type: "identity", stage_stability: "stable", stable_difference: true, evidence: ["册封为后"] },
+    { chapter_index: 4, fact_type: "appearance", fact: "普通角色事实", evidence: ["普通证据"] }
   ];
   assert.deepEqual(characterLibrary.deriveCharacterStages("沈昭", facts), [
     { name: "少年", type: "age", facts: [facts[0]] },
@@ -259,6 +286,24 @@ test("character stages require every structured contract field", () => {
   assert.deepEqual(characterLibrary.deriveCharacterStages("沈昭", conflictingFacts), [
     { name: "默认阶段", type: "default", facts: stableStageFacts(conflictingFacts) }
   ], "conflicting stage type");
+});
+
+test("character stages fall back when any stage signal is unqualified", () => {
+  const stableStages = [
+    { stage_hint: "少年", stage_type: "age", stage_stability: "stable", stable_difference: true, fact: "少年事实", evidence: ["少年证据"] },
+    { stage_hint: "成年", stage_type: "age", stage_stability: "stable", stable_difference: true, fact: "成年事实", evidence: ["成年证据"] }
+  ];
+  const attempts = [
+    { stage_hint: "过渡期", stage_type: "age", stage_stability: "temporary", stable_difference: true, evidence: ["临时证据"] },
+    { stage_hint: "过渡期", stage_type: "age", stage_stability: "uncertain", stable_difference: true, evidence: ["不确定证据"] },
+    { stage_hint: "过渡期", stage_stability: "stable", stable_difference: true, evidence: ["缺字段证据"] }
+  ];
+  for (const attempt of attempts) {
+    const facts = [...stableStages, attempt];
+    assert.deepEqual(characterLibrary.deriveCharacterStages("沈昭", facts), [
+      { name: "默认阶段", type: "default", facts: stableStageFacts(facts) }
+    ]);
+  }
 });
 
 test("character stages sort qualified output independently of input order", () => {

@@ -34,6 +34,7 @@ const GENERIC_CHARACTER_NAMES = new Set([
 const DESCRIPTIVE_PREFIX_PATTERN = /^(?:某人|某个|一名|一个|那名|这名)/u;
 const RELATIONSHIP_SUFFIX_PATTERN = /的(?:父亲|母亲|兄弟|姐妹|师父|徒弟)$/u;
 const STAGE_TYPES = new Set(["age", "form", "identity"]);
+const STAGE_SIGNAL_FIELDS = ["stage_hint", "stage_type", "stage_stability", "stable_difference"];
 
 export function isStableCharacterName(value) {
   if (typeof value !== "string") return false;
@@ -106,16 +107,21 @@ export function resolveCharacterCandidates(facts = []) {
 export function deriveCharacterStages(_name, facts = []) {
   const sourceFacts = Array.isArray(facts) ? facts : [];
   const stages = new Map();
+  let hasInvalidStageSignal = false;
   let hasStageTypeConflict = false;
   for (const fact of sourceFacts) {
+    if (!hasStageSignal(fact)) continue;
     const stageName = normalizeText(fact?.stage_hint);
-    if (!isQualifiedStageFact(fact, stageName)) continue;
+    if (!isQualifiedStageFact(fact, stageName)) {
+      hasInvalidStageSignal = true;
+      continue;
+    }
     const stage = stages.get(stageName) ?? { type: fact.stage_type, facts: [] };
     if (stage.type !== fact.stage_type) hasStageTypeConflict = true;
     stage.facts.push(fact);
     stages.set(stageName, stage);
   }
-  if (hasStageTypeConflict || stages.size < 2 || !everyStageHasIndependentEvidence(stages)) {
+  if (hasInvalidStageSignal || hasStageTypeConflict || stages.size < 2 || !everyStageHasIndependentEvidence(stages)) {
     return [{ name: "默认阶段", type: "default", facts: deduplicateFacts(sourceFacts) }];
   }
   const sortedStages = [...stages].sort(([leftName, left], [rightName, right]) => {
@@ -145,27 +151,31 @@ function isQualifiedStageFact(fact, stageName) {
     hasEvidence(fact.evidence);
 }
 function collectStrongAliasEdges(facts) {
-  const edges = [];
+  const assertionsByPair = new Map();
   for (const fact of facts) {
     const canonical = normalizeText(fact?.entity);
-    if (!isStrongAliasFact(fact, canonical)) continue;
+    if (fact?.fact_type !== "alias" || !isStableCharacterName(canonical) || !Array.isArray(fact.aliases)) continue;
     for (const value of fact.aliases) {
       const alias = normalizeText(value);
-      if (
-        alias === canonical ||
-        !isStableCharacterName(alias) ||
-        !hasConfirmedAliasRelationship(fact, canonical, alias)
-      ) continue;
-      edges.push({ canonical, alias });
+      if (alias === canonical || !isStableCharacterName(alias)) continue;
+      const key = JSON.stringify([canonical, alias]);
+      const pair = assertionsByPair.get(key) ?? { canonical, alias, facts: [] };
+      pair.facts.push(fact);
+      assertionsByPair.set(key, pair);
     }
+  }
+  const edges = [];
+  for (const { canonical, alias, facts: assertions } of assertionsByPair.values()) {
+    if (assertions.some(isBlockingAliasAssertion)) continue;
+    if (assertions.some((fact) =>
+      isStrongAliasFact(fact, canonical) && hasConfirmedAliasRelationship(fact, canonical, alias)
+    )) edges.push({ canonical, alias });
   }
   return edges;
 }
 function hasConfirmedAliasRelationship(fact, canonical, alias) {
   if (Object.hasOwn(fact, "alias_relation")) {
-    return fact.alias_relation === "confirmed" &&
-      Number.isFinite(fact.alias_confidence) &&
-      fact.alias_confidence >= 0.9;
+    return isValidStructuredAliasConfirmation(fact);
   }
   const statement = normalizeAliasRelationshipText(fact.fact);
   const templates = [
@@ -177,6 +187,18 @@ function hasConfirmedAliasRelationship(fact, canonical, alias) {
     `${alias}是${canonical}的称号`
   ];
   return templates.includes(statement);
+}
+function isBlockingAliasAssertion(fact) {
+  return Object.hasOwn(fact, "alias_relation") && !isValidStructuredAliasConfirmation(fact);
+}
+function isValidStructuredAliasConfirmation(fact) {
+  return fact.alias_relation === "confirmed" &&
+    Number.isFinite(fact.alias_confidence) &&
+    fact.alias_confidence >= 0.9 &&
+    fact.alias_confidence <= 1;
+}
+function hasStageSignal(fact) {
+  return fact && typeof fact === "object" && STAGE_SIGNAL_FIELDS.some((field) => Object.hasOwn(fact, field));
 }
 function everyStageHasIndependentEvidence(stages) {
   const evidenceSets = [...stages.values()].map(({ facts }) => new Set(
