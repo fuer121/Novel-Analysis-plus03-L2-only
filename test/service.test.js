@@ -116,6 +116,27 @@ test("character library ignores weak and conflicting alias declarations", () => 
   assert.deepEqual(result.find((item) => item.canonical_name === "苏晚").aliases, []);
 });
 
+test("character library rejects unrelated copula text as alias evidence", () => {
+  const result = characterLibrary.resolveCharacterCandidates([
+    {
+      entity: "沈昭",
+      aliases: ["沈姑娘"],
+      fact_type: "alias",
+      fact: "沈昭就是不愿理会沈姑娘",
+      evidence: ["沈昭转身避开了沈姑娘"]
+    },
+    {
+      entity: "沈姑娘",
+      fact_type: "appearance",
+      fact: "沈姑娘面色苍白",
+      evidence: ["沈姑娘面色苍白"]
+    }
+  ]);
+
+  assert.deepEqual(result.map((item) => item.canonical_name), ["沈姑娘", "沈昭"]);
+  assert.deepEqual(result.find((item) => item.canonical_name === "沈昭").aliases, []);
+});
+
 test("character stages split distinct stable forms and reject temporary injuries", () => {
   const humanFact = {
     chapter_index: 3,
@@ -153,6 +174,58 @@ test("character stages distinguish age stages from forms", () => {
   assert.deepEqual(stages.map(({ name, type }) => ({ name, type })), [
     { name: "少年", type: "age" },
     { name: "成年", type: "age" }
+  ]);
+});
+
+test("character stages reject temporary semantics in facts and evidence", () => {
+  const stages = characterLibrary.deriveCharacterStages("玄霜", [
+    {
+      stage_hint: "人类形态",
+      stable_difference: true,
+      fact: "她长期保持人身",
+      evidence: ["她仍是人身"]
+    },
+    {
+      stage_hint: "龙形",
+      stable_difference: true,
+      fact: "此后常以银龙真身现世",
+      evidence: ["银龙真身盘旋于云上"]
+    },
+    {
+      stage_hint: "白衣形态",
+      stable_difference: true,
+      fact: "她只是临时换装，只维持一场",
+      evidence: ["这身白衣仅在宴会上穿过一次"]
+    }
+  ]);
+
+  assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
+});
+
+test("character stages keep identity periods distinct from age and form types", () => {
+  const stages = characterLibrary.deriveCharacterStages("沈昭", [
+    { stage_hint: "少年", stable_difference: true, evidence: ["少年时身量未足"] },
+    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
+    { stage_hint: "皇后时期", stable_difference: true, evidence: ["册封后冠服与仪态长期改变"] },
+    { stage_hint: "流亡时期", stable_difference: true, evidence: ["流亡后长期以布衣示人"] }
+  ]);
+
+  assert.deepEqual(stages.map(({ name, type }) => ({ name, type })), [
+    { name: "少年", type: "age" },
+    { name: "人类形态", type: "form" },
+    { name: "皇后时期", type: "state" },
+    { name: "流亡时期", type: "state" }
+  ]);
+});
+
+test("character stages require independent evidence across stage hints", () => {
+  const facts = [
+    { stage_hint: "人类形态", stable_difference: true, evidence: ["同一段未分化证据"] },
+    { stage_hint: "龙形", stable_difference: true, evidence: [" 同一段未分化证据 "] }
+  ];
+
+  assert.deepEqual(characterLibrary.deriveCharacterStages("玄霜", facts), [
+    { name: "默认阶段", type: "default", facts }
   ]);
 });
 
