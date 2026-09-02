@@ -33,7 +33,7 @@ const GENERIC_CHARACTER_NAMES = new Set([
 
 const DESCRIPTIVE_PREFIX_PATTERN = /^(?:某人|某个|一名|一个|那名|这名)/u;
 const RELATIONSHIP_SUFFIX_PATTERN = /的(?:父亲|母亲|兄弟|姐妹|师父|徒弟)$/u;
-const TEMPORARY_STAGE_PATTERN = /(?:受伤|伤病|重伤|哭泣|落泪|战损|换装|易容|戴面罩|戴面纱|短暂|临时|一次性|单场景|只维持一场|仅维持一场|单次情绪)/u;
+const TEMPORARY_STAGE_PATTERN = /(?:受伤|伤病|重伤|哭泣|落泪|战损|换装|换上|换下|改穿|穿上|易容|戴面罩|戴面纱|短暂|临时|一次性|单场景|只维持一场|仅维持一场|单次情绪)/u;
 const AGE_STAGE_PATTERN = /(?:婴儿|幼年|童年|少年|青年|成年|中年|老年|晚年)/u;
 const FORM_STAGE_PATTERN = /(?:形态|人身|真身|鬼魂|魂体|非人|形$)/u;
 
@@ -141,7 +141,7 @@ export function deriveCharacterStages(_name, facts = []) {
     stageFacts.set(stageName, matchingFacts);
   }
 
-  const independentStages = removeStagesWithDuplicateEvidence(stageFacts);
+  const independentStages = filterStagesWithIndependentEvidence(stageFacts);
   if (independentStages.size < 2) {
     return [{ name: "默认阶段", type: "default", facts: sourceFacts }];
   }
@@ -182,36 +182,35 @@ function isQualifiedStageFact(fact, stageName) {
 function hasExplicitAliasRelationship(statement, canonical, alias) {
   const canonicalPattern = escapeRegExp(canonical);
   const aliasPattern = escapeRegExp(alias);
-  const nameLabel = "(?:小名|乳名|昵称|绰号|别名|曾用名|原名|本名|真名)";
+  const nameLabel = "(?:小名|乳名|昵称|绰号|别名|曾用名|原名|本名|真名|化名|称号)";
   const renameVerb = "(?:化名|改名|更名|易名)";
   const directTitle = "(?:又名|人称|号称|被称作|被称为|被唤作|被唤为)";
-  const directIdentity = "(?:正是|就是|即为|即是|便是)";
   const patterns = [
     `${canonicalPattern}的?${nameLabel}(?:也?是|为|叫)?${aliasPattern}`,
     `${canonicalPattern}(?:曾)?${renameVerb}(?:为|叫|作|成)?${aliasPattern}`,
     `${canonicalPattern}${directTitle}${aliasPattern}`,
-    `${canonicalPattern}${directIdentity}${aliasPattern}`,
-    `${aliasPattern}(?:是|为)${canonicalPattern}的?${nameLabel}`,
-    `${aliasPattern}${directIdentity}${canonicalPattern}`
+    `${aliasPattern}(?:是|为)${canonicalPattern}的?${nameLabel}`
   ];
 
   return patterns.some((pattern) => new RegExp(pattern, "u").test(statement));
 }
 
-function removeStagesWithDuplicateEvidence(stageFacts) {
-  const stageSignatures = new Map();
-  const signatureCounts = new Map();
+function filterStagesWithIndependentEvidence(stageFacts) {
+  const evidenceByStage = new Map();
+  const evidenceStageCounts = new Map();
 
   for (const [stageName, facts] of stageFacts) {
-    const signature = JSON.stringify([...new Set(
+    const evidence = new Set(
       facts.flatMap((fact) => fact.evidence.map(normalizeText)).filter(Boolean)
-    )].sort());
-    stageSignatures.set(stageName, signature);
-    signatureCounts.set(signature, (signatureCounts.get(signature) ?? 0) + 1);
+    );
+    evidenceByStage.set(stageName, evidence);
+    for (const item of evidence) {
+      evidenceStageCounts.set(item, (evidenceStageCounts.get(item) ?? 0) + 1);
+    }
   }
 
   return new Map([...stageFacts].filter(([stageName]) =>
-    signatureCounts.get(stageSignatures.get(stageName)) === 1
+    [...evidenceByStage.get(stageName)].some((item) => evidenceStageCounts.get(item) === 1)
   ));
 }
 

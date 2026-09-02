@@ -137,6 +137,41 @@ test("character library rejects unrelated copula text as alias evidence", () => 
   assert.deepEqual(result.find((item) => item.canonical_name === "沈昭").aliases, []);
 });
 
+test("character library rejects direct copula relationship sentences", () => {
+  const result = characterLibrary.resolveCharacterCandidates([
+    {
+      entity: "沈昭",
+      aliases: ["沈姑娘"],
+      fact_type: "alias",
+      fact: "沈昭就是沈姑娘的姐姐",
+      evidence: ["沈昭是沈姑娘的姐姐"]
+    },
+    { entity: "沈姑娘", fact_type: "appearance", fact: "沈姑娘面色苍白", evidence: ["面色苍白"] }
+  ]);
+
+  assert.deepEqual(result.map((item) => item.canonical_name), ["沈姑娘", "沈昭"]);
+});
+
+test("character library accepts only finite explicit alias templates", () => {
+  const cases = [
+    ["沈昭小名昭昭", "昭昭"],
+    ["沈昭的化名是阿昭", "阿昭"],
+    ["沈昭的称号是昭月仙子", "昭月仙子"],
+    ["沈昭又名沈月", "沈月"],
+    ["沈昭改名为沈瑄", "沈瑄"],
+    ["沈昭被称为昭光居士", "昭光居士"]
+  ];
+
+  for (const [statement, alias] of cases) {
+    const result = characterLibrary.resolveCharacterCandidates([
+      { entity: "沈昭", aliases: [alias], fact_type: "alias", fact: statement, evidence: [statement] },
+      { entity: alias, fact_type: "appearance", fact: `${alias}身形高挑`, evidence: [`${alias}身形高挑`] }
+    ]);
+    assert.deepEqual(result.map((item) => item.canonical_name), ["沈昭"], statement);
+    assert.deepEqual(result[0].aliases, [alias], statement);
+  }
+});
+
 test("character stages split distinct stable forms and reject temporary injuries", () => {
   const humanFact = {
     chapter_index: 3,
@@ -202,6 +237,21 @@ test("character stages reject temporary semantics in facts and evidence", () => 
   assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
 });
 
+test("character stages reject one-off clothing actions", () => {
+  const stages = characterLibrary.deriveCharacterStages("玄霜", [
+    { stage_hint: "人类形态", stable_difference: true, evidence: ["她仍是人身"] },
+    { stage_hint: "龙形", stable_difference: true, evidence: ["银龙真身盘旋于云上"] },
+    {
+      stage_hint: "白衣形态",
+      stable_difference: true,
+      fact: "她在宴会上换上白衣",
+      evidence: ["她在宴会上换上白衣"]
+    }
+  ]);
+
+  assert.deepEqual(stages.map((stage) => stage.name), ["人类形态", "龙形"]);
+});
+
 test("character stages keep identity periods distinct from age and form types", () => {
   const stages = characterLibrary.deriveCharacterStages("沈昭", [
     { stage_hint: "少年", stable_difference: true, evidence: ["少年时身量未足"] },
@@ -222,6 +272,25 @@ test("character stages require independent evidence across stage hints", () => {
   const facts = [
     { stage_hint: "人类形态", stable_difference: true, evidence: ["同一段未分化证据"] },
     { stage_hint: "龙形", stable_difference: true, evidence: [" 同一段未分化证据 "] }
+  ];
+
+  assert.deepEqual(characterLibrary.deriveCharacterStages("玄霜", facts), [
+    { name: "默认阶段", type: "default", facts }
+  ]);
+});
+
+test("character stages require unique evidence for every stage", () => {
+  const facts = [
+    {
+      stage_hint: "人类形态",
+      stable_difference: true,
+      evidence: ["共享证据", "人身独立证据"]
+    },
+    {
+      stage_hint: "龙形",
+      stable_difference: true,
+      evidence: [" 共享证据 "]
+    }
   ];
 
   assert.deepEqual(characterLibrary.deriveCharacterStages("玄霜", facts), [
