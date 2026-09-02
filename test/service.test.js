@@ -81,7 +81,7 @@ test("character library accepts only the complete alias templates", () => {
 test("character library accepts only complete structured alias confirmation", () => {
   const accepted = {
     entity: "沈昭",
-    aliases: ["昭昭", "阿昭"],
+    aliases: ["昭昭"],
     fact_type: "alias",
     fact: "上游结构化确认",
     evidence: ["沈家旧谱记载"],
@@ -90,11 +90,10 @@ test("character library accepts only complete structured alias confirmation", ()
   };
   const merged = characterLibrary.resolveCharacterCandidates([
     accepted,
-    { entity: "昭昭", fact_type: "appearance", evidence: ["眉尾有痣"] },
-    { entity: "阿昭", fact_type: "appearance", evidence: ["身形高挑"] }
+    { entity: "昭昭", fact_type: "appearance", evidence: ["眉尾有痣"] }
   ]);
   assert.deepEqual(merged.map((item) => item.canonical_name), ["沈昭"]);
-  assert.deepEqual(merged[0].aliases, ["阿昭", "昭昭"]);
+  assert.deepEqual(merged[0].aliases, ["昭昭"]);
 
   const rejected = [
     ["aliases alone", { fact_type: "appearance" }, ["沈昭", "昭昭"]],
@@ -148,6 +147,7 @@ test("character library isolates alias chains and cycles", () => {
   const chain = characterLibrary.resolveCharacterCandidates([
     { entity: "沈昭", aliases: ["昭昭"], fact_type: "alias", fact: "沈昭小名昭昭", evidence: ["沈家旧谱"] },
     { entity: "昭昭", aliases: ["阿昭"], fact_type: "alias", fact: "昭昭化名为阿昭", evidence: ["行走江湖"] },
+    { entity: "沈昭", aliases: ["阿昭"], fact_type: "alias", fact: "沈昭又名阿昭", evidence: ["别名记录"] },
     { entity: "阿昭", fact_type: "appearance", evidence: ["身形高挑"] }
   ]);
   assert.deepEqual(chain.map((item) => item.canonical_name), ["阿昭", "沈昭", "昭昭"]);
@@ -207,6 +207,15 @@ test("character stages require every structured contract field", () => {
       { name: "默认阶段", type: "default", facts }
     ], label);
   }
+
+  const conflictingFacts = [
+    first,
+    { ...first, stage_type: "identity", evidence: ["身份发生变化"] },
+    second
+  ];
+  assert.deepEqual(characterLibrary.deriveCharacterStages("沈昭", conflictingFacts), [
+    { name: "默认阶段", type: "default", facts: conflictingFacts }
+  ], "conflicting stage type");
 });
 
 test("character stages require independent evidence for every stage", () => {

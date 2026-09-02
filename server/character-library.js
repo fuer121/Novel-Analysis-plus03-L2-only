@@ -67,26 +67,24 @@ export function characterFactFingerprint(fact = {}) {
 export function resolveCharacterCandidates(facts = []) {
   const sourceFacts = Array.isArray(facts) ? facts : [];
   const strongAliasEdges = collectStrongAliasEdges(sourceFacts);
-  const incomingNames = new Set(strongAliasEdges.map(({ alias }) => alias));
-  const outgoingNames = new Set(strongAliasEdges.map(({ canonical }) => canonical));
-  const chainNames = new Set([...incomingNames].filter((name) => outgoingNames.has(name)));
-  const claimsByAlias = new Map();
+  const neighborsByName = new Map();
   for (const { canonical, alias } of strongAliasEdges) {
-    if (chainNames.has(canonical) || chainNames.has(alias)) continue;
-    const claimers = claimsByAlias.get(alias) ?? new Set();
-    claimers.add(canonical);
-    claimsByAlias.set(alias, claimers);
+    for (const [name, neighbor] of [[canonical, alias], [alias, canonical]]) {
+      const neighbors = neighborsByName.get(name) ?? new Set();
+      neighbors.add(neighbor);
+      neighborsByName.set(name, neighbors);
+    }
   }
   const canonicalByAlias = new Map();
-  for (const [alias, claimers] of claimsByAlias) {
-    if (claimers.size !== 1) continue;
-    canonicalByAlias.set(alias, [...claimers][0]);
+  for (const { canonical, alias } of strongAliasEdges) {
+    if (neighborsByName.get(canonical).size !== 1 || neighborsByName.get(alias).size !== 1) continue;
+    if (strongAliasEdges.some((edge) => edge.canonical === alias && edge.alias === canonical)) continue;
+    canonicalByAlias.set(alias, canonical);
   }
   const groups = new Map();
   for (const fact of sourceFacts) {
     const entity = normalizeText(fact?.entity);
     if (!isStableCharacterName(entity)) continue;
-
     const canonical = canonicalByAlias.get(entity) ?? entity;
     const group = groups.get(canonical) ?? {
       canonical_name: canonical,
@@ -115,9 +113,11 @@ export function deriveCharacterStages(_name, facts = []) {
     if (!isQualifiedStageFact(fact, stageName)) continue;
 
     const stage = stages.get(stageName) ?? { type: fact.stage_type, facts: [] };
+    if (stage.type !== fact.stage_type) stage.type = null;
     stage.facts.push(fact);
     stages.set(stageName, stage);
   }
+  for (const [stageName, stage] of stages) if (!stage.type) stages.delete(stageName);
   if (stages.size < 2 || !everyStageHasIndependentEvidence(stages)) {
     return [{ name: "默认阶段", type: "default", facts: sourceFacts }];
   }
