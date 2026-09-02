@@ -520,6 +520,8 @@ git commit -m "feat: define character profile workflow contract"
 
 ### Task 5: 实现可恢复的角色库构建任务
 
+**控制卡：** [`docs/task-controls/2026-09-02-character-library-task-5.md`](../../task-controls/2026-09-02-character-library-task-5.md)
+
 **Files:**
 - Modify: `server/character-library.js`
 - Modify: `server/workflows.js`
