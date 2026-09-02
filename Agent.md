@@ -28,6 +28,7 @@
 - [`docs/data-and-batch-task-rules.md`](docs/data-and-batch-task-rules.md)：SQLite、L2 数据、备份、批量任务、断点和完成状态规则
 - [`docs/character-image-generation-rules.md`](docs/character-image-generation-rules.md)：跨书籍角色形象提炼、生图、JPEG 输出、质检、重绘和上传规则
 - [`docs/orchestration-rules.md`](docs/orchestration-rules.md)：总控与执行线程分工、执行单要素、状态记录和验收约定
+- [`docs/task-control-card.md`](docs/task-control-card.md)：非简单 Task 的开工控制卡模板，固定范围、契约、停止条件、审查关和完成证据
 - [`docs/character-library-design.md`](docs/character-library-design.md)：角色库产品边界、事实质量、聚合模型、页面结构和验收基线
 - [`books/README.md`](books/README.md)：书籍工作区目录职责、批次规则和迁移要求
 - [《凰宫梦》179 人正式角色基线](books/1836527-凰宫梦/final/characters/README.md)：当前样板书的正式成果入口和校验证据
@@ -56,6 +57,7 @@
 - 单任务出现 3 次以上修复循环，或实际规模明显超过计划、连续增加表达变体测试、依赖后续未锁定契约时，总控必须触发复杂度哨兵
 - 哨兵触发后暂停实现，核对文件规格与层级职责，列出保留、删除、下沉和延期项，压缩实现后再进行有边界的最终审查
 - 总控负责判断审查意见是否属于阻断项，不把范围裁决权完全交给审查线程
+- 非简单 Task 开始前必须建立任务控制卡，涉及主键、持久化、历史数据、迁移、删除、对外 API 或不可逆写入时，实施前必须通过不可逆设计审查关
 
 删除影响：审查循环可能演变为隐含需求生成器，单个任务膨胀为不可维护的规则引擎并长期无法封板
 
