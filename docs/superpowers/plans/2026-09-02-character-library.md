@@ -250,6 +250,14 @@ test("persists rebuildable character library projections", () => {
 })
 ```
 
+同组测试还必须覆盖：
+
+- 相同输入二次构建后角色和阶段稳定 ID 不变，两条 build 记录均保留，但只有新 build 的 `is_current=1`
+- 查询方法只返回当前 build 的角色、阶段和事实链接，不将历史 build 解释为可读快照
+- 新投影中存在重复 ID、无效阶段引用或其他事务错误时，新 build 不得激活，上一版当前投影完整保留
+- 失败、取消和中断 build 不能设置 `is_current=1`
+- 事实链接只通过 `stage_id` 反查所属角色，不接收独立 `character_id`
+
 - [ ] **Step 2: 运行测试确认失败**
 
 Run: `node --test --test-name-pattern="rebuildable character library projections" test/service.test.js`
@@ -269,6 +277,7 @@ CREATE TABLE IF NOT EXISTS character_library_builds (
   end_chapter INTEGER NOT NULL,
   source_fingerprint TEXT NOT NULL,
   status TEXT NOT NULL,
+  is_current INTEGER NOT NULL DEFAULT 0,
   coverage TEXT NOT NULL DEFAULT '{}',
   quality TEXT NOT NULL DEFAULT '{}',
   error_summary TEXT NOT NULL DEFAULT '',
@@ -276,6 +285,10 @@ CREATE TABLE IF NOT EXISTS character_library_builds (
   updated_at TEXT NOT NULL,
   FOREIGN KEY (book_id) REFERENCES books(book_id) ON DELETE CASCADE
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_character_library_current_build
+  ON character_library_builds(book_id)
+  WHERE is_current = 1;
 
 CREATE TABLE IF NOT EXISTS characters (
   id TEXT PRIMARY KEY,
@@ -316,7 +329,6 @@ CREATE TABLE IF NOT EXISTS character_stages (
 );
 
 CREATE TABLE IF NOT EXISTS character_fact_links (
-  character_id TEXT NOT NULL,
   stage_id TEXT NOT NULL,
   fingerprint TEXT NOT NULL,
   book_id TEXT NOT NULL,
@@ -329,7 +341,6 @@ CREATE TABLE IF NOT EXISTS character_fact_links (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   PRIMARY KEY (stage_id, fingerprint),
-  FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
   FOREIGN KEY (stage_id) REFERENCES character_stages(id) ON DELETE CASCADE,
   FOREIGN KEY (book_id) REFERENCES books(book_id) ON DELETE CASCADE
 );
@@ -342,13 +353,19 @@ CREATE TABLE IF NOT EXISTS character_fact_links (
 ```js
 export function createCharacterLibraryBuild({ bookId, indexGroupKey, startChapter, endChapter, sourceFingerprint })
 export function updateCharacterLibraryBuild(id, { status, coverage, quality, errorSummary })
-export function replaceCharacterProjection(buildId, characters)
+export function replaceCharacterProjection(buildId, characters, { status = "completed", coverage, quality } = {})
 export function getCharacterLibraryStatus(bookId)
 export function listCharacterLibraryCharacters({ bookId, search = "", filter = "all", sort = "name" })
 export function getCharacterLibraryCharacter(bookId, characterId)
 ```
 
-`createCharacterLibraryBuild` 规范化书籍、索引组和章节范围后插入 `running` 记录，`updateCharacterLibraryBuild` 只更新显式传入字段。`replaceCharacterProjection` 先读构建的 `book_id`，在单事务中删除同书旧投影并按角色、阶段、事实链接顺序重建，角色和阶段 ID 由上游提供并保持稳定。查询方法返回解析后的 JSON，不暴露 SQLite JSON 字符串，JSON 字段统一使用现有 `stringifyJsonArray`、`parseJsonArray`、`parseJsonObject`
+`createCharacterLibraryBuild` 规范化书籍、索引组和章节范围后插入 `running`、`is_current=0` 记录，`updateCharacterLibraryBuild` 只更新显式传入字段，不承担当前投影切换
+
+第一阶段的 `character_library_builds` 只保留构建记录历史，不保留历史角色详情快照；每本书只有一份当前可用投影和一个 `is_current=1` 的 `completed` 或 `partial` build
+
+`replaceCharacterProjection` 先读构建的 `book_id`，只接受已完整准备的角色集合，`status` 只允许 `completed` 或 `partial`，并在单一事务中完成：删除同书旧投影，按角色、阶段、事实链接顺序写入新投影，取消原当前 build 的 `is_current`，将本次 build 标记为最终状态、写入 `coverage` 和 `quality`，并激活为当前版本。任一步失败时整个事务回滚，上一版可用投影和当前 build 保持不变
+
+角色和阶段 ID 由上游提供并保持稳定。`character_fact_links` 只保存 `stage_id`，角色归属通过 `character_stages.character_id` 获取，避免冗余角色引用与阶段归属不一致。查询方法只返回当前 build 的投影，并返回解析后的 JSON，不暴露 SQLite JSON 字符串，JSON 字段统一使用现有 `stringifyJsonArray`、`parseJsonArray`、`parseJsonObject`
 
 - [ ] **Step 5: 运行持久化测试**
 
