@@ -57,7 +57,6 @@ test("character library accepts only the complete alias templates", () => {
     ["昭影是沈昭的化名", "昭影"],
     ["昭君是沈昭的称号", "昭君"]
   ];
-
   for (const [statement, alias] of cases) {
     const aliasFact = {
       entity: "沈昭",
@@ -73,7 +72,6 @@ test("character library accepts only the complete alias templates", () => {
       evidence: [`${alias}身形高挑`]
     };
     const result = characterLibrary.resolveCharacterCandidates([aliasAppearance, aliasFact]);
-
     assert.deepEqual(result, [{ canonical_name: "沈昭", aliases: [alias], facts: [aliasAppearance, aliasFact] }], statement);
   }
 });
@@ -103,7 +101,6 @@ test("character library accepts only complete structured alias confirmation", ()
     ["unstable canonical", { entity: "黑衣人" }, ["昭昭"]],
     ["unstable alias", { aliases: ["侍卫"] }, ["沈昭"]]
   ];
-
   for (const [label, overrides, expectedNames] of rejected) {
     const alias = overrides.aliases?.[0] ?? "昭昭";
     const result = characterLibrary.resolveCharacterCandidates([
@@ -122,7 +119,6 @@ test("character library rejects weak or extended alias statements", () => {
     "沈昭后来改名为昭昭",
     "沈昭的小名是昭昭，但关系未经确认"
   ];
-
   for (const statement of statements) {
     const result = characterLibrary.resolveCharacterCandidates([
       { entity: "沈昭", aliases: ["昭昭"], fact_type: "alias", fact: statement, evidence: [statement] },
@@ -138,7 +134,6 @@ test("character library isolates aliases claimed by multiple canonical names", (
     { entity: "苏晚", aliases: ["小雪"], fact_type: "alias", fact: "苏晚小名小雪", evidence: ["苏家旧谱"] },
     { entity: "小雪", fact_type: "appearance", evidence: ["身着青衣"] }
   ]);
-
   assert.deepEqual(result.map((item) => item.canonical_name), ["白清", "苏晚", "小雪"]);
   assert.equal(result.every((item) => item.aliases.length === 0), true);
 });
@@ -167,7 +162,6 @@ test("character stages split only qualified structured stage facts", () => {
     { chapter_index: 2, stage_hint: "人类形态", stage_type: "form", stage_stability: "stable", stable_difference: true, evidence: ["保持人身"] },
     { chapter_index: 3, stage_hint: "皇后时期", stage_type: "identity", stage_stability: "stable", stable_difference: true, evidence: ["册封为后"] }
   ];
-
   assert.deepEqual(characterLibrary.deriveCharacterStages("沈昭", facts), [
     { name: "少年", type: "age", facts: [facts[0]] },
     { name: "人类形态", type: "form", facts: [facts[1]] },
@@ -200,7 +194,6 @@ test("character stages require every structured contract field", () => {
     ["confirmed difference", { stable_difference: false }],
     ["evidence", { evidence: [] }]
   ];
-
   for (const [label, overrides] of cases) {
     const facts = [first, { ...second, ...overrides }];
     assert.deepEqual(characterLibrary.deriveCharacterStages("沈昭", facts), [
@@ -237,8 +230,16 @@ test("character stages sort qualified output independently of input order", () =
   const stages = characterLibrary.deriveCharacterStages("沈昭", facts);
   assert.deepEqual(characterLibrary.deriveCharacterStages("沈昭", reorderedFacts), stages);
   assert.deepEqual(stages.map((stage) => stage.name), ["早期", "后期", "甲阶段", "乙阶段"]);
-});
 
+  const sharedFact = { ...facts[1], book_id: "book-1", index_group_key: "characters", chapter_index: 4, stage_hint: "成年", fact: "成年阶段事实", evidence: ["成年阶段证据"] };
+  const duplicateA = { ...sharedFact, id: "volatile-z", source_rank: "beta" };
+  const duplicateB = { ...sharedFact, id: "volatile-a", source_rank: "alpha" };
+  const otherStage = facts[1];
+  const forward = characterLibrary.deriveCharacterStages("沈昭", [otherStage, duplicateA, duplicateB]);
+  const reversed = characterLibrary.deriveCharacterStages("沈昭", [duplicateB, duplicateA, otherStage]);
+  assert.deepEqual(reversed, forward);
+  assert.deepEqual(forward[1].facts, [{ ...sharedFact, source_rank: "alpha" }]);
+});
 test("character stages require independent evidence for every stage", () => {
   const base = {
     stage_type: "form",
@@ -255,7 +256,6 @@ test("character stages require independent evidence for every stage", () => {
       { ...base, stage_hint: "龙形", evidence: ["共享证据"] }
     ]
   ];
-
   for (const facts of cases) {
     assert.deepEqual(characterLibrary.deriveCharacterStages("玄霜", facts), [
       { name: "默认阶段", type: "default", facts }
