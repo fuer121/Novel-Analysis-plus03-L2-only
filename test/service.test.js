@@ -74,7 +74,7 @@ test("character library accepts only the complete alias templates", () => {
       evidence: [`${alias}身形高挑`]
     };
     const result = characterLibrary.resolveCharacterCandidates([aliasAppearance, aliasFact]);
-    assert.deepEqual(result, [{ canonical_name: "沈昭", aliases: [alias], facts: [aliasAppearance, aliasFact] }], statement);
+    assert.deepEqual(result, [{ canonical_name: "沈昭", aliases: [alias], facts: stableStageFacts([aliasAppearance, aliasFact]) }], statement);
   }
 });
 
@@ -112,6 +112,47 @@ test("character library accepts only complete structured alias confirmation", ()
     assert.deepEqual(result.map((item) => item.canonical_name), expectedNames, label);
     assert.equal(result.every((item) => item.aliases.length === 0), true, label);
   }
+});
+
+test("character library does not fall back from explicit alias relation states", () => {
+  const aliasFact = {
+    entity: "沈昭",
+    aliases: ["昭昭"],
+    fact_type: "alias",
+    fact: "沈昭小名昭昭",
+    evidence: ["沈家旧谱"]
+  };
+  const appearance = { entity: "昭昭", fact_type: "appearance", evidence: ["眉尾有痣"] };
+  for (const overrides of [
+    { alias_relation: "candidate", alias_confidence: 0.99 },
+    { alias_relation: "rejected", alias_confidence: 0.99 },
+    { alias_relation: "confirmed", alias_confidence: 0.89 }
+  ]) {
+    const result = characterLibrary.resolveCharacterCandidates([{ ...aliasFact, ...overrides }, appearance]);
+    assert.deepEqual(result.map((item) => item.canonical_name), ["沈昭", "昭昭"]);
+  }
+  assert.deepEqual(
+    characterLibrary.resolveCharacterCandidates([aliasFact, appearance]).map((item) => item.canonical_name),
+    ["沈昭"]
+  );
+});
+
+test("character library returns deterministic deduplicated candidate facts", () => {
+  const sharedFact = {
+    entity: "沈昭",
+    book_id: "book-1",
+    index_group_key: "characters",
+    chapter_index: 3,
+    fact_type: "appearance",
+    fact: "沈昭眉尾有痣",
+    evidence: ["眉尾有痣"]
+  };
+  const duplicateA = { ...sharedFact, id: "volatile-z", source_rank: "beta" };
+  const duplicateB = { ...sharedFact, id: "volatile-a", source_rank: "alpha" };
+  const forward = characterLibrary.resolveCharacterCandidates([duplicateA, duplicateB]);
+  const reversed = characterLibrary.resolveCharacterCandidates([duplicateB, duplicateA]);
+  assert.deepEqual(reversed, forward);
+  assert.deepEqual(forward[0].facts, [{ ...sharedFact, source_rank: "alpha" }]);
 });
 
 test("character library rejects weak or extended alias statements", () => {

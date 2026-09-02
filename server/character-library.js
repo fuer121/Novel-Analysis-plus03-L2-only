@@ -94,7 +94,10 @@ export function resolveCharacterCandidates(facts = []) {
     const group = groups.get(canonical);
     if (group) group.aliases.push(alias);
   }
-  for (const group of groups.values()) group.aliases.sort(compareChineseNames);
+  for (const group of groups.values()) {
+    group.aliases.sort(compareChineseNames);
+    group.facts = deduplicateFacts(group.facts);
+  }
   return [...groups.values()].sort((left, right) =>
     compareChineseNames(left.canonical_name, right.canonical_name)
   );
@@ -113,7 +116,7 @@ export function deriveCharacterStages(_name, facts = []) {
     stages.set(stageName, stage);
   }
   if (hasStageTypeConflict || stages.size < 2 || !everyStageHasIndependentEvidence(stages)) {
-    return [{ name: "默认阶段", type: "default", facts: deduplicateStageFacts(sourceFacts) }];
+    return [{ name: "默认阶段", type: "default", facts: deduplicateFacts(sourceFacts) }];
   }
   const sortedStages = [...stages].sort(([leftName, left], [rightName, right]) => {
     const leftChapter = Math.min(...left.facts.map((fact) => normalizeChapterIndex(fact.chapter_index)).filter(Boolean), Number.MAX_SAFE_INTEGER);
@@ -123,7 +126,7 @@ export function deriveCharacterStages(_name, facts = []) {
   return sortedStages.map(([name, stage]) => ({
     name,
     type: stage.type,
-    facts: deduplicateStageFacts(stage.facts)
+    facts: deduplicateFacts(stage.facts)
   }));
 }
 
@@ -159,11 +162,11 @@ function collectStrongAliasEdges(facts) {
   return edges;
 }
 function hasConfirmedAliasRelationship(fact, canonical, alias) {
-  if (
-    fact.alias_relation === "confirmed" &&
-    Number.isFinite(fact.alias_confidence) &&
-    fact.alias_confidence >= 0.9
-  ) return true;
+  if (Object.hasOwn(fact, "alias_relation")) {
+    return fact.alias_relation === "confirmed" &&
+      Number.isFinite(fact.alias_confidence) &&
+      fact.alias_confidence >= 0.9;
+  }
   const statement = normalizeAliasRelationshipText(fact.fact);
   const templates = [
     `${canonical}小名${alias}`, `${canonical}的小名是${alias}`,
@@ -183,7 +186,7 @@ function everyStageHasIndependentEvidence(stages) {
     evidenceSets.every((other, otherIndex) => otherIndex === index || !other.has(item))
   ));
 }
-function deduplicateStageFacts(facts) {
+function deduplicateFacts(facts) {
   const representatives = new Map();
   for (const fact of facts) {
     const fingerprint = characterFactFingerprint(fact);
