@@ -197,6 +197,18 @@ git add server/character-library.js test/service.test.js
 git commit -m "feat: add conservative character grouping"
 ```
 
+**2026-09-02 封板记录：**
+
+- 状态：完成，Task 2 代码从此冻结，后续自然语言语义能力只能通过设计变更进入 Task 4 或后续任务
+- 最终代码 HEAD：`477d533 fix: close character projection conflicts`
+- 契约与审查收敛提交：`6e66011 docs: define review convergence safeguards`
+- 最终职责：稳定名称、事实指纹、结构化强别名确认、封闭别名模板兼容、冲突隔离、结构化阶段拆分、独立证据、去重与稳定排序
+- 停止扩展：换装、伤病、情绪、遮挡、持续时间、否定语境、分句、同义词和开放式中文表达解析
+- 最终规格审查发现 2 项类别 2 缺陷，已由 `5b1d3f5` 修复
+- 最终质量审查发现 3 项类别 2 缺陷，已由 `477d533` 修复
+- 总控修复后验证：角色聚焦 17/17、`test/service.test.js` 83/83、全量 `npm test` 111/111、`npm run lint` 和 `git diff --check` 全部通过
+- 残余风险：结构化字段尚未由上游 Dify 正式产出，Task 3 只能建立持久化边界，真实构建必须等待 Task 4 契约完成
+
 ### Task 3: 建立角色库持久化投影
 
 **Files:**
