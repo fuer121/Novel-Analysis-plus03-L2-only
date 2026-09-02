@@ -9,6 +9,10 @@ import {
   deleteBookIndexGroup,
   disableBookIndexGroup,
   ensureBook,
+  getBook,
+  getCharacterLibraryBuild,
+  getCharacterLibraryCharacter,
+  getCharacterLibraryStatus,
   getBookIndexPrompts,
   getDatabaseDiagnostics,
   getIndexPromptSettings,
@@ -16,12 +20,14 @@ import {
   listL1ChapterIndexes,
   listAnalysisRuns,
   listBooks,
+  listCharacterLibraryBuildItems,
+  listCharacterLibraryCharacters,
   listChapterMetadata,
   updateBookIndexGroup,
   updateBookIndexPrompts,
   saveIndexPromptSettings
 } from "./db.js";
-import { cancelTask, getTask, listTasks, pauseTask, publicTask, resumeTask, subscribeTask, taskDiagnostics } from "./tasks.js";
+import { cancelTask, findTask, getTask, isLiveTask, listTasks, pauseTask, publicTask, resumeTask, subscribeTask, taskDiagnostics } from "./tasks.js";
 import { sanitizeError } from "./sanitize.js";
 import { testDifyConnection } from "./dify.js";
 import {
@@ -29,10 +35,14 @@ import {
   publicAnalysisRunWithResult,
   getL2IndexCoverageForBook,
   listL2FactsForBook,
+  cancelCharacterLibraryBuild,
+  pauseCharacterLibraryBuild,
+  resumeCharacterLibraryBuild,
   resumeAnalysisRunTask,
   startL1IndexTask,
   startL2IndexTask,
   startAnalysisTask,
+  startCharacterLibraryTask,
   startImportTask
 } from "./workflows.js";
 
@@ -119,6 +129,111 @@ app.get("/api/tasks", (request, response) => {
 
 app.get("/api/books", (_request, response) => {
   response.json({ ok: true, books: listBooks() });
+});
+
+app.get("/api/books/:bookId/character-library", (request, response, next) => {
+  try {
+    requireBook(request.params.bookId);
+    response.json({ ok: true, library: getCharacterLibraryStatus(request.params.bookId) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/books/:bookId/characters", (request, response, next) => {
+  try {
+    requireBook(request.params.bookId);
+    response.json({
+      ok: true,
+      characters: listCharacterLibraryCharacters({
+        bookId: request.params.bookId,
+        search: request.query.search,
+        filter: allowedValue(request.query.filter, ["all", "multi_stage", "incomplete"], "all"),
+        sort: allowedValue(request.query.sort, ["name", "updated", "facts"], "name")
+      })
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/books/:bookId/characters/:characterId", (request, response, next) => {
+  try {
+    requireBook(request.params.bookId);
+    const character = getCharacterLibraryCharacter(request.params.bookId, request.params.characterId);
+    if (!character) throw httpError("character not found", 404);
+    response.json({ ok: true, character });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/books/:bookId/character-library/builds", (request, response, next) => {
+  try {
+    requireBook(request.params.bookId);
+    const task = startCharacterLibraryTask({ ...(request.body || {}), book_id: request.params.bookId });
+    response.status(202).json({ ok: true, task: publicTask(task) });
+  } catch (error) {
+    next(characterBuildConflict(error));
+  }
+});
+
+app.get("/api/character-library-builds/:id", (request, response, next) => {
+  try {
+    const build = requireCharacterLibraryBuild(request.params.id);
+    response.json({ ok: true, build, task: characterLibraryTaskSnapshot(build) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/character-library-builds/:id/events", (request, response, next) => {
+  try {
+    const build = requireCharacterLibraryBuild(request.params.id);
+    const task = findCharacterLibraryTask(build.id);
+    if (isLiveTask(task)) {
+      subscribeCharacterLibraryTask(build, response);
+      return;
+    }
+    response.writeHead(200, {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no"
+    });
+    response.end(`event: snapshot\ndata: ${JSON.stringify({ task: characterLibraryTaskSnapshot(build) })}\n\n`);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/character-library-builds/:id/pause", (request, response, next) => {
+  try {
+    pauseCharacterLibraryBuild(requireCharacterLibraryBuild(request.params.id).id);
+    const build = requireCharacterLibraryBuild(request.params.id);
+    response.json({ ok: true, task: characterLibraryTaskSnapshot(build) });
+  } catch (error) {
+    next(characterBuildConflict(error));
+  }
+});
+
+app.post("/api/character-library-builds/:id/resume", (request, response, next) => {
+  try {
+    const task = resumeCharacterLibraryBuild(requireCharacterLibraryBuild(request.params.id).id);
+    response.status(202).json({ ok: true, task: publicTask(task) });
+  } catch (error) {
+    next(characterBuildConflict(error));
+  }
+});
+
+app.post("/api/character-library-builds/:id/cancel", (request, response, next) => {
+  try {
+    cancelCharacterLibraryBuild(requireCharacterLibraryBuild(request.params.id).id);
+    const build = requireCharacterLibraryBuild(request.params.id);
+    response.json({ ok: true, task: characterLibraryTaskSnapshot(build) });
+  } catch (error) {
+    next(characterBuildConflict(error));
+  }
 });
 
 app.post("/api/books", (request, response, next) => {
@@ -566,4 +681,86 @@ function normalizeDifyTestTarget(value) {
   const error = new Error("target 只支持 import、l1、l2、analysis_summary、all。");
   error.status = 422;
   throw error;
+}
+
+function requireBook(bookId) {
+  const book = getBook(bookId);
+  if (!book) throw httpError("book not found", 404);
+  return book;
+}
+
+function requireCharacterLibraryBuild(buildId) {
+  const build = getCharacterLibraryBuild(buildId);
+  if (!build) throw httpError("character library build not found", 404);
+  return build;
+}
+
+function findCharacterLibraryTask(buildId) {
+  const task = findTask(buildId);
+  return task?.type === "character-library" ? task : null;
+}
+
+function characterLibraryTaskSnapshot(build) {
+  const live = findCharacterLibraryTask(build.id);
+  const liveSnapshot = live ? publicTask(live) : null;
+  const items = listCharacterLibraryBuildItems(build.id);
+  const completed = items.filter((item) => ["succeeded", "reused"].includes(item.status)).length;
+  const failed = items.filter((item) => item.status === "failed").length;
+  const skipped = items.filter((item) => item.status === "cancelled").length;
+  const status = build.status === "running" && ["paused", "pause_requested"].includes(build.control_state)
+    ? "paused"
+    : build.status;
+  return {
+    id: build.id,
+    type: "character-library",
+    status,
+    controlState: build.control_state,
+    createdAt: build.created_at,
+    updatedAt: build.updated_at,
+    progress: { total: items.length, completed, failed, skipped, current: "" },
+    estimate: liveSnapshot?.estimate || null,
+    events: liveSnapshot?.events || [],
+    result: { buildId: build.id, status: build.status },
+    error: build.error_summary || "",
+    payload: {
+      bookId: build.book_id,
+      indexGroupKey: build.index_group_key,
+      startChapter: build.start_chapter,
+      endChapter: build.end_chapter
+    }
+  };
+}
+
+function subscribeCharacterLibraryTask(build, response) {
+  let replacedSnapshot = false;
+  subscribeTask(build.id, {
+    writeHead: (...args) => response.writeHead(...args),
+    write: (value) => {
+      if (!replacedSnapshot && String(value).startsWith("event: snapshot")) {
+        replacedSnapshot = true;
+        return response.write(`event: snapshot\ndata: ${JSON.stringify({ task: characterLibraryTaskSnapshot(requireCharacterLibraryBuild(build.id)) })}\n\n`);
+      }
+      return response.write(value);
+    },
+    on: (...args) => response.on(...args)
+  });
+}
+
+function allowedValue(value, allowed, fallback) {
+  const normalized = String(value || "").trim();
+  return allowed.includes(normalized) ? normalized : fallback;
+}
+
+function characterBuildConflict(error) {
+  if (error?.status) return error;
+  if (/unfinished character library build|not resumable|scope mismatch|source mismatch|already has a live task|terminal character library build/i.test(error?.message || "")) {
+    error.status = 409;
+  }
+  return error;
+}
+
+function httpError(message, status) {
+  const error = new Error(message);
+  error.status = status;
+  return error;
 }

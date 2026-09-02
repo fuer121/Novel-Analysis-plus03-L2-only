@@ -30,6 +30,30 @@ export function l2FactsUrl(bookId, params) {
   return `/api/books/${encodeURIComponent(bookId)}/l2-facts${buildQuery(params)}`;
 }
 
+export function characterLibraryUrl(bookId) {
+  return `/api/books/${encodeURIComponent(bookId)}/character-library`;
+}
+
+export function charactersUrl(bookId, params = {}) {
+  return `/api/books/${encodeURIComponent(bookId)}/characters${buildQuery(params)}`;
+}
+
+export function characterUrl(bookId, characterId) {
+  return `/api/books/${encodeURIComponent(bookId)}/characters/${encodeURIComponent(characterId)}`;
+}
+
+export function characterLibraryBuildsUrl(bookId) {
+  return `/api/books/${encodeURIComponent(bookId)}/character-library/builds`;
+}
+
+export function characterLibraryBuildUrl(buildId) {
+  return `/api/character-library-builds/${encodeURIComponent(buildId)}`;
+}
+
+export function characterLibraryBuildEventsUrl(buildId) {
+  return `${characterLibraryBuildUrl(buildId)}/events`;
+}
+
 export async function apiGet(path) {
   const response = await fetch(path);
   return handleResponse(response);

@@ -77,6 +77,8 @@ import {
   findTask,
   isLiveTask,
   markTaskRunning,
+  pauseTask,
+  resumeTask,
   updateTask,
   waitIfPaused
 } from "./tasks.js";
@@ -452,8 +454,20 @@ export function startCharacterLibraryTask(payload = {}) {
   const bookId = normalizeBookId(payload.book_id ?? payload.bookId);
   const indexGroupKey = normalizeIndexGroupKey(payload.index_group_key ?? payload.indexGroupKey ?? "characters");
   const range = normalizeRange(payload.start_chapter ?? payload.startChapter, payload.end_chapter ?? payload.endChapter);
-  const task = createTask("character-library", { bookId, indexGroupKey, ...range });
-  void runCharacterLibraryTask(task, { bookId, indexGroupKey, ...range, buildId: payload.build_id ?? payload.buildId })
+  const requestedBuildId = String(payload.build_id ?? payload.buildId ?? "").trim();
+  const snapshot = requestedBuildId ? null : loadCharacterBuildSnapshot({ bookId, indexGroupKey, ...range });
+  const build = requestedBuildId ? getCharacterLibraryBuild(requestedBuildId) : createCharacterLibraryBuild({
+    bookId,
+    indexGroupKey,
+    ...range,
+    sourceFingerprint: snapshot.source_fingerprint
+  });
+  if (!build) throw httpError("character library build not found", 404);
+  if (isLiveTask(findTask(build.id))) throw httpError("character library build already has a live task", 409);
+
+  const task = createTask("character-library", { bookId, indexGroupKey, ...range }, { id: build.id });
+  task.result = { buildId: build.id };
+  void runCharacterLibraryTask(task, { bookId, indexGroupKey, ...range, buildId: build.id, snapshot })
     .catch((error) => {
       const buildId = task.result?.buildId;
       const build = buildId ? getCharacterLibraryBuild(buildId) : null;
@@ -473,20 +487,55 @@ export function startCharacterLibraryTask(payload = {}) {
 }
 
 export function pauseCharacterLibraryBuild(buildId) {
-  return updateCharacterLibraryBuildControl(buildId, "pause_requested");
+  const build = updateCharacterLibraryBuildControl(buildId, "pause_requested");
+  const task = findTask(build.id);
+  if (isLiveTask(task)) pauseTask(build.id);
+  return task || build;
 }
 
 export function resumeCharacterLibraryBuild(buildId) {
-  resetStaleCharacterLibraryBuildItems(buildId, { staleBefore: new Date(Date.now() - 60_000).toISOString() });
-  return updateCharacterLibraryBuildControl(buildId, "active");
+  const build = getCharacterLibraryBuild(buildId);
+  if (!build) throw httpError("character library build not found", 404);
+  if (build.status !== "running") throw httpError("character library build is not resumable", 409);
+  const task = findTask(build.id);
+  if (isLiveTask(task)) {
+    updateCharacterLibraryBuildControl(build.id, "active");
+    resumeTask(build.id);
+    return task;
+  }
+  updateCharacterLibraryBuildControl(build.id, "active");
+  return startCharacterLibraryTask({
+    book_id: build.book_id,
+    index_group_key: build.index_group_key,
+    start_chapter: build.start_chapter,
+    end_chapter: build.end_chapter,
+    build_id: build.id
+  });
 }
 
 export function cancelCharacterLibraryBuild(buildId) {
-  return updateCharacterLibraryBuildControl(buildId, "cancel_requested");
+  const build = updateCharacterLibraryBuildControl(buildId, "cancel_requested");
+  const task = findTask(build.id);
+  if (isLiveTask(task)) {
+    task.paused = false;
+    updateTask(task, {
+      status: "running",
+      result: { ...(task.result || {}), cancelRequested: true },
+      message: "角色库构建已请求取消。"
+    }, "progress");
+    return task;
+  }
+  return startCharacterLibraryTask({
+    book_id: build.book_id,
+    index_group_key: build.index_group_key,
+    start_chapter: build.start_chapter,
+    end_chapter: build.end_chapter,
+    build_id: build.id
+  });
 }
 
 async function runCharacterLibraryTask(task, input) {
-  const snapshot = loadCharacterBuildSnapshot(input);
+  const snapshot = input.snapshot || loadCharacterBuildSnapshot(input);
   const previous = listCharacterLibraryCharacters({ bookId: input.bookId })
     .map((row) => getCharacterLibraryCharacter(input.bookId, row.id));
   const build = input.buildId
@@ -687,6 +736,12 @@ async function runCharacterLibraryTask(task, input) {
   const completeOutput = [...new Map(output.map((character) => [character.id, character])).values()];
   replaceCharacterProjection(build.id, completeOutput, { status, coverage: snapshot.coverage, quality });
   completeTask(task, { buildId: build.id, status, failed, retry_list: retryList });
+}
+
+function httpError(message, status) {
+  const error = new Error(message);
+  error.status = status;
+  return error;
 }
 
 function loadCharacterBuildSnapshot({ bookId, indexGroupKey, startChapter, endChapter }) {

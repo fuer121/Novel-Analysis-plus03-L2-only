@@ -662,12 +662,17 @@ git commit -m "feat: build character library projections"
 
 ### Task 6: 暴露角色库 API 和全局任务控制
 
+**控制卡：** [`docs/task-controls/2026-09-02-character-library-task-6.md`](../../task-controls/2026-09-02-character-library-task-6.md)
+
+**身份与恢复契约：** character-library 的 build ID 同时作为内存 task ID，首次执行和恢复使用同一 ID；数据库状态为事实源，SSE 只提供当前进程 snapshot 和后续事件，不回放跨进程历史事件
+
 **Files:**
 - Modify: `server/index.js`
 - Modify: `src/api.js`
+- Modify: `server/workflows.js`，仅限 build/task ID 绑定和恢复入口
 - Test: `test/service.test.js`
 
-- [ ] **Step 1: 写 API 失败测试**
+- [x] **Step 1: 写 API 失败测试**
 
 为 Express 服务测试增加：
 
@@ -684,13 +689,13 @@ assert.equal(buildResponse.status, 202)
 assert.equal(buildResponse.body.task.type, "character-library")
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `node --test --test-name-pattern="character library API" test/service.test.js`
 
 Expected: FAIL with HTTP 404
 
-- [ ] **Step 3: 增加 API 路由**
+- [x] **Step 3: 增加 API 路由**
 
 在 `server/index.js` 增加：
 
@@ -708,7 +713,7 @@ POST /api/character-library-builds/:id/cancel
 
 列表参数仅接受 `search`、`filter=all|multi_stage|incomplete`、`sort=name|updated|facts`，非法值回退默认值，不拼接未经白名单处理的 SQL
 
-- [ ] **Step 4: 增加前端 URL helpers**
+- [x] **Step 4: 增加前端 URL helpers**
 
 在 `src/api.js` 增加：
 
@@ -726,18 +731,28 @@ export function characterUrl(bookId, characterId) {
 }
 ```
 
-- [ ] **Step 5: 运行 API 测试和服务测试**
+- [x] **Step 5: 运行 API 测试和服务测试**
 
 Run: `node --test test/service.test.js`
 
 Expected: PASS
 
-- [ ] **Step 6: 提交 API**
+- [x] **Step 6: 提交 API**
 
 ```bash
 git add server/index.js src/api.js test/service.test.js
 git commit -m "feat: expose character library API"
 ```
+
+**2026-09-02 封板记录：**
+
+- 状态：完成，Task 6 双审通过，Task 7 等待授权
+- 实现：九个 API、URL helpers、build/task 统一 ID、跨进程恢复、数据库 snapshot 与 SSE 生命周期
+- Task 6 聚焦测试：4/4
+- service tests：108/108
+- 全仓测试：136/136
+- lint 与 `git diff --check`：PASS
+- 剩余风险：SSE 不回放跨进程历史事件，多进程分布式创建锁保持 FOLLOW_UP
 
 ### Task 7: 接入路由、书籍入口和任务通道
 

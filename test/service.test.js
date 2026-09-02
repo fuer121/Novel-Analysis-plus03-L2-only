@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -22,9 +23,21 @@ const dify = await import("../server/dify.js");
 const appConfig = await import("../server/config.js");
 const characterLibrary = await import("../server/character-library.js");
 const indexingInputs = await import("../server/indexing-inputs.js");
+const api = await import("../src/api.js");
 const schemaTools = await import("../src/schemaTools.js");
 const tasks = await import("../server/tasks.js");
 const workflows = await import("../server/workflows.js");
+
+test("character library API helpers encode resource paths and queries", () => {
+  assert.equal(api.characterLibraryUrl("book/1"), "/api/books/book%2F1/character-library");
+  assert.equal(
+    api.charactersUrl("book/1", { search: "沈 昭", filter: "multi_stage", sort: "facts" }),
+    "/api/books/book%2F1/characters?search=%E6%B2%88+%E6%98%AD&filter=multi_stage&sort=facts"
+  );
+  assert.equal(api.characterUrl("book/1", "character/1"), "/api/books/book%2F1/characters/character%2F1");
+  assert.equal(api.characterLibraryBuildUrl("build/1"), "/api/character-library-builds/build%2F1");
+  assert.equal(api.characterLibraryBuildEventsUrl("build/1"), "/api/character-library-builds/build%2F1/events");
+});
 
 test.after(async () => {
   await fs.rm(tempDir, { recursive: true, force: true });
@@ -652,6 +665,178 @@ test("character library workflow cancellation preserves projection and cancels p
     assert.equal(db.getCharacterLibraryStatus(bookId), null);
   } finally {
     global.fetch = previousFetch;
+  }
+});
+
+test("paused character library cancellation resumes cleanup before the terminal event", async () => {
+  const bookId = "character-pause-cancel-book";
+  seedCharacterLibraryWorkflowBook(bookId, [
+    { category: "character", entity: "沈昭", fact_type: "appearance", fact: "沈昭眉尾有痣", evidence: ["眉尾有痣"] },
+    { category: "character", entity: "顾南风", fact_type: "appearance", fact: "顾南风眼型狭长", evidence: ["眼型狭长"] }
+  ]);
+  let releaseProfile;
+  const blockedProfile = new Promise((resolve) => { releaseProfile = resolve; });
+  const previousFetch = global.fetch;
+  let calls = 0;
+  global.fetch = async (_url, request = {}) => {
+    calls += 1;
+    const context = JSON.parse(JSON.parse(request.body).inputs.context_json);
+    const response = difyWorkflowResponse({ result: JSON.stringify(characterProfileFixture(context.character.canonical_name)) });
+    if (calls === 1) await blockedProfile;
+    return response;
+  };
+  try {
+    const task = workflows.startCharacterLibraryTask({
+      book_id: bookId,
+      index_group_key: "characters",
+      start_chapter: 1,
+      end_chapter: 1
+    });
+    while (calls < 1 || !task.result?.buildId) await new Promise((resolve) => setTimeout(resolve, 5));
+    const buildId = task.result.buildId;
+    db.saveCharacterLibraryBuildItem(buildId, {
+      item_key: "pause-cancel-pending",
+      candidate_fingerprint: "pause-cancel-pending",
+      status: "pending"
+    });
+    workflows.pauseCharacterLibraryBuild(buildId);
+    assert.equal(task.status, "paused");
+    workflows.cancelCharacterLibraryBuild(buildId);
+    assert.equal(task.paused, false);
+    assert.equal(task.events.at(-1).type, "progress");
+    assert.equal(task.events.some((event) => event.type === "cancelled"), false);
+    releaseProfile();
+    await waitForTerminalTask(task);
+    assert.equal(task.status, "cancelled");
+    assert.equal(task.events.at(-1).type, "cancelled");
+    assert.equal(db.getCharacterLibraryBuild(buildId).status, "cancelled");
+    assert.equal(db.listCharacterLibraryBuildItems(buildId).some((item) => item.status === "cancelled"), true);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test("character library task uses its build id as the task id", async () => {
+  const bookId = "character-unified-task-id-book";
+  seedCharacterLibraryWorkflowBook(bookId, [
+    { category: "character", entity: "沈昭", fact_type: "appearance", fact: "沈昭眉尾有痣", evidence: ["眉尾有痣"] }
+  ]);
+  const previousFetch = global.fetch;
+  global.fetch = async (_url, request = {}) => {
+    const context = JSON.parse(JSON.parse(request.body).inputs.context_json);
+    return difyWorkflowResponse({ result: JSON.stringify(characterProfileFixture(context.character.canonical_name)) });
+  };
+  try {
+    const task = workflows.startCharacterLibraryTask({
+      book_id: bookId,
+      index_group_key: "characters",
+      start_chapter: 1,
+      end_chapter: 1
+    });
+    assert.equal(task.id, task.result.buildId);
+    assert.equal(db.getCharacterLibraryBuild(task.id).id, task.id);
+    await waitForTask(task);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test("character library API exposes queries, builds, events, and controls", async () => {
+  const bookId = "character-api-book";
+  seedCharacterLibraryWorkflowBook(bookId, [
+    { category: "character", entity: "沈昭", fact_type: "appearance", fact: "沈昭眉尾有痣", evidence: ["眉尾有痣"] }
+  ]);
+  const currentBuild = db.createCharacterLibraryBuild({
+    bookId,
+    indexGroupKey: "characters",
+    startChapter: 1,
+    endChapter: 1,
+    sourceFingerprint: "character-api-current"
+  });
+  db.replaceCharacterProjection(currentBuild.id, [{
+    id: "character/api",
+    canonical_name: "沈昭",
+    stages: [{ id: "stage-api", name: "默认阶段", facts: [] }]
+  }]);
+
+  const port = 21000 + Math.floor(Math.random() * 10000);
+  let server = spawn(process.execPath, ["server/index.js"], {
+    cwd: path.resolve("."),
+    env: { ...process.env, HOST: "127.0.0.1", PORT: String(port), DATA_DIR: tempDir },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  const base = `http://127.0.0.1:${port}`;
+  try {
+    await waitForHttpServer(`${base}/api/health`, server);
+    const library = await fetchJson(`${base}${api.characterLibraryUrl(bookId)}`);
+    assert.equal(library.response.status, 200);
+    assert.equal(library.body.library.build_id, currentBuild.id);
+
+    const list = await fetchJson(`${base}${api.charactersUrl(bookId, { filter: "invalid", sort: "invalid" })}`);
+    assert.equal(list.body.characters.length, 1);
+    const detail = await fetchJson(`${base}${api.characterUrl(bookId, "character/api")}`);
+    assert.equal(detail.body.character.canonical_name, "沈昭");
+
+    const buildStatus = await fetchJson(`${base}${api.characterLibraryBuildUrl(currentBuild.id)}`);
+    assert.equal(buildStatus.body.task.id, currentBuild.id);
+    const events = await fetch(`${base}${api.characterLibraryBuildEventsUrl(currentBuild.id)}`);
+    assert.match(await events.text(), /event: snapshot/);
+
+    const buildBookId = "character-api-build-book";
+    seedCharacterLibraryWorkflowBook(buildBookId, [
+      { category: "character", entity: "顾南风", fact_type: "appearance", fact: "顾南风眼型狭长", evidence: ["眼型狭长"] }
+    ]);
+    const created = await fetchJson(`${base}${api.characterLibraryBuildsUrl(buildBookId)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ index_group_key: "characters", start_chapter: 1, end_chapter: 1 })
+    });
+    assert.equal(created.response.status, 202);
+    assert.equal(created.body.task.id, created.body.task.result.buildId);
+    assert.equal((await fetch(`${base}${api.characterLibraryBuildsUrl(buildBookId)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ index_group_key: "characters", start_chapter: 1, end_chapter: 1 })
+    })).status, 409);
+
+    const paused = await fetchJson(`${base}${api.characterLibraryBuildUrl(created.body.task.id)}/pause`, { method: "POST" });
+    assert.equal(paused.response.status, 200);
+    assert.equal(paused.body.task.controlState, "pause_requested");
+    assert.equal(paused.body.task.progress.total, db.listCharacterLibraryBuildItems(created.body.task.id).length);
+    const liveSnapshot = await readFirstSseEvent(`${base}${api.characterLibraryBuildEventsUrl(created.body.task.id)}`);
+    assert.equal(liveSnapshot.task.controlState, "pause_requested");
+    assert.equal(liveSnapshot.task.status, db.getCharacterLibraryBuild(created.body.task.id).status === "running" ? "paused" : db.getCharacterLibraryBuild(created.body.task.id).status);
+
+    await stopChildProcess(server);
+    server = spawn(process.execPath, ["server/index.js"], {
+      cwd: path.resolve("."),
+      env: { ...process.env, HOST: "127.0.0.1", PORT: String(port), DATA_DIR: tempDir },
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    await waitForHttpServer(`${base}/api/health`, server);
+    const resumed = await fetchJson(`${base}${api.characterLibraryBuildUrl(created.body.task.id)}/resume`, { method: "POST" });
+    assert.equal(resumed.response.status, 202);
+    assert.equal(resumed.body.task.id, created.body.task.id);
+    assert.equal(db.getCharacterLibraryBuild(created.body.task.id).control_state, "active");
+    const cancelled = await fetchJson(`${base}${api.characterLibraryBuildUrl(created.body.task.id)}/cancel`, { method: "POST" });
+    assert.equal(cancelled.response.status, 200);
+    assert.equal(cancelled.body.task.controlState, "cancel_requested");
+    assert.equal(cancelled.body.task.events.at(-1).type, "progress");
+    await waitForCharacterBuildStatus(base, created.body.task.id, "cancelled");
+    const terminalEvents = await fetch(`${base}${api.characterLibraryBuildEventsUrl(created.body.task.id)}`);
+    const terminalEventText = await terminalEvents.text();
+    assert.match(terminalEventText, /event: snapshot/);
+    assert.match(terminalEventText, /"status":"cancelled"/);
+
+    assert.equal((await fetch(`${base}${api.characterLibraryBuildUrl(currentBuild.id)}/resume`, { method: "POST" })).status, 409);
+    assert.equal((await fetch(`${base}${api.characterLibraryBuildUrl(currentBuild.id)}/pause`, { method: "POST" })).status, 409);
+    assert.equal((await fetch(`${base}${api.characterLibraryBuildUrl(currentBuild.id)}/cancel`, { method: "POST" })).status, 409);
+
+    assert.equal((await fetch(`${base}/api/books/missing/character-library`)).status, 404);
+    assert.equal((await fetch(`${base}/api/character-library-builds/missing`)).status, 404);
+    assert.equal((await fetch(`${base}${api.characterUrl(bookId, "missing")}`)).status, 404);
+  } finally {
+    await stopChildProcess(server);
   }
 });
 
@@ -4862,4 +5047,52 @@ function extractL2QueryFacts(text) {
   const index = String(text || "").indexOf(marker);
   assert.notEqual(index, -1);
   return JSON.parse(String(text).slice(index + marker.length).trim());
+}
+
+async function fetchJson(url, options) {
+  const response = await fetch(url, options);
+  return { response, body: await response.json() };
+}
+
+async function waitForHttpServer(url, processHandle) {
+  const started = Date.now();
+  while (Date.now() - started < 5000) {
+    if (processHandle.exitCode !== null) throw new Error(`HTTP server exited with code ${processHandle.exitCode}`);
+    try {
+      const response = await fetch(url);
+      if (response.ok) return;
+    } catch {
+      // The child process may still be binding its port
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error("HTTP server did not become ready");
+}
+
+async function readFirstSseEvent(url) {
+  const controller = new AbortController();
+  const response = await fetch(url, { signal: controller.signal });
+  const reader = response.body.getReader();
+  const { value } = await reader.read();
+  controller.abort();
+  const block = new TextDecoder().decode(value);
+  const data = block.split("\n").find((line) => line.startsWith("data: "));
+  return JSON.parse(data.slice(6));
+}
+
+async function waitForCharacterBuildStatus(base, buildId, expected) {
+  const started = Date.now();
+  while (Date.now() - started < 10000) {
+    const { body } = await fetchJson(`${base}${api.characterLibraryBuildUrl(buildId)}`);
+    if (body.build.status === expected) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`Character library build did not reach ${expected}`);
+}
+
+async function stopChildProcess(processHandle) {
+  if (!processHandle || processHandle.exitCode !== null) return;
+  const exited = new Promise((resolve) => processHandle.once("exit", resolve));
+  processHandle.kill("SIGTERM");
+  await exited;
 }
