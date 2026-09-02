@@ -402,12 +402,14 @@ git commit -m "feat: persist character library projections"
 
 ### Task 4: 增加角色核心档案 Dify 契约
 
+**控制卡：** [`docs/task-controls/2026-09-02-character-library-task-4.md`](../../task-controls/2026-09-02-character-library-task-4.md)
+
 **Files:**
 - Modify: `server/indexing-inputs.js`
 - Modify: `server/dify.js`
 - Test: `test/service.test.js`
 
-- [ ] **Step 1: 写事实层与设计层分离失败测试**
+- [x] **Step 1: 写事实层与设计层分离失败测试**
 
 ```js
 test("normalizes character profile and projection signals", () => {
@@ -446,13 +448,13 @@ test("normalizes character profile and projection signals", () => {
 })
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `node --test --test-name-pattern="normalizes character profiles" test/service.test.js`
 
 Expected: FAIL，提示 `normalizeCharacterProfileOutput` 未定义
 
-- [ ] **Step 3: 增加 Schema 与 Prompt builder**
+- [x] **Step 3: 增加 Schema 与 Prompt builder**
 
 在 `server/indexing-inputs.js` 导出 `characterProfileSchema()` 和 `buildCharacterProfileInputs({ book, character, stages })`。Schema 强制别名判断分别返回：
 
@@ -489,22 +491,32 @@ Schema 强制每个阶段分别返回：
 
 Prompt 负责判断别名是否明确、阶段是否稳定、阶段类型和持续性，并返回证据、置信度与质量警告。Prompt 明确禁止把受伤、哭泣、单次遮挡写入稳定外形，禁止用设计五官覆盖原文五官，未知字段返回空字符串
 
-- [ ] **Step 4: 增加输出归一化**
+- [x] **Step 4: 增加输出归一化**
 
 在 `server/dify.js` 导出 `normalizeCharacterProfileOutput(output)`，复用现有 Dify envelope 解包逻辑，严格枚举 `alias_relation`、`stage_type` 和 `stage_stability`，将置信度限制在 0 至 1，校验 `stable_difference` 为布尔值，证据为空时降级为候选或不稳定并写入 `quality_warnings`。同时截断异常长文本、数组去空值、缺失字段返回保守默认值，不允许设计字段回填原文字段
 
-- [ ] **Step 5: 运行契约测试**
+- [x] **Step 5: 运行契约测试**
 
 Run: `node --test --test-name-pattern="character profiles|character profile" test/service.test.js`
 
 Expected: PASS
 
-- [ ] **Step 6: 提交 Dify 契约**
+- [x] **Step 6: 提交 Dify 契约**
 
 ```bash
 git add server/indexing-inputs.js server/dify.js test/service.test.js
 git commit -m "feat: define character profile workflow contract"
 ```
+
+**2026-09-02 封板记录：**
+
+- 状态：完成，Task 4 从此冻结，真实 Dify 调用和构建编排进入 Task 5
+- 输入契约：书籍、单一角色候选、保守阶段与事实 JSON，同时输出 Prompt 和 Schema JSON
+- 输出契约：别名关系与置信度、阶段类型与稳定性、事实层档案、设计五官、证据和质量警告
+- 保守降级：枚举非法、证据缺失或类型错误时降级为候选或不确定，不将设计五官回填原文五官
+- 规格审查：通过，未修改 Task 2、Task 3、工作流、API 或前端
+- 代码质量审查：通过，无阻断项
+- 验证：角色契约聚焦 3/3、全量 `npm test` 116/116、`npm run lint` 和 `git diff --check` 通过
 
 ### Task 5: 实现可恢复的角色库构建任务
 

@@ -137,6 +137,17 @@ export function normalizeDifyL2Output(raw) {
   };
 }
 
+export function normalizeCharacterProfileOutput(raw) {
+  const value = normalizeDifyOutputEnvelope(raw);
+  const record = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return {
+    canonical_name: normalizeProfileText(record.canonical_name),
+    gender: normalizeProfileText(record.gender),
+    aliases: (Array.isArray(record.aliases) ? record.aliases : []).map(normalizeProfileAlias).filter((item) => item.name),
+    stages: (Array.isArray(record.stages) ? record.stages : []).map(normalizeProfileStage).filter((item) => item.name)
+  };
+}
+
 export function normalizeDifyAnalysisJsonOutput(raw, schema = null, { errorLabel = "Dify 分析工作流" } = {}) {
   const value = coerceAnalysisJsonBySchema(normalizeDifyOutputEnvelope(raw), schema);
   if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -365,6 +376,73 @@ function normalizeDifyFact(value) {
     subject_key: normalizeString(value.subject_key ?? value.subjectKey),
     identity_basis: normalizeString(value.identity_basis ?? value.identityBasis)
   };
+}
+
+function normalizeProfileAlias(value) {
+  const source = isPlainObject(value) ? value : {};
+  const evidence = normalizeProfileArray(source.evidence);
+  const warnings = normalizeProfileArray(source.quality_warnings);
+  const allowed = ["confirmed", "candidate", "rejected"];
+  let relation = allowed.includes(source.alias_relation) ? source.alias_relation : "candidate";
+  if (!allowed.includes(source.alias_relation)) warnings.push("别名关系枚举非法，已降级为候选");
+  if (!evidence.length) {
+    relation = "candidate";
+    warnings.push("别名缺少原文证据，已降级为候选");
+  }
+  return {
+    name: normalizeProfileText(source.name),
+    alias_relation: relation,
+    alias_confidence: normalizeNumber(source.alias_confidence),
+    evidence,
+    quality_warnings: uniqueProfileArray(warnings)
+  };
+}
+
+function normalizeProfileStage(value) {
+  const source = isPlainObject(value) ? value : {};
+  const evidence = normalizeProfileArray(source.evidence);
+  const warnings = normalizeProfileArray(source.quality_warnings);
+  const allowedTypes = ["age", "form", "identity"];
+  const allowedStability = ["stable", "temporary", "uncertain"];
+  const stageType = allowedTypes.includes(source.stage_type) ? source.stage_type : "";
+  let stability = allowedStability.includes(source.stage_stability) ? source.stage_stability : "uncertain";
+  let stableDifference = source.stable_difference === true;
+  if (!stageType) warnings.push("阶段类型枚举非法或缺失");
+  if (!allowedStability.includes(source.stage_stability)) warnings.push("阶段稳定性枚举非法，已降级为不确定");
+  if (typeof source.stable_difference !== "boolean") warnings.push("阶段稳定差异不是布尔值，已降级为 false");
+  if (!evidence.length) {
+    stability = "uncertain";
+    stableDifference = false;
+    warnings.push("阶段缺少独立原文证据，已降级为不确定");
+  }
+  return {
+    name: normalizeProfileText(source.name),
+    stage_hint: normalizeProfileText(source.stage_hint),
+    stage_type: stageType,
+    stage_stability: stability,
+    stable_difference: stableDifference,
+    age: normalizeProfileText(source.age),
+    identity_profession: normalizeProfileText(source.identity_profession),
+    stable_appearance: normalizeProfileText(source.stable_appearance),
+    stable_temperament: normalizeProfileText(source.stable_temperament),
+    original_facial_features: normalizeProfileText(source.original_facial_features),
+    designed_facial_features: normalizeProfileText(source.designed_facial_features),
+    design_basis: normalizeProfileArray(source.design_basis),
+    evidence,
+    quality_warnings: uniqueProfileArray(warnings)
+  };
+}
+
+function normalizeProfileText(value) {
+  return normalizeString(value).slice(0, 2000);
+}
+
+function normalizeProfileArray(value) {
+  return uniqueProfileArray(Array.isArray(value) ? value.map(normalizeProfileText).filter(Boolean) : []).slice(0, 50);
+}
+
+function uniqueProfileArray(value) {
+  return [...new Set(value)].slice(0, 50);
 }
 
 function normalizeCategory(value) {

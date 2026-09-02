@@ -496,6 +496,84 @@ test("character library rejects invalid projections without replacing the curren
   assert.equal(db.createCharacterLibraryBuild({ bookId, indexGroupKey: "characters", startChapter: 1, endChapter: 12, sourceFingerprint: "retry" }).status, "running");
 });
 
+test("character profile schema and inputs preserve the structured contract", () => {
+  const schema = indexingInputs.characterProfileSchema();
+  assert.deepEqual(schema.properties.aliases.items.properties.alias_relation.enum, ["confirmed", "candidate", "rejected"]);
+  assert.deepEqual(schema.properties.stages.items.properties.stage_type.enum, ["age", "form", "identity"]);
+  assert.deepEqual(schema.properties.stages.items.properties.stage_stability.enum, ["stable", "temporary", "uncertain"]);
+  assert.equal(schema.properties.stages.items.properties.stable_difference.type, "boolean");
+  assert.equal(schema.required.includes("aliases"), true);
+  assert.equal(schema.required.includes("stages"), true);
+
+  const inputs = indexingInputs.buildCharacterProfileInputs({
+    book: { book_id: "book-1", book_name: "测试书" },
+    character: { canonical_name: "沈昭", aliases: ["昭昭"] },
+    stages: [{ name: "默认阶段", facts: [{ fact: "眉尾有痣", evidence: ["原文证据"] }] }]
+  });
+  assert.equal(JSON.parse(inputs.book_json).book_id, "book-1");
+  assert.equal(JSON.parse(inputs.character_json).canonical_name, "沈昭");
+  assert.equal(JSON.parse(inputs.stages_json)[0].facts[0].fact, "眉尾有痣");
+  assert.deepEqual(JSON.parse(inputs.schema_json), schema);
+  assert.match(inputs.prompt, /临时伤病/);
+  assert.match(inputs.prompt, /设计五官/);
+});
+
+test("normalizes character profiles while separating facts from design", () => {
+  const profile = dify.normalizeCharacterProfileOutput({ result: JSON.stringify({
+    canonical_name: "沈昭",
+    gender: "女",
+    aliases: [{ name: "昭昭", alias_relation: "confirmed", alias_confidence: 0.96, evidence: ["她自幼便被唤作昭昭"], quality_warnings: [] }],
+    stages: [{
+      name: "默认阶段",
+      stage_hint: "成年",
+      stage_type: "age",
+      stage_stability: "stable",
+      stable_difference: true,
+      age: "二十岁左右",
+      identity_profession: "医者",
+      stable_appearance: "清瘦，眉尾有痣",
+      stable_temperament: "冷静克制",
+      original_facial_features: "眉尾有痣",
+      designed_facial_features: "窄长眼型，眉峰平直",
+      design_basis: ["清瘦", "冷静克制"],
+      evidence: ["她约莫二十岁，身形清瘦"],
+      quality_warnings: []
+    }]
+  }) });
+  assert.equal(profile.aliases[0].alias_relation, "confirmed");
+  assert.equal(profile.stages[0].stage_stability, "stable");
+  assert.equal(profile.stages[0].original_facial_features, "眉尾有痣");
+  assert.equal(profile.stages[0].designed_facial_features, "窄长眼型，眉峰平直");
+  assert.deepEqual(profile.stages[0].design_basis, ["清瘦", "冷静克制"]);
+});
+
+test("character profile normalization degrades invalid or unsupported claims", () => {
+  const profile = dify.normalizeCharacterProfileOutput({ output: {
+    canonical_name: "沈昭",
+    aliases: [{ name: "昭昭", alias_relation: "certain", alias_confidence: 8, evidence: [], quality_warnings: [] }],
+    stages: [{
+      name: "战损",
+      stage_hint: "战损",
+      stage_type: "costume",
+      stage_stability: "forever",
+      stable_difference: "yes",
+      original_facial_features: "",
+      designed_facial_features: "凤眼",
+      evidence: [],
+      quality_warnings: ["模型警告", "模型警告"]
+    }]
+  } });
+  assert.equal(profile.aliases[0].alias_relation, "candidate");
+  assert.equal(profile.aliases[0].alias_confidence, 1);
+  assert.equal(profile.aliases[0].quality_warnings.length > 0, true);
+  assert.equal(profile.stages[0].stage_type, "");
+  assert.equal(profile.stages[0].stage_stability, "uncertain");
+  assert.equal(profile.stages[0].stable_difference, false);
+  assert.equal(profile.stages[0].original_facial_features, "");
+  assert.equal(profile.stages[0].designed_facial_features, "凤眼");
+  assert.equal(new Set(profile.stages[0].quality_warnings).size, profile.stages[0].quality_warnings.length);
+});
+
 test("character fact fingerprints normalize invalid chapter indexes", () => {
   const base = {
     book_id: "book-1",
