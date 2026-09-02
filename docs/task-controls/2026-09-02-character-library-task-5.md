@@ -1,11 +1,12 @@
 # Task 5 控制卡：可恢复的角色库构建任务
 
 - 日期：2026-09-02
-- 当前关卡：NEEDS_DECISION，设计审查未放行
+- 当前关卡：Task 5A 契约已收口，等待用户批准实现关
 - 执行方式：subagent
 - 负责方：总控维护控制卡、裁决、验收和统一提交；只读设计 subagent 负责构建链路审查
 - 设计基线：[`docs/character-library-design.md`](../character-library-design.md)
 - 实施计划：[`docs/superpowers/plans/2026-09-02-character-library.md`](../superpowers/plans/2026-09-02-character-library.md)
+- 契约收口：[`docs/task-controls/2026-09-02-character-library-task-5a.md`](2026-09-02-character-library-task-5a.md)
 
 ## 目标
 
@@ -49,17 +50,19 @@
 - DECISION: 同书不允许并发未终结构建，重复请求拒绝或显式复用现有任务
 - DECISION: 新构建失败、取消或 Dify 不可用时不替换上一版当前投影
 - DECISION: 规格审查和代码质量审查 subagent 默认只读，由总控裁决是否阻断
+- DECISION: 允许部分构建，更新时失败角色唯一匹配上一版则沿用并标记失败或过期，首次构建失败候选进入质量摘要和待重试清单
+- DECISION: 增量构建读取上一版，重建受影响闭包，复用未受影响角色，合并完整集合后原子替换
+- DECISION: 稳定 ID 仅在唯一双向逻辑身份匹配时复用，歧义时生成新 ID并写质量警告
+- DECISION: L2 使用稳定 keyset 分页完整读取，来源指纹包含事实、覆盖、Task 2 规则、Task 4 Schema/Prompt 和 Dify 工作流版本
+- DECISION: 新增 build items 暂存表和 build `control_state` 属于兼容扩展，不改变 Task 3 当前投影与原子激活语义
 
 ## QUESTION
 
-- QUESTION: 稳定角色 ID 和阶段 ID 的精确生成材料与重命名语义是否已能由封板输入唯一确定
-- QUESTION: 部分章节和增量更新时，未受影响角色如何与重建角色合并后再原子替换
-- QUESTION: Task 3 当前表结构是否能在不激活半成品投影的前提下持久化按角色断点
+- 无未裁决 QUESTION
 
 ## BLOCKER
 
-- BLOCKER: 若按角色断点、跨进程恢复或增量合并需要改变 Task 3 已封板持久化语义，必须在实现前重新进行数据模型审查
-- BLOCKER: 若 Task 5 依赖尚未存在的 Dify 变量、API Key、工作流版本或任务状态接口，必须先锁定契约
+- BLOCKER: Task 5 实现关尚未获得用户批准
 
 ## FOLLOW_UP
 
@@ -75,9 +78,9 @@
 
 ## 审查关
 
-- 范围审查：只读设计 subagent 已完成，结论为 `NEEDS_DECISION`
-- 契约审查：只读设计 subagent 已完成，存在待裁决接口与数据模型问题
-- 不可逆设计审查：若需调整 Task 3 表结构或断点持久化语义则触发
+- 范围审查：Task 5A 已完成并通过
+- 契约审查：Task 5A 已完成并通过
+- 不可逆设计审查：已批准 build items 暂存表和 build `control_state` 的兼容迁移
 - 实现后规格审查：单独只读 subagent
 - 实现后代码质量审查：单独只读 subagent
 
@@ -126,6 +129,15 @@ FOLLOW_UP：
 
 - 工作流版本变化、事实删除和别名连通分量变化可能让受影响角色范围大于事实指纹直接差集
 
+## Task 5A 契约收口结果
+
+- 状态：PASS，范围、契约和窄范围不可逆设计审查完成
+- 数据模型：新增 build items 暂存表与 build `control_state`，不改变单一当前投影、无历史角色快照和原子激活语义
+- 构建链路：采用两阶段 Task 4 调用，Task 2 只消费第一次调用产生的结构化信号，第二次调用只生成最终档案
+- 增量语义：事实增删改和 alias 连通分量形成闭包，失败角色回退上一版，完整集合一次激活
+- 验证：两个 subagent 全程只读，结论已写回设计基线与正式计划
+- 剩余风险：大范围事实删除或 alias 重连可保守退化为全书重建，两阶段 Dify 输出不一致时以第一次投影结构为准
+
 ## 当前授权
 
-仅允许总控维护控制卡和完成用户裁决，Task 5 实现关未放行，不得派发实现 subagent、修改生产代码或进入 Task 6
+Task 5A 已完成，Task 5 实现关仍未获用户批准，不得派发实现 subagent、修改生产代码或进入 Task 6

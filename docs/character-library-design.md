@@ -3,7 +3,7 @@
 ## 1. 文档状态
 
 - 日期：2026-09-02
-- 状态：实施中，Task 2 至 Task 4 已封板，Task 5 设计审查中
+- 状态：实施中，Task 2 至 Task 4 已封板，Task 5A 构建契约已收口，Task 5 待实现授权
 - 功能入口：`工作台 > 书籍 > 角色库`
 - Stitch 项目：`小说分析台 · 角色库`
 - Stitch 项目 ID：`4313286656404056625`
@@ -217,19 +217,27 @@ Task 4 的 Dify Schema、Prompt 和输出归一化函数必须正式产出并校
 
 角色库是 L2 之上的持久化、可重建投影层，不直接修改 L2 事实
 
-构建流程分为：
+构建流程采用无环的两阶段 Dify 调用：
 
-1. 选择书籍、角色事实索引组和当前可用章节范围
-2. 计算 L1 与角色 L2 的新鲜交集范围
-3. 过滤无稳定名称主体和非角色对象
-4. 使用强证据归并规范姓名和确认别名
-5. 为角色和阶段生成稳定 ID，并为来源事实生成稳定指纹
-6. 保守识别角色阶段
-7. 调用 Dify 通用分析工作流生成结构化核心档案和设计五官
-8. 保存构建批次、角色、阶段、事实链接、质量指标和版本信息
-9. 页面读回并显示实际角色数、阶段数、覆盖范围和质量警告
+1. 选择书籍、角色事实索引组和请求章节范围，锁定 L1 与角色 L2 的新鲜交集和覆盖水位
+2. 通过稳定 keyset 分页完整读取角色事实，并按稳定 `entity` 建立不推断别名和阶段的临时候选
+3. 对每个临时候选第一次调用 Task 4，只取得带证据的结构化别名和阶段语义信号
+4. 将第一次调用结果适配为 Task 2 输入，由 Task 2 执行确定性强别名归并、冲突隔离和保守阶段拆分
+5. 计算与上一版投影相比的受影响角色闭包，并为最终候选保守延续角色和阶段 ID
+6. 对受影响的最终候选第二次调用 Task 4，生成合并后的核心档案和设计五官；第二次结果不得反向改写 Task 2 已确定的身份和阶段结构
+7. 将成功、失败回退和未受影响复用结果写入构建暂存项，组装完整候选集合
+8. 激活前复核覆盖和来源指纹，在单一事务中保存完整投影并切换当前 build
+9. 页面读回并显示实际角色数、阶段数、覆盖范围、失败角色、待重试清单和质量警告
 
-支持按部分章节构建，后续章节进入或上游事实变化时只重建受影响角色
+支持按部分章节构建，首次构建可以激活 `partial` 投影，失败候选不得伪造档案，必须进入质量摘要和待重试清单
+
+已有角色库更新时，受影响且成功的角色使用新结果，受影响但失败且能唯一匹配上一版的角色沿用旧档案并标记失败或过期，未受影响角色直接复用；任何单角色失败都不得静默删除已有角色
+
+增量闭包以完整事实快照的新增、删除和内容变化为种子，同时在旧、新两套 `confirmed` alias 关系图上扩展连通分量，纳入旧事实所有者、新候选所有者以及因归并或拆分相连的角色，迭代至集合稳定；无法唯一确定闭包时保守升级为全书候选重建
+
+L2 完整读取使用固定过滤条件和 keyset 分页，排序键为 `chapter_index ASC, id ASC`，游标为上一页 `(chapter_index, id)`；返回少于页大小时结束，禁止使用 offset 或任意放大的单次 `limit` 替代完整读取
+
+来源指纹由排序后的完整事实指纹、逐章覆盖状态与 `source_hash`、Task 2 规则版本、Task 4 Schema hash、Task 4 Prompt hash 和 Dify 工作流版本共同生成；构建结束激活前必须复核，任一材料变化则本次结果失效并重试
 
 相同输入重复构建时角色 ID 和阶段 ID 必须保持稳定，L2 重跑产生的新事实 UUID 不得破坏角色库引用
 
@@ -238,6 +246,7 @@ Task 4 的 Dify Schema、Prompt 和输出归一化函数必须正式产出并校
 第一阶段建议新增以下持久化实体：
 
 - `character_library_builds`：构建范围、来源版本、状态和质量指标
+- `character_library_build_items`：运行中角色候选、两阶段 Dify 结果、上一版回退、身份匹配审计、断点和重试状态
 - `characters`：稳定角色主体、规范姓名、确认别名和汇总状态
 - `character_stages`：角色阶段及核心档案
 - `character_fact_links`：角色或阶段与来源事实指纹、章节和证据的链接
@@ -249,6 +258,24 @@ Task 4 的 Dify Schema、Prompt 和输出归一化函数必须正式产出并校
 当前投影可来自全量或部分章节构建，索引组和实际章节范围记录在当前 build 中；同一本书同一时刻只有一个已激活的 `completed` 或 `partial` build
 
 新投影的角色、阶段和事实链接写入，与 build 完成状态和当前版本激活必须在同一事务中提交；失败、取消或中断的 build 只记录自身状态，不删除或替换上一版可用投影
+
+`character_library_builds` 增加独立于结果状态的 `control_state`，只允许 `active`、`pause_requested`、`paused`、`cancel_requested`，用于跨进程保存暂停和取消意图；结果状态继续使用 Task 3 已封板的 `running`、`completed`、`partial`、`failed`、`cancelled`
+
+`character_library_build_items` 使用 `(build_id, item_key)` 主键和 `(build_id, candidate_fingerprint)` 唯一约束，外键 `build_id` 指向 `character_library_builds.id ON DELETE CASCADE`，状态只允许 `pending`、`running`、`succeeded`、`failed`、`reused`、`cancelled`
+
+暂存项固定保存 `candidate_fingerprint`、`source_fact_fingerprints`、`input_payload`、`classification_output`、`profile_output`、`fallback_payload`、`previous_character_id`、`identity_match`、`quality_warnings`、`status`、`attempt_count`、`error_summary`、`started_at`、`heartbeat_at`、`completed_at`、`created_at` 和 `updated_at`
+
+恢复时保留 `succeeded`、`reused` 和已记录回退的 `failed` 项，只将心跳超时的 `running` 项重置为 `pending`；暂停停止领取新项并允许进行中的调用落盘，取消将未开始项标记为 `cancelled` 且不得激活
+
+最终激活前从暂存项组装“成功新结果 + 失败回退 + 未受影响复用”的完整集合，再调用 Task 3 原子替换；暂存项不得逐角色写入当前投影，也不构成可读历史角色快照
+
+角色 ID 只在新候选与上一版角色形成唯一双向匹配时复用，候选边来自共享稳定事实指纹或 confirmed 名称集合交集，并按 `(共享事实数, confirmed 名称命中)` 词典序评分；只有新旧双方最高分都唯一、无并列且无冲突时复用，零匹配、一对多、多对一或并列时写 `identity_ambiguous`，并用 `book_id + 规范名 + confirmed aliases + 排序事实指纹` 的固定哈希生成新 ID
+
+阶段 ID 只在所属角色已唯一延续后匹配，优先共享稳定事实指纹，其次完全相同的 `(stage_type, normalized stage_hint)`，同样要求双方唯一且无并列；默认阶段拆分、阶段归并或冲突时写质量警告，并用 `character_id + stage_type + normalized stage_hint + 排序事实指纹` 的固定哈希生成新 ID
+
+Task 5 继续使用 analysis-summary Dify 工作流，API Key 唯一来源为 `DIFY_ANALYSIS_SUMMARY_WORKFLOW_API_KEY`，版本唯一来源为 `DIFY_ANALYSIS_SUMMARY_WORKFLOW_VERSION`，执行签名为 `dify:analysis_summary:<version>`
+
+角色档案适配固定将 builder 的 `prompt` 映射为工作流 `prompt`，解析 `schema_json` 后映射为严格 JSON Schema，并将 `book_json`、`character_json`、`stages_json` 解析后组合为 `context_json={book, character, stages}`；其余输入固定为 `task_type=summary`、`schema_name=character_profile`、`strict_json_schema=true` 和显式模型参数
 
 `character_fact_links` 通过 `stage_id` 归属阶段，再由阶段关联角色，不重复保存无法独立校验的 `character_id`
 

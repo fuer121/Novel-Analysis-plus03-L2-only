@@ -522,13 +522,25 @@ git commit -m "feat: define character profile workflow contract"
 
 **控制卡：** [`docs/task-controls/2026-09-02-character-library-task-5.md`](../../task-controls/2026-09-02-character-library-task-5.md)
 
+**契约收口：** [`docs/task-controls/2026-09-02-character-library-task-5a.md`](../../task-controls/2026-09-02-character-library-task-5a.md)
+
+**Task 5A 封板契约：**
+
+- 构建顺序固定为完整读取事实、临时候选、第一次 Task 4 语义分类、Task 2 确定性投影、增量闭包与稳定 ID、第二次 Task 4 最终档案、build items 暂存、完整集合合并、Task 3 原子激活
+- 新增 `character_library_build_items` 保存角色级断点、两阶段归一化结果、上一版回退、身份匹配审计和重试信息；为 `character_library_builds` 增加 `control_state` 保存跨进程暂停和取消意图
+- 更新构建使用“成功新结果 + 失败上一版回退 + 未受影响复用”组装完整集合；首次构建失败候选进入质量摘要和待重试清单，允许激活 `partial`
+- 受影响闭包从事实增删改出发，在旧、新 confirmed alias 图中扩展连通分量，无法唯一确定时升级为全书候选重建
+- 稳定 ID 只在新旧对象唯一双向匹配时延续，歧义时生成新 ID并写质量警告
+- L2 使用 `(chapter_index, id)` keyset 分页完整读取，来源指纹包含事实、覆盖、Task 2 规则、Task 4 Schema/Prompt 和 Dify 工作流版本
+- Dify 复用 analysis-summary target、API Key 和版本，将角色 builder 输入组合为 `context_json={book, character, stages}`
+
 **Files:**
 - Modify: `server/character-library.js`
 - Modify: `server/workflows.js`
 - Modify: `server/db.js`
 - Test: `test/service.test.js`
 
-- [ ] **Step 1: 写部分构建和增量更新失败测试**
+- [ ] **Step 1: 写暂存恢复、部分构建和增量更新失败测试**
 
 ```js
 test("character library build persists partial coverage and reuses stable ids", async () => {
@@ -555,15 +567,27 @@ test("character library build persists partial coverage and reuses stable ids", 
 })
 ```
 
+同组测试还必须覆盖：
+
+- build items 逐角色保存第一次分类、第二次档案、上一版回退、身份匹配和尝试状态
+- 进程恢复时只重置心跳超时的 `running` 项，保留 `succeeded`、`reused` 和已有回退的 `failed` 项
+- 更新构建的单角色失败沿用上一版且标记失败或过期，不从当前投影静默删除
+- 首次构建失败候选进入质量摘要和待重试清单，并允许激活 `partial`
+- 事实删除和 confirmed alias 关系变化扩展受影响闭包，歧义时升级全书重建
+- 稳定 ID 只在唯一双向匹配时复用，拆分、合并和并列生成新 ID并告警
+- L2 事实跨页完整读取且顺序稳定，激活前来源指纹变化使构建失效
+
 - [ ] **Step 2: 运行测试确认失败**
 
 Run: `node --test --test-name-pattern="character library build persists" test/service.test.js`
 
 Expected: FAIL，提示 `startCharacterLibraryTask` 未定义
 
-- [ ] **Step 3: 实现来源覆盖和质量摘要**
+- [ ] **Step 3: 实现稳定分页、来源指纹和增量闭包**
 
-在 `server/character-library.js` 增加 `prepareCharacterLibraryBuild`，输入 `listL1ChapterIndexes`、`listL2ChapterStatuses` 和 `listL2Facts` 的结果，输出：
+在 `server/db.js` 增加角色构建专用 keyset 分页接口，固定按 `chapter_index ASC, id ASC` 排序，以 `(chapter_index, id)` 为游标完整读取，不复用 `listL2Facts` 的单次 limit 语义
+
+在 `server/character-library.js` 增加 `prepareCharacterLibraryBuild`，计算完整事实快照、覆盖、来源指纹、旧新事实差集和 confirmed alias 连通分量闭包，输出：
 
 ```js
 {
@@ -587,9 +611,9 @@ Expected: FAIL，提示 `startCharacterLibraryTask` 未定义
 }
 ```
 
-只读取 `category === "character"`、状态完成、索引组匹配且章节在范围内的事实，`fact_type` 限制为设计规格中的六种类型
+只读取 `category === "character"`、状态完成、索引组匹配且章节在范围内的事实，`fact_type` 限制为设计规格中的六种类型。闭包不唯一时升级为全书候选重建，激活前重新计算覆盖和来源指纹
 
-- [ ] **Step 4: 实现任务编排**
+- [ ] **Step 4: 实现暂存模型和任务编排**
 
 在 `server/workflows.js` 导出 `startCharacterLibraryTask(payload)`，结构遵循现有 `startL2IndexTask`：
 
@@ -601,11 +625,17 @@ export function startCharacterLibraryTask(payload = {}) {
 }
 ```
 
-`runCharacterLibraryTask` 必须逐角色检查 `waitIfPaused(task)` 和 `throwIfCancelled(task)`，确保暂停、恢复和取消沿用全局任务语义。每完成一个角色就更新进度和构建断点，调用 `runDifyWorkflow` 时复用 `analysis_summary` API key 与版本，最后写入投影并把构建标记为 `completed` 或 `partial`
+在 `server/db.js` 新增 `character_library_build_items`，主键为 `(build_id, item_key)`，并为 `character_library_builds` 增加 `control_state`。暂存状态、字段、恢复和清理规则严格遵循设计基线，不把暂存项当作历史角色快照
 
-- [ ] **Step 5: 覆盖失败保留上一版结果**
+`runCharacterLibraryTask` 必须按已锁定的无环顺序执行：完整读取、临时候选、第一次 Task 4 分类、Task 2 投影、闭包与 ID、第二次 Task 4 档案、逐角色暂存、完整集合合并、Task 3 原子激活
 
-增加测试让第二次构建的 Dify 调用失败，断言最新成功投影仍可读，本次 build 状态为 `failed` 且记录 `error_summary`
+两次 Dify 调用复用 `analysis_summary` target，API Key 取 `DIFY_ANALYSIS_SUMMARY_WORKFLOW_API_KEY`，版本取 `DIFY_ANALYSIS_SUMMARY_WORKFLOW_VERSION`。builder 的 `prompt` 和 Schema 直接映射，三段 JSON 解析后组合为 `context_json={book, character, stages}`
+
+暂停时停止领取新 item，恢复时处理 `pending`、可重试 `failed` 和陈旧 `running`，取消时不激活。每完成一个角色都持久化断点，最终只通过完整集合调用一次 `replaceCharacterProjection`
+
+- [ ] **Step 5: 覆盖失败回退和 partial 激活**
+
+增加测试让更新构建中的一个角色 Dify 调用失败，断言该角色沿用上一版并标记失败或过期，其他成功角色使用新结果，完整集合以 `partial` 原子激活。首次构建失败候选不进入投影，但必须进入质量摘要和待重试清单
 
 - [ ] **Step 6: 运行任务相关测试**
 
