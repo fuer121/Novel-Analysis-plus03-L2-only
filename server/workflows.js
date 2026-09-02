@@ -481,14 +481,24 @@ export function startCharacterLibraryTask(payload = {}) {
       const buildId = task.result?.buildId;
       const build = buildId ? getCharacterLibraryBuild(buildId) : null;
       if (build?.status === "running") {
+        if (task.cancelled || build.control_state === "cancel_requested") closeCancelledCharacterBuildItems(buildId);
+        else if (error?.code === "CHARACTER_BUILD_ITEM_CLOSURE_FAILED") closeFailedCharacterBuildItems(buildId, error);
         updateCharacterLibraryBuild(buildId, {
           status: task.cancelled || build.control_state === "cancel_requested" ? "cancelled" : "failed",
           errorSummary: error?.message || String(error)
         });
       }
       if (task.cancelled || build?.control_state === "cancel_requested") {
-        updateTask(task, { status: "cancelled", error: "", message: "角色库构建已取消。" }, "cancelled");
+        updateTask(task, {
+          status: "cancelled",
+          error: "",
+          message: "角色库构建已取消。",
+          progress: characterBuildItemProgress(buildId)
+        }, "cancelled");
       } else {
+        if (buildId && error?.code === "CHARACTER_BUILD_ITEM_CLOSURE_FAILED") {
+          updateTask(task, { progress: characterBuildItemProgress(buildId) });
+        }
         failTask(task, error);
       }
     });
@@ -743,8 +753,107 @@ async function runCharacterLibraryTask(task, input) {
     }
   }
   const completeOutput = [...new Map(output.map((character) => [character.id, character])).values()];
+  closeConsumedCharacterClassificationCheckpoints(build.id);
   replaceCharacterProjection(build.id, completeOutput, { status, coverage: snapshot.coverage, quality });
+  updateTask(task, { progress: characterBuildItemProgress(build.id) });
   completeTask(task, { buildId: build.id, status, failed, retry_list: retryList });
+}
+
+function closeConsumedCharacterClassificationCheckpoints(buildId) {
+  const items = listCharacterLibraryBuildItems(buildId);
+  const targets = items.filter((item) => ["succeeded", "reused", "failed"].includes(item.status));
+  const runningItems = items.filter((item) => item.status === "running");
+  if (runningItems.length) {
+    throw characterBuildItemClosureError(`character profile item is still running: ${runningItems[0].item_key}`);
+  }
+  const openItems = items.filter((item) => item.status === "pending");
+  const resolutions = openItems.map((item) => {
+    const sourceFingerprints = new Set(item.source_fact_fingerprints);
+    const matches = sourceFingerprints.size === 0 ? [] : targets.filter((target) => {
+      const targetFingerprints = new Set(target.source_fact_fingerprints);
+      return [...sourceFingerprints].every((fingerprint) => targetFingerprints.has(fingerprint));
+    });
+    if (matches.length !== 1) {
+      throw characterBuildItemClosureError(`character classification checkpoint mapping is not unique: ${item.item_key}`);
+    }
+    return { item, target: matches[0] };
+  });
+
+  const completedAt = new Date().toISOString();
+  for (const { item, target } of resolutions) {
+    saveCharacterLibraryBuildItem(buildId, {
+      item_key: item.item_key,
+      candidate_fingerprint: item.candidate_fingerprint,
+      status: "succeeded",
+      completed_at: completedAt,
+      identity_match: {
+        ...item.identity_match,
+        absorbed: true,
+        final_item_key: target.item_key,
+        final_candidate_fingerprint: target.candidate_fingerprint,
+        final_canonical_name: target.input_payload?.canonical_name || "",
+        final_status: target.status,
+        final_character_ids: characterBuildItemOutputIds(target)
+      }
+    });
+  }
+}
+
+function characterBuildItemOutputIds(item) {
+  const ids = [item.profile_output?.id, item.fallback_payload?.id];
+  for (const character of item.fallback_payload?.characters || []) ids.push(character?.id);
+  return [...new Set(ids.filter(Boolean))].sort();
+}
+
+function characterBuildItemProgress(buildId) {
+  const items = listCharacterLibraryBuildItems(buildId);
+  return {
+    total: items.length,
+    completed: items.filter((item) => ["succeeded", "reused"].includes(item.status)).length,
+    failed: items.filter((item) => item.status === "failed").length,
+    skipped: items.filter((item) => item.status === "cancelled").length,
+    current: ""
+  };
+}
+
+function characterBuildItemClosureError(message) {
+  const error = new Error(message);
+  error.code = "CHARACTER_BUILD_ITEM_CLOSURE_FAILED";
+  return error;
+}
+
+function closeFailedCharacterBuildItems(buildId, error) {
+  const completedAt = new Date().toISOString();
+  const errorSummary = error?.message || String(error);
+  for (const item of listCharacterLibraryBuildItems(buildId)) {
+    if (!["pending", "running"].includes(item.status)) continue;
+    saveCharacterLibraryBuildItem(buildId, {
+      item_key: item.item_key,
+      candidate_fingerprint: item.candidate_fingerprint,
+      status: "failed",
+      error_summary: errorSummary,
+      completed_at: completedAt,
+      identity_match: {
+        ...item.identity_match,
+        mapping_failed: true,
+        mapping_error: errorSummary
+      }
+    });
+  }
+}
+
+function closeCancelledCharacterBuildItems(buildId) {
+  cancelPendingCharacterLibraryBuildItems(buildId);
+  const completedAt = new Date().toISOString();
+  for (const item of listCharacterLibraryBuildItems(buildId)) {
+    if (item.status !== "running") continue;
+    saveCharacterLibraryBuildItem(buildId, {
+      item_key: item.item_key,
+      candidate_fingerprint: item.candidate_fingerprint,
+      status: "cancelled",
+      completed_at: completedAt
+    });
+  }
 }
 
 function httpError(message, status) {
@@ -978,7 +1087,7 @@ async function waitForCharacterBuildControl(task, buildId) {
   while (true) {
     const build = getCharacterLibraryBuild(buildId);
     if (build.control_state === "cancel_requested") {
-      cancelPendingCharacterLibraryBuildItems(buildId);
+      closeCancelledCharacterBuildItems(buildId);
       updateCharacterLibraryBuild(buildId, { status: "cancelled", errorSummary: "cancelled" });
       throw new Error("character library build cancelled");
     }
