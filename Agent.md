@@ -28,6 +28,7 @@
 - [`docs/data-and-batch-task-rules.md`](docs/data-and-batch-task-rules.md)：SQLite、L2 数据、备份、批量任务、断点和完成状态规则
 - [`docs/character-image-generation-rules.md`](docs/character-image-generation-rules.md)：跨书籍角色形象提炼、生图、JPEG 输出、质检、重绘和上传规则
 - [`docs/orchestration-rules.md`](docs/orchestration-rules.md)：总控与执行线程分工、执行单要素、状态记录和验收约定
+- [`docs/character-library-design.md`](docs/character-library-design.md)：角色库产品边界、事实质量、聚合模型、页面结构和验收基线
 - [`books/README.md`](books/README.md)：书籍工作区目录职责、批次规则和迁移要求
 - [《凰宫梦》179 人正式角色基线](books/1836527-凰宫梦/final/characters/README.md)：当前样板书的正式成果入口和校验证据
 - [《逆天邪神》角色形象生成与质检 SOP](books/148431-逆天邪神/inputs/prompts/角色形象生成与质检SOP.md)：单书实践记录，不作为跨书籍默认配置
@@ -35,7 +36,19 @@
 
 删除影响：执行者会重复猜测规则，或把单书案例、历史 PNG 产物和一次性数字误当成新任务的通用标准
 
-## 4. 真相源与安全边界
+## 4. 项目文件信源管理
+
+- 项目状态、规则、决策和交接信息必须落在仓库文件中；聊天记录、线程记忆、口头约定和临时任务描述不作为可持续信源
+- 新线程开始工作时先读 `Agent.md`，再按文档地图读取对应稳定规则，最后读取目标书籍 README、相关批次 manifest 和当前产物，不依赖旧线程复述项目现状
+- 书籍当前阶段、统计日期、已完成事项和下一步统一写入 `books/<book_id>-<book_name>/README.md`
+- 批量任务的范围、进度、成功项、失败项、断点和验收证据统一写入 `books/<book_id>-<book_name>/runs/YYYY-MM-DD-<task>-rNN/`
+- 跨书籍稳定规则写入 `Agent.md` 或 `docs/`；单书配置、Prompt 和专项约束写入对应书籍目录，不把单书经验默认提升为全局规则
+- 线程中形成的新结论只有在回写对应文件并完成读回检查后才成为项目基线；文件与线程描述冲突时以文件为准，并先核对文件是否过期
+- 状态、入口、规则或完成判据发生变化时必须同步更新其信源文件，禁止只在提交信息、PR 描述或聊天中记录
+
+删除影响：项目状态会依赖个人记忆和会话上下文，新线程无法可靠接续，过期结论可能覆盖当前文件事实
+
+## 5. 真相源与安全边界
 
 - 运行数据以 `${DATA_DIR:-data}/novel-chapters.sqlite` 为准，`DATA_DIR` 由 `server/config.js` 解析
 - 数据库是明文且使用 WAL 模式，不得在无可恢复备份时删除、覆盖或批量改写
@@ -43,7 +56,7 @@
 
 删除影响：可能读写错误数据库、不可逆丢失明文原文与索引，或泄露可产生费用的外部服务凭据
 
-## 5. 验证与优先级
+## 6. 验证与优先级
 
 代码变更默认运行 `npm run verify`，只修改文档时进行读回、链接、格式和差异检查
 
