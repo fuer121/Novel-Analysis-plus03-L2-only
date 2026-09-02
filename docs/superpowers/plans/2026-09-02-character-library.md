@@ -211,6 +211,8 @@ git commit -m "feat: add conservative character grouping"
 
 ### Task 3: 建立角色库持久化投影
 
+**控制卡：** [`docs/task-controls/2026-09-02-character-library-task-3.md`](../../task-controls/2026-09-02-character-library-task-3.md)
+
 **Files:**
 - Modify: `server/db.js`
 - Test: `test/service.test.js`
@@ -257,6 +259,8 @@ test("persists rebuildable character library projections", () => {
 - 新投影中存在重复 ID、无效阶段引用或其他事务错误时，新 build 不得激活，上一版当前投影完整保留
 - 失败、取消和中断 build 不能设置 `is_current=1`
 - 事实链接只通过 `stage_id` 反查所属角色，不接收独立 `character_id`
+- 同书已有未终结 build 时拒绝创建第二个 build，防止较旧输入较晚完成后覆盖新结果
+- 角色必须属于本次 build 的书籍，阶段和事实链接必须引用本次输入集合中的父对象
 
 - [ ] **Step 2: 运行测试确认失败**
 
@@ -276,19 +280,24 @@ CREATE TABLE IF NOT EXISTS character_library_builds (
   start_chapter INTEGER NOT NULL,
   end_chapter INTEGER NOT NULL,
   source_fingerprint TEXT NOT NULL,
-  status TEXT NOT NULL,
-  is_current INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL CHECK (status IN ('running', 'completed', 'partial', 'failed', 'cancelled')),
+  is_current INTEGER NOT NULL DEFAULT 0 CHECK (is_current IN (0, 1)),
   coverage TEXT NOT NULL DEFAULT '{}',
   quality TEXT NOT NULL DEFAULT '{}',
   error_summary TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
+  CHECK (is_current = 0 OR status IN ('completed', 'partial')),
   FOREIGN KEY (book_id) REFERENCES books(book_id) ON DELETE CASCADE
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_character_library_current_build
   ON character_library_builds(book_id)
   WHERE is_current = 1;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_character_library_running_build
+  ON character_library_builds(book_id)
+  WHERE status = 'running';
 
 CREATE TABLE IF NOT EXISTS characters (
   id TEXT PRIMARY KEY,
@@ -359,11 +368,13 @@ export function listCharacterLibraryCharacters({ bookId, search = "", filter = "
 export function getCharacterLibraryCharacter(bookId, characterId)
 ```
 
-`createCharacterLibraryBuild` 规范化书籍、索引组和章节范围后插入 `running`、`is_current=0` 记录，`updateCharacterLibraryBuild` 只更新显式传入字段，不承担当前投影切换
+`createCharacterLibraryBuild` 规范化书籍、索引组和章节范围，确认书籍存在且同书没有未终结 build 后插入 `running`、`is_current=0` 记录，并发创建由数据库唯一索引做最终防护。`updateCharacterLibraryBuild` 只更新显式传入字段，限制状态枚举和合法转换，不承担当前投影切换
 
 第一阶段的 `character_library_builds` 只保留构建记录历史，不保留历史角色详情快照；每本书只有一份当前可用投影和一个 `is_current=1` 的 `completed` 或 `partial` build
 
-`replaceCharacterProjection` 先读构建的 `book_id`，只接受已完整准备的角色集合，`status` 只允许 `completed` 或 `partial`，并在单一事务中完成：删除同书旧投影，按角色、阶段、事实链接顺序写入新投影，取消原当前 build 的 `is_current`，将本次 build 标记为最终状态、写入 `coverage` 和 `quality`，并激活为当前版本。任一步失败时整个事务回滚，上一版可用投影和当前 build 保持不变
+`replaceCharacterProjection` 先读构建的 `book_id`，只接受已完整准备的角色集合，`status` 只允许 `completed` 或 `partial`。写入前必须主动校验重复角色 ID、重复阶段 ID、角色书籍归属、阶段父角色和事实链接父阶段，不依赖外键失败作为常规输入校验
+
+校验通过后在单一事务中完成：删除同书旧投影，按角色、阶段、事实链接顺序写入新投影，取消原当前 build 的 `is_current`，将本次 build 标记为最终状态、写入 `coverage` 和 `quality`，并激活为当前版本。任一步失败时整个事务回滚，上一版可用投影和当前 build 保持不变
 
 角色和阶段 ID 由上游提供并保持稳定。`character_fact_links` 只保存 `stage_id`，角色归属通过 `character_stages.character_id` 获取，避免冗余角色引用与阶段归属不一致。查询方法只返回当前 build 的投影，并返回解析后的 JSON，不暴露 SQLite JSON 字符串，JSON 字段统一使用现有 `stringifyJsonArray`、`parseJsonArray`、`parseJsonObject`
 
