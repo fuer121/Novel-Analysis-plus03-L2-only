@@ -924,7 +924,7 @@ git commit -m "feat: build character library table and drawer"
 - Modify: `README.md`
 - Modify: `docs/character-library-design.md`
 
-- [ ] **Step 1: 增加完整数据链路测试**
+- [x] **Step 1: 增加完整数据链路测试**
 
 在 `test/service.test.js` 增加从章节、L1、L2 角色事实、构建任务到角色详情读回的测试，断言：
 
@@ -932,17 +932,18 @@ git commit -m "feat: build character library table and drawer"
 assert.equal(status.character_count, 1)
 assert.equal(status.coverage.is_partial, true)
 assert.equal(character.stages[0].facts[0].chapter_index, 2)
-assert.equal(character.stages[0].design_label, "设计推导")
 assert.notEqual(character.stages[0].original_facial_features, character.stages[0].designed_facial_features)
 ```
 
-- [ ] **Step 2: 运行完整验证**
+实际测试不假设服务层存在 `design_label`，而是直接断言原文五官、设计五官、`design_basis` 和事实证据分层
+
+- [x] **Step 2: 运行完整验证**
 
 Run: `npm run verify`
 
 Expected: lint、全部 Node tests 和 Vite build 全部通过
 
-- [ ] **Step 3: 启动本地服务并做 API 读回**
+- [x] **Step 3: 启动本地服务并做 API 读回**
 
 Run: `npm run dev`
 
@@ -957,19 +958,32 @@ curl -s http://127.0.0.1:5174/api/books/12144762/characters
 
 Expected: 返回持久化角色数、阶段数、真实覆盖范围和可读角色列表
 
-- [ ] **Step 4: 使用 Playwright 验证 B 方案**
+- [x] **Step 4: 使用 Playwright 验证 B 方案**
 
 在桌面 `1440x900` 和移动端 `390x844` 验证书籍入口、全宽表格、搜索筛选、抽屉打开、阶段切换、Escape 关闭、部分构建提示和无重叠，截图保存到 `.ui-review/character-library/`
 
-- [ ] **Step 5: 执行三本样板书分级验证**
+- [x] **Step 5: 执行三本样板书分级验证**
 
 先用《哥，别舔女主了！妹宝被你死对头亲晕了》做 190 章端到端验证，证据写入 `books/12144762-哥，别舔女主了！妹宝被你死对头亲晕了/runs/2026-09-02-character-library-r01/`。再用《凰宫梦》对比 179 人正式基线，证据写入 `books/1836527-凰宫梦/runs/2026-09-02-character-library-r01/`。最后用《离婚后她惊艳了世界》检查基础角色与阶段分离，证据写入 `books/222767-离婚后她惊艳了世界/runs/2026-09-02-character-library-r01/`
 
-- [ ] **Step 6: 更新项目文档**
+- [x] **Step 6: 更新项目文档**
 
 在 `README.md` 增加角色库入口、构建前置条件、API 和验证命令，在 `docs/character-library-design.md` 的文档状态中写入实际实现提交和验收状态，不把未运行的样板书验证标为完成
 
-- [ ] **Step 7: 提交验收与文档**
+**2026-09-02 自动化实现记录：**
+
+- 隔离端到端测试已覆盖两章中仅第 2 章具备新鲜 L1/L2 交集的部分构建
+- mock 两阶段 Task 4 后通过 `startCharacterLibraryTask` 完成构建，再由随机端口子进程从同一临时 `DATA_DIR` 读回状态、列表和详情
+- 已断言 1 个角色、部分覆盖、当前 build 归属、稳定角色与阶段 ID、第 2 章事实与可读证据、稳定外形与气质、原文与设计五官分层以及 `design_basis`
+- 聚焦测试 1/1、`test/service.test.js` 110/110、全仓测试 146/146，lint、Vite build 和 `git diff --check` 通过
+- 本地服务运行于 `127.0.0.1:5189`，三本样板书的状态 API、角色列表和详情均完成真实读回
+- B 方案桌面 `1440x900` 与移动端 `390x844` 已验证表格、筛选、状态提示和详情抽屉，控制台无错误或警告
+- 三本样板书均已执行真实构建并写入 runs 证据，所有 build item 已进入终态，失败原因统一为 Dify 返回空 stages
+- 《凰宫梦》当前为 790 个角色，对比 179 人正式基线存在显著质量差距，因此 Step 5 表示验证已执行，不表示质量基线已通过
+- 《离婚后她惊艳了世界》此前失败 build 未激活，验证了失败不会替换当前可用投影
+- 最终验证：聚焦端到端测试 1/1、`test/service.test.js` 120/120、`npm run verify` 156/156，lint、Vite build 和 `git diff --check` 通过
+
+- [x] **Step 7: 提交验收与文档**
 
 ```bash
 git add test/service.test.js README.md docs/character-library-design.md \

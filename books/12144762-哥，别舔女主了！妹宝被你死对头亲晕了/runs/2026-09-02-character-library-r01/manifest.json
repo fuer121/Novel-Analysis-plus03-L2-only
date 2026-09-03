@@ -1,0 +1,44 @@
+{
+  "book_id": "12144762",
+  "book_name": "哥，别舔女主了！妹宝被你死对头亲晕了",
+  "run_id": "2026-09-02-character-library-r01",
+  "task": "character-library-validation",
+  "validated_at": "2026-09-03",
+  "status": "partial",
+  "build_id": "bfcfb002-a19e-4eed-b5d6-d933ad2cfcc8",
+  "requested_range": [1, 190],
+  "coverage": {
+    "l1_completed": 190,
+    "l2_completed": 190,
+    "failed_chapters": [],
+    "is_partial": false
+  },
+  "projection": {
+    "characters": 76,
+    "stages": 76,
+    "fact_links": 1297,
+    "multi_stage_characters": 0
+  },
+  "build_items": {
+    "succeeded": 35,
+    "reused": 47,
+    "failed": 6,
+    "open": 0,
+    "failure_summary": "Dify character profile has no stages"
+  },
+  "api_readback": {
+    "status": "passed",
+    "route": "/api/books/12144762/character-library"
+  },
+  "browser_readback": {
+    "status": "passed",
+    "route": "/#/book/12144762/characters",
+    "viewports": ["1440x900", "390x844"],
+    "console_errors": 0,
+    "console_warnings": 0
+  },
+  "residual_risks": [
+    "部分候选因 Dify 返回空 stages 未进入当前投影",
+    "真实列表存在非角色主体、可疑别名归并和中英文性别值混用，需后续独立治理"
+  ]
+}

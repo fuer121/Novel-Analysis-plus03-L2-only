@@ -844,6 +844,147 @@ test("character library API exposes queries, builds, events, and controls", asyn
   }
 });
 
+test("character library end-to-end build reads only fresh covered facts through the API", async () => {
+  const bookId = "character-e2e-partial-book";
+  db.ensureBook(bookId, "角色库端到端测试书");
+  const group = db.createBookIndexGroup(bookId, {
+    group_key: "characters",
+    name: "角色",
+    category_scope: ["character"],
+    l2_index_prompt: "只提取有稳定名称的角色事实"
+  });
+  db.saveChapter({ bookId, chapterIndex: 1, title: "第一章", content: "无新鲜角色索引的章节" });
+  db.saveChapter({ bookId, chapterIndex: 2, title: "第二章", content: "沈昭站在廊下，眉尾的小痣在灯下清晰可见。" });
+  const chapter = db.getChapterMetadata(bookId, 2);
+  const prompts = db.getBookIndexPrompts(bookId);
+  db.saveL1ChapterIndex({
+    bookId,
+    chapterIndex: 2,
+    status: "completed",
+    sourceHash: chapter.content_hash,
+    model: workflows.l1IndexExecutionSignature(),
+    promptHash: db.bookL1IndexPromptHash(prompts),
+    value: {}
+  });
+  db.saveL2ChapterFacts({
+    bookId,
+    indexGroupKey: "characters",
+    chapterIndex: 2,
+    status: "completed",
+    sourceHash: chapter.content_hash,
+    model: workflows.l2IndexExecutionSignature(),
+    promptHash: db.indexGroupL2PromptHash(group),
+    schemaVersion: "l2-facts-v1",
+    facts: [{
+      category: "character",
+      entity: "沈昭",
+      aliases: [],
+      fact_type: "appearance",
+      fact: "沈昭眉尾有一颗小痣",
+      evidence: ["眉尾的小痣在灯下清晰可见"],
+      importance: 0.9,
+      confidence: 0.98
+    }]
+  });
+
+  const previousFetch = global.fetch;
+  let difyCalls = 0;
+  global.fetch = async (_url, request = {}) => {
+    difyCalls += 1;
+    const context = JSON.parse(JSON.parse(request.body).inputs.context_json);
+    const name = context.character.canonical_name;
+    return difyWorkflowResponse({ result: JSON.stringify({
+      canonical_name: name,
+      gender: "女",
+      aliases: [],
+      stages: [{
+        name: "默认阶段",
+        stage_hint: "",
+        stage_type: "identity",
+        stage_stability: "stable",
+        stable_difference: false,
+        age: "青年",
+        identity_profession: "",
+        stable_appearance: "身形修长，眉尾有一颗小痣",
+        stable_temperament: "沉静克制",
+        original_facial_features: "原文明示眉尾有小痣",
+        designed_facial_features: "狭长眼型，高眉弓，眉尾小痣强化辨识度",
+        design_basis: ["眉尾小痣", "沉静克制"],
+        evidence: ["眉尾的小痣在灯下清晰可见"],
+        quality_warnings: []
+      }]
+    }) });
+  };
+
+  let server;
+  try {
+    const task = workflows.startCharacterLibraryTask({
+      book_id: bookId,
+      index_group_key: "characters",
+      start_chapter: 1,
+      end_chapter: 2
+    });
+    await waitForTask(task);
+    assert.equal(difyCalls, 2);
+    const firstBuildId = db.getCharacterLibraryStatus(bookId).id;
+    const firstCharacter = db.listCharacterLibraryCharacters({ bookId })[0];
+    const firstDetail = db.getCharacterLibraryCharacter(bookId, firstCharacter.id);
+
+    const repeated = workflows.startCharacterLibraryTask({
+      book_id: bookId,
+      index_group_key: "characters",
+      start_chapter: 1,
+      end_chapter: 2
+    });
+    await waitForTask(repeated);
+    assert.notEqual(db.getCharacterLibraryStatus(bookId).id, firstBuildId);
+    assert.equal(db.listCharacterLibraryCharacters({ bookId })[0].id, firstCharacter.id);
+    assert.equal(db.getCharacterLibraryCharacter(bookId, firstCharacter.id).stages[0].id, firstDetail.stages[0].id);
+    assert.equal(difyCalls, 2);
+    global.fetch = previousFetch;
+
+    const port = 21000 + Math.floor(Math.random() * 10000);
+    server = spawn(process.execPath, ["server/index.js"], {
+      cwd: path.resolve("."),
+      env: { ...process.env, HOST: "127.0.0.1", PORT: String(port), DATA_DIR: tempDir },
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    const base = `http://127.0.0.1:${port}`;
+    await waitForHttpServer(`${base}/api/health`, server);
+
+    const library = await fetchJson(`${base}${api.characterLibraryUrl(bookId)}`);
+    assert.equal(library.body.library.character_count, 1);
+    assert.equal(library.body.library.coverage.is_partial, true);
+    assert.deepEqual(library.body.library.coverage.failed_chapters, [1]);
+
+    const list = await fetchJson(`${base}${api.charactersUrl(bookId)}`);
+    assert.equal(list.body.characters.length, 1);
+    assert.equal(list.body.characters[0].build_id, library.body.library.build_id);
+    const characterId = list.body.characters[0].id;
+    assert.ok(characterId);
+
+    const detail = await fetchJson(`${base}${api.characterUrl(bookId, characterId)}`);
+    const character = detail.body.character;
+    assert.equal(character.id, characterId);
+    assert.equal(character.build_id, library.body.library.build_id);
+    assert.equal(character.canonical_name, "沈昭");
+    assert.equal(character.stages.length, 1);
+    assert.ok(character.stages[0].id);
+    assert.equal(character.stages[0].character_id, characterId);
+    assert.equal(character.stages[0].facts[0].chapter_index, 2);
+    assert.equal(character.stages[0].facts[0].evidence[0], "眉尾的小痣在灯下清晰可见");
+    assert.equal(character.stages[0].stable_appearance, "身形修长，眉尾有一颗小痣");
+    assert.equal(character.stages[0].stable_temperament, "沉静克制");
+    assert.equal(character.stages[0].original_facial_features, "原文明示眉尾有小痣");
+    assert.equal(character.stages[0].designed_facial_features, "狭长眼型，高眉弓，眉尾小痣强化辨识度");
+    assert.notEqual(character.stages[0].original_facial_features, character.stages[0].designed_facial_features);
+    assert.deepEqual(character.stages[0].design_basis, ["眉尾小痣", "沉静克制"]);
+  } finally {
+    global.fetch = previousFetch;
+    await stopChildProcess(server);
+  }
+});
+
 test("character profile Dify context is deterministic, deduplicated, and budgeted", () => {
   const book = { book_id: "character-budget-view-book", book_name: "角色输入预算测试书", updated_at: "storage-only" };
   const makeFact = ({ chapterIndex, factType, suffix, ...signals }) => ({
