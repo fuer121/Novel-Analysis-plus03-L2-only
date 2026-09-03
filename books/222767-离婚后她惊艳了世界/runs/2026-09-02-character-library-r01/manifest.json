@@ -1,0 +1,43 @@
+{
+  "book_id": "222767",
+  "book_name": "离婚后她惊艳了世界",
+  "run_id": "2026-09-02-character-library-r01",
+  "task": "character-library-validation",
+  "validated_at": "2026-09-03",
+  "status": "partial",
+  "build_id": "56c5f443-0c28-4a21-ae61-fe95b6ad27fc",
+  "requested_range": [1, 3869],
+  "coverage": {
+    "l1_completed": 1155,
+    "l2_completed": 1155,
+    "failed_chapter_count": 2714,
+    "is_partial": true
+  },
+  "projection": {
+    "characters": 590,
+    "stages": 591,
+    "fact_links": 13777,
+    "multi_stage_characters": 1
+  },
+  "build_items": {
+    "succeeded": 594,
+    "reused": 0,
+    "failed": 27,
+    "open": 0,
+    "failure_summary": "Dify character profile has no stages"
+  },
+  "failed_build_protection": {
+    "failed_build_id": "a714c99b-8cf8-4f31-9933-3df92ddbe89c",
+    "failed_build_is_current": false,
+    "current_projection_preserved": true
+  },
+  "api_readback": {
+    "status": "passed",
+    "route": "/api/books/222767/character-library"
+  },
+  "residual_risks": [
+    "仅 1155/3869 章具备新鲜 L1/L2 覆盖，当前投影不能代表全书完整角色库",
+    "27 个候选因 Dify 返回空 stages 未进入当前投影",
+    "当前真实结果仅证明角色与阶段记录可分离，不能证明全书阶段召回完整"
+  ]
+}

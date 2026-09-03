@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Stethoscope } from "lucide-react";
-import { apiDelete, apiGet, apiPost, apiPut } from "./api.js";
+import {
+  apiDelete,
+  apiGet,
+  apiPost,
+  apiPut,
+  characterLibraryBuildUrl,
+  characterLibraryBuildsUrl
+} from "./api.js";
 import { Breadcrumbs } from "./components/layout/Breadcrumbs.jsx";
 import { TaskChip } from "./components/layout/TaskChip.jsx";
 import { AppContextProvider } from "./context/appContext.js";
@@ -8,6 +15,7 @@ import { BASE_INDEX_GROUP_KEY, L2_INDEX_MODE_ALL, TASK_TYPES } from "./constants
 import { useTaskChannel } from "./hooks/useTaskChannel.js";
 import { AskManagePage } from "./pages/AskManagePage.jsx";
 import { BookHomePage } from "./pages/BookHomePage.jsx";
+import { CharacterLibraryPage } from "./pages/CharacterLibraryPage.jsx";
 import { DiagnosticsPage } from "./pages/DiagnosticsPage.jsx";
 import { L1ManagePage } from "./pages/L1ManagePage.jsx";
 import { L2ManagePage } from "./pages/L2ManagePage.jsx";
@@ -17,7 +25,7 @@ import { navigate, paths, useRoute } from "./router.js";
 import { breadcrumbParts } from "./utils/breadcrumbs.js";
 import { LoadingScreen } from "./ui.jsx";
 
-const BOOK_SCOPED_ROUTES = new Set(["book", "l1", "l2", "ask"]);
+const BOOK_SCOPED_ROUTES = new Set(["book", "l1", "l2", "ask", "characters"]);
 
 export default function App() {
   const { route, bookId } = useRoute();
@@ -88,6 +96,19 @@ export default function App() {
     onTerminal: (finishedTask, options = {}) => options.onTerminal?.(finishedTask)
   });
 
+  const characterLibraryChannel = useTaskChannel({
+    type: TASK_TYPES.CHARACTER_LIBRARY,
+    baseUrl: characterLibraryBuildUrl,
+    startRequest: ({ bookId, startChapter, endChapter, indexGroupKey = "characters" }) => apiPost(characterLibraryBuildsUrl(bookId), {
+      start_chapter: startChapter,
+      end_chapter: endChapter,
+      index_group_key: indexGroupKey
+    }).then((data) => data.task),
+    failureMessage: "角色库更新失败",
+    ready: !busy,
+    setError
+  });
+
   const importTask = importChannel.task;
   const importBusy = importChannel.busy;
   const l1Task = l1Channel.task;
@@ -96,6 +117,8 @@ export default function App() {
   const l2Busy = l2Channel.busy;
   const analysisTask = analysisChannel.task;
   const analysisBusy = analysisChannel.busy;
+  const characterLibraryTask = characterLibraryChannel.task;
+  const characterLibraryBusy = characterLibraryChannel.busy;
 
   // 未知路径与旧 hash 路由（#/library、#/analysis、#/prompts）显式重定向到 #/
   useEffect(() => {
@@ -250,6 +273,7 @@ export default function App() {
   const l1BookId = l1Task?.payload?.bookId || "";
   const l2BookId = l2Task?.payload?.bookId || "";
   const analysisBookId = analysisTask?.payload?.bookId || "";
+  const characterLibraryBookId = characterLibraryTask?.payload?.bookId || "";
 
   return (
     <main className="app-shell">
@@ -300,6 +324,15 @@ export default function App() {
                 onClick={() => analysisBookId && navigate(paths.ask(analysisBookId))}
               />
             ) : null}
+            {characterLibraryBusy && characterLibraryTask ? (
+              <TaskChip
+                task={characterLibraryTask}
+                typeLabel="角色库"
+                bookName={bookNameOf(characterLibraryBookId)}
+                statusText={progressText(characterLibraryTask, "角色库更新中")}
+                onClick={() => characterLibraryBookId && navigate(paths.characters(characterLibraryBookId))}
+              />
+            ) : null}
           </div>
           <button
             className="icon-button"
@@ -329,6 +362,7 @@ export default function App() {
               l1Task={l1Task}
               l2Task={l2Task}
               analysisTask={analysisTask}
+              characterLibraryTask={characterLibraryTask}
               onStartImport={startImport}
               onImportCancel={() => importChannel.control("cancel")}
               onImportPause={() => importChannel.control("pause")}
@@ -342,6 +376,7 @@ export default function App() {
               l1Task={l1Task}
               l2Task={l2Task}
               analysisTask={analysisTask}
+              characterLibraryTask={characterLibraryTask}
               onLoadBookIndexGroups={loadBookIndexGroups}
               onSaveBookMeta={createBook}
             />
@@ -400,6 +435,14 @@ export default function App() {
               onAnalysisCancel={() => analysisChannel.control("cancel")}
               onAnalysisPause={() => analysisChannel.control("pause")}
               onAnalysisResume={() => analysisChannel.control("resume")}
+            />
+          ) : activeRoute === "characters" ? (
+            <CharacterLibraryPage
+              key={bookId}
+              bookId={bookId}
+              characterLibraryTask={characterLibraryTask}
+              characterLibraryBusy={characterLibraryBusy}
+              onStartCharacterLibrary={characterLibraryChannel.start}
             />
           ) : (
             <DiagnosticsPage />

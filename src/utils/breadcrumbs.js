@@ -23,6 +23,8 @@ export function breadcrumbParts({ route, bookId, bookName }) {
       ];
     case "ask":
       return [workbench, { label: bookName || bookId, path: paths.book(bookId) }, { label: "提问管理" }];
+    case "characters":
+      return [workbench, { label: bookName || bookId, path: paths.book(bookId) }, { label: "角色库" }];
     default:
       return [{ label: "工作台" }];
   }

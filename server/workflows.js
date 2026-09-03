@@ -5,8 +5,11 @@ import {
   appendL2ChapterFacts,
   bookL1IndexPromptHash,
   clearL2Subjects,
+  cancelPendingCharacterLibraryBuildItems,
+  createCharacterLibraryBuild,
   createAnalysisRun,
   ensureBook,
+  getBook,
   getAnalysisPromptSnapshot,
   getAnalysisRun,
   getAnalysisSummaryPartMetadata,
@@ -20,6 +23,13 @@ import {
   getL1Coverage,
   getL2ChapterStatus,
   getL2Coverage,
+  getCharacterLibraryBuild,
+  getCharacterLibraryCharacter,
+  listCharacterLibraryBuildItems,
+  listCharacterLibraryCharacters,
+  listCharacterChapterSourceStates,
+  listCharacterL2FactsPage,
+  listFreshCharacterChapterSources,
   indexGroupL2PromptHash,
   listAnalysisSummaryPartMetadata,
   listBookIndexGroups,
@@ -33,6 +43,9 @@ import {
   normalizeIndexGroupKey,
   normalizeRange,
   promoteL2CandidateFacts,
+  replaceCharacterProjection,
+  resetStaleCharacterLibraryBuildItems,
+  saveCharacterLibraryBuildItem,
   saveAnalysisSummaryPart,
   saveChapter,
   saveFinalAnalysisResult,
@@ -40,6 +53,8 @@ import {
   saveL2ChapterFacts,
   saveL2ChapterStatus,
   updateAnalysisRun,
+  updateCharacterLibraryBuild,
+  updateCharacterLibraryBuildControl,
   updateBookImportStatus,
   upsertL2Subject
 } from "./db.js";
@@ -50,6 +65,7 @@ import {
   normalizeDifyAnalysisTextOutput,
   normalizeDifyL1Output,
   normalizeDifyL2Output,
+  normalizeCharacterProfileOutput,
   runDifyWorkflow,
   testDifyConnection
 } from "./dify.js";
@@ -61,9 +77,22 @@ import {
   findTask,
   isLiveTask,
   markTaskRunning,
+  pauseTask,
+  resumeTask,
   updateTask,
   waitIfPaused
 } from "./tasks.js";
+import { buildCharacterProfileInputs, characterProfileSchema } from "./indexing-inputs.js";
+import {
+  applyClassificationSignals,
+  assignStableCharacterIds,
+  CHARACTER_PROJECTION_RULE_VERSION,
+  characterFactFingerprint,
+  computeAffectedCharacterClosure,
+  deriveCharacterStages,
+  prepareCharacterLibraryBuild,
+  resolveCharacterCandidates
+} from "./character-library.js";
 import { sanitizeText } from "./sanitize.js";
 
 const SUMMARY_PART_INPUT_MAX_CHARS = 28_000;
@@ -80,6 +109,17 @@ const L2_QUERY_DIFY_INPUT_MAX_CHARS = 20000;
 const L2_SCHEMA_VERSION = "l2-facts-v1";
 const L2_HISTORICAL_RESCAN_MAX_CHAPTERS = 80;
 const MAGICAL_CREATURE_CATEGORY = "magical_creature";
+const CHARACTER_PROFILE_SCHEMA_VERSION = "character-profile-v1";
+const CHARACTER_L2_SCHEMA_VERSION = "l2-facts-v1";
+const CHARACTER_PROFILE_INPUT_MAX_CHARS = 180_000;
+const CHARACTER_FACT_TYPE_PRIORITY = new Map([
+  ["alias", 0],
+  ["age", 1],
+  ["identity", 2],
+  ["appearance", 3],
+  ["personality", 4],
+  ["background", 5]
+]);
 const MAGICAL_CREATURE_SCOPE_BASES = new Set([
   "explicit_nonhuman_species",
   "explicit_sentience",
@@ -417,6 +457,737 @@ export function listL2FactsForBook({ bookId, indexGroupKey, indexGroupKeys, star
     limit,
     includeContent: true
   });
+}
+
+export function startCharacterLibraryTask(payload = {}) {
+  const bookId = normalizeBookId(payload.book_id ?? payload.bookId);
+  const indexGroupKey = normalizeIndexGroupKey(payload.index_group_key ?? payload.indexGroupKey ?? "characters");
+  const range = normalizeRange(payload.start_chapter ?? payload.startChapter, payload.end_chapter ?? payload.endChapter);
+  const requestedBuildId = String(payload.build_id ?? payload.buildId ?? "").trim();
+  const snapshot = requestedBuildId ? null : loadCharacterBuildSnapshot({ bookId, indexGroupKey, ...range });
+  const build = requestedBuildId ? getCharacterLibraryBuild(requestedBuildId) : createCharacterLibraryBuild({
+    bookId,
+    indexGroupKey,
+    ...range,
+    sourceFingerprint: snapshot.source_fingerprint
+  });
+  if (!build) throw httpError("character library build not found", 404);
+  if (isLiveTask(findTask(build.id))) throw httpError("character library build already has a live task", 409);
+
+  const task = createTask("character-library", { bookId, indexGroupKey, ...range }, { id: build.id });
+  task.result = { buildId: build.id };
+  void runCharacterLibraryTask(task, { bookId, indexGroupKey, ...range, buildId: build.id, snapshot })
+    .catch((error) => {
+      const buildId = task.result?.buildId;
+      const build = buildId ? getCharacterLibraryBuild(buildId) : null;
+      if (build?.status === "running") {
+        if (task.cancelled || build.control_state === "cancel_requested") closeCancelledCharacterBuildItems(buildId);
+        else if (error?.code === "CHARACTER_BUILD_ITEM_CLOSURE_FAILED") closeFailedCharacterBuildItems(buildId, error);
+        updateCharacterLibraryBuild(buildId, {
+          status: task.cancelled || build.control_state === "cancel_requested" ? "cancelled" : "failed",
+          errorSummary: error?.message || String(error)
+        });
+      }
+      if (task.cancelled || build?.control_state === "cancel_requested") {
+        updateTask(task, {
+          status: "cancelled",
+          error: "",
+          message: "角色库构建已取消。",
+          progress: characterBuildItemProgress(buildId)
+        }, "cancelled");
+      } else {
+        if (buildId && error?.code === "CHARACTER_BUILD_ITEM_CLOSURE_FAILED") {
+          updateTask(task, { progress: characterBuildItemProgress(buildId) });
+        }
+        failTask(task, error);
+      }
+    });
+  return task;
+}
+
+export function pauseCharacterLibraryBuild(buildId) {
+  const build = updateCharacterLibraryBuildControl(buildId, "pause_requested");
+  const task = findTask(build.id);
+  if (isLiveTask(task)) pauseTask(build.id);
+  return task || build;
+}
+
+export function resumeCharacterLibraryBuild(buildId) {
+  const build = getCharacterLibraryBuild(buildId);
+  if (!build) throw httpError("character library build not found", 404);
+  if (build.status !== "running") throw httpError("character library build is not resumable", 409);
+  const task = findTask(build.id);
+  if (isLiveTask(task)) {
+    updateCharacterLibraryBuildControl(build.id, "active");
+    resumeTask(build.id);
+    return task;
+  }
+  updateCharacterLibraryBuildControl(build.id, "active");
+  return startCharacterLibraryTask({
+    book_id: build.book_id,
+    index_group_key: build.index_group_key,
+    start_chapter: build.start_chapter,
+    end_chapter: build.end_chapter,
+    build_id: build.id
+  });
+}
+
+export function cancelCharacterLibraryBuild(buildId) {
+  const build = updateCharacterLibraryBuildControl(buildId, "cancel_requested");
+  const task = findTask(build.id);
+  if (isLiveTask(task)) {
+    task.paused = false;
+    updateTask(task, {
+      status: "running",
+      result: { ...(task.result || {}), cancelRequested: true },
+      message: "角色库构建已请求取消。"
+    }, "progress");
+    return task;
+  }
+  return startCharacterLibraryTask({
+    book_id: build.book_id,
+    index_group_key: build.index_group_key,
+    start_chapter: build.start_chapter,
+    end_chapter: build.end_chapter,
+    build_id: build.id
+  });
+}
+
+async function runCharacterLibraryTask(task, input) {
+  const snapshot = input.snapshot || loadCharacterBuildSnapshot(input);
+  const previous = listCharacterLibraryCharacters({ bookId: input.bookId })
+    .map((row) => getCharacterLibraryCharacter(input.bookId, row.id));
+  const build = input.buildId
+    ? getCharacterLibraryBuild(input.buildId)
+    : createCharacterLibraryBuild({
+      bookId: input.bookId,
+      indexGroupKey: input.indexGroupKey,
+      startChapter: input.startChapter,
+      endChapter: input.endChapter,
+      sourceFingerprint: snapshot.source_fingerprint
+    });
+  task.result = { buildId: build?.id || String(input.buildId || "") };
+  if (!build || build.book_id !== input.bookId || build.status !== "running") throw new Error("character library build is not resumable");
+  if (build.index_group_key !== input.indexGroupKey || build.start_chapter !== input.startChapter || build.end_chapter !== input.endChapter) {
+    throw new Error("character library build resume scope mismatch");
+  }
+  if (build.source_fingerprint !== snapshot.source_fingerprint) throw new Error("character library build resume source mismatch");
+  resetStaleCharacterLibraryBuildItems(build.id, { staleBefore: new Date(Date.now() - 60_000).toISOString() });
+  markTaskRunning(task, {
+    result: { buildId: build.id },
+    progress: { total: snapshot.candidates.length, completed: 0, failed: 0, skipped: 0, current: "角色语义分类" }
+  });
+
+  let preclassifiedReusable = findUnchangedCharacters(snapshot.candidates, previous);
+  const sourceClosure = computeAffectedCharacterClosure(previous, snapshot.candidates, { compareAliases: false });
+  const sourceAffectedNames = new Set(sourceClosure.affected_names);
+  for (const candidate of snapshot.candidates) {
+    if (sourceAffectedNames.has(candidate.canonical_name)) preclassifiedReusable.delete(candidate.candidate_fingerprint);
+  }
+  const candidatesToClassify = snapshot.candidates.filter((candidate) => !preclassifiedReusable.has(candidate.candidate_fingerprint));
+  const classifiedFacts = [];
+  const classifications = new Map();
+  const classificationFailures = new Map();
+  const sourceFingerprintByName = new Map(snapshot.candidates.map((candidate) => [candidate.canonical_name, candidate.candidate_fingerprint]));
+  const checkpoints = new Map(listCharacterLibraryBuildItems(build.id).map((item) => [item.candidate_fingerprint, item]));
+  for (const candidate of candidatesToClassify) {
+    await waitForCharacterBuildControl(task, build.id);
+    const checkpoint = checkpoints.get(candidate.candidate_fingerprint);
+    try {
+      const profile = Object.keys(checkpoint?.classification_output || {}).length
+        ? checkpoint.classification_output
+        : await callCharacterProfile(input.bookId, candidate, candidate.stages);
+      classifications.set(candidate.canonical_name, profile);
+      classifiedFacts.push(...applyClassificationSignals(candidate, profile));
+      saveCharacterLibraryBuildItem(build.id, {
+        item_key: candidate.candidate_fingerprint,
+        candidate_fingerprint: candidate.candidate_fingerprint,
+        source_fact_fingerprints: candidate.facts.map((fact) => fact.fingerprint),
+        input_payload: candidate,
+        classification_output: profile,
+        status: "pending",
+        attempt_count: Number(checkpoint?.attempt_count || 0)
+      });
+    } catch (error) {
+      classificationFailures.set(candidate.canonical_name, error);
+      classifiedFacts.push(...candidate.facts);
+    }
+  }
+  const projected = resolveCharacterCandidates(classifiedFacts).map((candidate) => ({
+    ...candidate,
+    facts: candidate.facts.map((fact) => ({ ...fact, fingerprint: fact.fingerprint || characterFactFingerprint(fact) })),
+    stages: deriveCharacterStages(candidate.canonical_name, candidate.facts),
+    candidate_fingerprint: crypto.createHash("sha256").update(JSON.stringify([
+      candidate.canonical_name,
+      candidate.aliases,
+      candidate.facts.map((fact) => fact.fingerprint || characterFactFingerprint(fact)).sort()
+    ])).digest("hex")
+  }));
+  const closureCandidates = [...projected, ...snapshot.candidates.filter((candidate) => preclassifiedReusable.has(candidate.candidate_fingerprint))];
+  const closure = computeAffectedCharacterClosure(previous, closureCandidates);
+  const affectedNames = new Set(closure.affected_names);
+  const reusable = new Map([...preclassifiedReusable, ...findUnchangedCharacters(projected, previous)]);
+  for (const candidate of closureCandidates) {
+    if (affectedNames.has(candidate.canonical_name)) reusable.delete(candidate.candidate_fingerprint);
+  }
+  const identified = assignStableCharacterIds(input.bookId, projected, previous);
+  const previousById = new Map(previous.map((character) => [character.id, character]));
+  const existingItems = new Map(listCharacterLibraryBuildItems(build.id).map((item) => [item.candidate_fingerprint, item]));
+  const output = [];
+  const retryList = [];
+  let failed = 0;
+  let unsafeAssembly = false;
+
+  for (const candidate of closureCandidates) {
+    const reused = reusable.get(candidate.candidate_fingerprint);
+    if (!reused) continue;
+    output.push(reused);
+    saveCharacterLibraryBuildItem(build.id, {
+      item_key: candidate.candidate_fingerprint,
+      candidate_fingerprint: candidate.candidate_fingerprint,
+      source_fact_fingerprints: candidate.facts.map((fact) => fact.fingerprint),
+      input_payload: candidate,
+      profile_output: reused,
+      fallback_payload: reused,
+      previous_character_id: reused.id,
+      identity_match: { reused: true, reason: "unchanged_facts" },
+      status: "reused",
+      completed_at: new Date().toISOString()
+    });
+  }
+
+  for (const candidate of identified) {
+    if (reusable.has(candidate.candidate_fingerprint)) continue;
+    await waitForCharacterBuildControl(task, build.id);
+    const candidateFingerprint = sourceFingerprintByName.get(candidate.canonical_name) || crypto.createHash("sha256").update(JSON.stringify([
+      candidate.canonical_name,
+      candidate.aliases,
+      candidate.facts.map((fact) => fact.fingerprint).sort()
+    ])).digest("hex");
+    const priorItem = existingItems.get(candidateFingerprint);
+    if (["succeeded", "reused"].includes(priorItem?.status) && priorItem.profile_output?.id) {
+      output.push(priorItem.profile_output);
+      continue;
+    }
+    const fallback = previousById.get(candidate.id) || null;
+    saveCharacterLibraryBuildItem(build.id, {
+      item_key: candidateFingerprint,
+      candidate_fingerprint: candidateFingerprint,
+      source_fact_fingerprints: candidate.facts.map((fact) => fact.fingerprint),
+      input_payload: candidate,
+      classification_output: classifications.get(candidate.canonical_name) || {},
+      fallback_payload: fallback || {},
+      previous_character_id: fallback?.id || "",
+      identity_match: { reused: Boolean(fallback) },
+      quality_warnings: candidate.quality_warnings,
+      status: "running",
+      attempt_count: Number(priorItem?.attempt_count || 0) + 1,
+      started_at: new Date().toISOString(),
+      heartbeat_at: new Date().toISOString()
+    });
+    try {
+      if (classificationFailures.has(candidate.canonical_name)) throw classificationFailures.get(candidate.canonical_name);
+      const profile = await callCharacterProfile(input.bookId, candidate, candidate.stages);
+      if (!profile.stages.length) throw new Error("Dify character profile has no stages");
+      const projection = profileToProjection(candidate, profile);
+      output.push(projection);
+      saveCharacterLibraryBuildItem(build.id, {
+        item_key: candidateFingerprint,
+        candidate_fingerprint: candidateFingerprint,
+        source_fact_fingerprints: candidate.facts.map((fact) => fact.fingerprint),
+        input_payload: candidate,
+        classification_output: classifications.get(candidate.canonical_name) || {},
+        profile_output: projection,
+        fallback_payload: fallback || {},
+        previous_character_id: fallback?.id || "",
+        identity_match: { reused: Boolean(fallback) },
+        quality_warnings: candidate.quality_warnings,
+        status: "succeeded",
+        attempt_count: Number(priorItem?.attempt_count || 0) + 1,
+        completed_at: new Date().toISOString()
+      });
+    } catch (error) {
+      failed += 1;
+      retryList.push(candidateFingerprint);
+      const relatedFallbacks = fallback ? [fallback] : findRelatedPreviousCharacters(candidate, previous);
+      if (relatedFallbacks.length) output.push(...relatedFallbacks.map((character) => markFallbackStale(character, "identity_ambiguous_fallback")));
+      if (!relatedFallbacks.length && previous.length && candidate.quality_warnings.includes("identity_ambiguous")) unsafeAssembly = true;
+      saveCharacterLibraryBuildItem(build.id, {
+        item_key: candidateFingerprint,
+        candidate_fingerprint: candidateFingerprint,
+        source_fact_fingerprints: candidate.facts.map((fact) => fact.fingerprint),
+        input_payload: candidate,
+        classification_output: classifications.get(candidate.canonical_name) || {},
+        fallback_payload: relatedFallbacks.length === 1 ? relatedFallbacks[0] : { characters: relatedFallbacks },
+        previous_character_id: fallback?.id || "",
+        identity_match: { reused: Boolean(fallback) },
+        quality_warnings: [...candidate.quality_warnings, "profile_failed"],
+        status: "failed",
+        attempt_count: Number(priorItem?.attempt_count || 0) + 1,
+        error_summary: error?.message || String(error),
+        completed_at: new Date().toISOString()
+      });
+    }
+    updateTask(task, {
+      progress: { total: identified.length, completed: output.length - failed, failed, skipped: 0, current: candidate.canonical_name }
+    });
+  }
+  await waitForCharacterBuildControl(task, build.id);
+  if (unsafeAssembly) {
+    updateCharacterLibraryBuild(build.id, { status: "failed", errorSummary: "ambiguous failed character cannot be safely merged" });
+    throw new Error("ambiguous failed character cannot be safely merged");
+  }
+  const verification = loadCharacterBuildSnapshot(input);
+  if (verification.source_fingerprint !== snapshot.source_fingerprint) {
+    updateCharacterLibraryBuild(build.id, { status: "failed", errorSummary: "character source changed during build" });
+    throw new Error("character source changed during build");
+  }
+  const quality = { ...snapshot.quality, failed_character_count: failed, retry_list: retryList, warning_count: snapshot.quality.warning_count + failed };
+  const status = failed > 0 || snapshot.coverage.is_partial ? "partial" : "completed";
+  if (snapshot.coverage.is_partial) {
+    const outputIds = new Set(output.map((character) => character.id));
+    for (const character of previous) {
+      if (!outputIds.has(character.id) && shouldRetainForPartialCoverage(character, snapshot.coverage)) {
+        output.push(markFallbackStale(character, "coverage_incomplete"));
+      }
+    }
+  }
+  const completeOutput = [...new Map(output.map((character) => [character.id, character])).values()];
+  closeConsumedCharacterClassificationCheckpoints(build.id);
+  replaceCharacterProjection(build.id, completeOutput, { status, coverage: snapshot.coverage, quality });
+  updateTask(task, { progress: characterBuildItemProgress(build.id) });
+  completeTask(task, { buildId: build.id, status, failed, retry_list: retryList });
+}
+
+function closeConsumedCharacterClassificationCheckpoints(buildId) {
+  const items = listCharacterLibraryBuildItems(buildId);
+  const targets = items.filter((item) => ["succeeded", "reused", "failed"].includes(item.status));
+  const runningItems = items.filter((item) => item.status === "running");
+  if (runningItems.length) {
+    throw characterBuildItemClosureError(`character profile item is still running: ${runningItems[0].item_key}`);
+  }
+  const openItems = items.filter((item) => item.status === "pending");
+  const resolutions = openItems.map((item) => {
+    const sourceName = String(item.input_payload?.canonical_name || "").trim();
+    const sourceFingerprints = new Set(item.source_fact_fingerprints);
+    const matches = !sourceName || sourceFingerprints.size === 0 ? [] : targets.filter((target) => {
+      const targetIdentity = new Set([
+        target.input_payload?.canonical_name,
+        ...(target.input_payload?.aliases || [])
+      ].map((name) => String(name || "").trim()).filter(Boolean));
+      if (!targetIdentity.has(sourceName)) return false;
+      const targetFingerprints = new Set(target.source_fact_fingerprints);
+      return [...sourceFingerprints].every((fingerprint) => targetFingerprints.has(fingerprint));
+    });
+    if (matches.length !== 1) {
+      throw characterBuildItemClosureError(`character classification checkpoint mapping is not unique: ${item.item_key}`);
+    }
+    return { item, target: matches[0] };
+  });
+
+  const completedAt = new Date().toISOString();
+  for (const { item, target } of resolutions) {
+    saveCharacterLibraryBuildItem(buildId, {
+      item_key: item.item_key,
+      candidate_fingerprint: item.candidate_fingerprint,
+      status: "succeeded",
+      completed_at: completedAt,
+      identity_match: {
+        ...item.identity_match,
+        absorbed: true,
+        final_item_key: target.item_key,
+        final_candidate_fingerprint: target.candidate_fingerprint,
+        final_canonical_name: target.input_payload?.canonical_name || "",
+        final_status: target.status,
+        final_character_ids: characterBuildItemOutputIds(target)
+      }
+    });
+  }
+}
+
+function characterBuildItemOutputIds(item) {
+  const ids = [item.profile_output?.id, item.fallback_payload?.id];
+  for (const character of item.fallback_payload?.characters || []) ids.push(character?.id);
+  return [...new Set(ids.filter(Boolean))].sort();
+}
+
+function characterBuildItemProgress(buildId) {
+  const items = listCharacterLibraryBuildItems(buildId);
+  return {
+    total: items.length,
+    completed: items.filter((item) => ["succeeded", "reused"].includes(item.status)).length,
+    failed: items.filter((item) => item.status === "failed").length,
+    skipped: items.filter((item) => item.status === "cancelled").length,
+    current: ""
+  };
+}
+
+function characterBuildItemClosureError(message) {
+  const error = new Error(message);
+  error.code = "CHARACTER_BUILD_ITEM_CLOSURE_FAILED";
+  return error;
+}
+
+function closeFailedCharacterBuildItems(buildId, error) {
+  const completedAt = new Date().toISOString();
+  const errorSummary = error?.message || String(error);
+  for (const item of listCharacterLibraryBuildItems(buildId)) {
+    if (!["pending", "running"].includes(item.status)) continue;
+    saveCharacterLibraryBuildItem(buildId, {
+      item_key: item.item_key,
+      candidate_fingerprint: item.candidate_fingerprint,
+      status: "failed",
+      error_summary: errorSummary,
+      completed_at: completedAt,
+      identity_match: {
+        ...item.identity_match,
+        mapping_failed: true,
+        mapping_error: errorSummary
+      }
+    });
+  }
+}
+
+function closeCancelledCharacterBuildItems(buildId) {
+  cancelPendingCharacterLibraryBuildItems(buildId);
+  const completedAt = new Date().toISOString();
+  for (const item of listCharacterLibraryBuildItems(buildId)) {
+    if (item.status !== "running") continue;
+    saveCharacterLibraryBuildItem(buildId, {
+      item_key: item.item_key,
+      candidate_fingerprint: item.candidate_fingerprint,
+      status: "cancelled",
+      completed_at: completedAt
+    });
+  }
+}
+
+function httpError(message, status) {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+}
+
+function loadCharacterBuildSnapshot({ bookId, indexGroupKey, startChapter, endChapter }) {
+  const bookPrompts = getBookIndexPrompts(bookId);
+  const indexGroup = getBookIndexGroup(bookId, indexGroupKey);
+  if (!indexGroup) throw new Error("character index group not found");
+  const freshSources = listFreshCharacterChapterSources({
+    bookId, indexGroupKey, startChapter, endChapter,
+    l1Model: l1IndexExecutionSignature(), l1PromptHash: bookL1IndexPromptHash(bookPrompts),
+    l2Model: l2IndexExecutionSignature(), l2PromptHash: indexGroupL2PromptHash(indexGroup), l2SchemaVersion: CHARACTER_L2_SCHEMA_VERSION
+  });
+  const storedSourceStates = new Map(listCharacterChapterSourceStates({ bookId, indexGroupKey, startChapter, endChapter })
+    .map((row) => [row.chapter_index, row]));
+  const sourceStates = Array.from({ length: endChapter - startChapter + 1 }, (_, offset) => {
+    const chapterIndex = startChapter + offset;
+    return storedSourceStates.get(chapterIndex) || {
+      chapter_index: chapterIndex,
+      content_hash: "",
+      l1_status: "missing",
+      l1_source_hash: "",
+      l1_model: "",
+      l1_prompt_hash: "",
+      l2_status: "missing",
+      l2_source_hash: "",
+      l2_model: "",
+      l2_prompt_hash: "",
+      l2_schema_version: ""
+    };
+  });
+  const freshChapters = freshSources.map((row) => row.chapter_index);
+  const facts = [];
+  if (freshChapters.length > 0) {
+    let cursor = null;
+    do {
+      const page = listCharacterL2FactsPage({ bookId, indexGroupKey, startChapter, endChapter, chapterIndexes: freshChapters, cursor, pageSize: 200 });
+      facts.push(...page.items);
+      cursor = page.next_cursor;
+    } while (cursor);
+  }
+  const expected = endChapter - startChapter + 1;
+  const coverage = {
+    start_chapter: startChapter,
+    end_chapter: endChapter,
+    l1_completed: freshChapters.length,
+    l2_completed: freshChapters.length,
+    failed_chapters: Array.from({ length: expected }, (_, offset) => startChapter + offset).filter((chapter) => !freshChapters.includes(chapter)),
+    empty_signal_chapters: [],
+    is_partial: freshChapters.length < expected
+  };
+  const profileInputs = buildCharacterProfileInputs({});
+  return prepareCharacterLibraryBuild({ facts, coverage, versions: {
+    source_chapters: sourceStates,
+    task2_rule_version: CHARACTER_PROJECTION_RULE_VERSION,
+    task4_schema_version: CHARACTER_PROFILE_SCHEMA_VERSION,
+    task4_schema_hash: shaString(JSON.stringify(characterProfileSchema())),
+    task4_prompt_hash: shaString(profileInputs.prompt),
+    dify_workflow_version: config.dify.analysisSummaryWorkflowVersion
+  } });
+}
+
+export function buildCharacterProfileContext({ book = {}, character = {}, stages = [] } = {}) {
+  const sourceStages = Array.isArray(stages) && stages.length
+    ? stages
+    : Array.isArray(character?.stages) && character.stages.length
+      ? character.stages
+      : [{ name: "默认阶段", type: "default", facts: [] }];
+  const preparedStages = sourceStages.map((stage, sourceIndex) => ({
+    sourceIndex,
+    name: String(stage?.name || "默认阶段").trim() || "默认阶段",
+    type: String(stage?.type || stage?.stage_type || "default").trim() || "default",
+    facts: Array.isArray(stage?.facts) ? stage.facts : []
+  })).sort((left, right) =>
+    compareStableText(left.name, right.name) ||
+    compareStableText(left.type, right.type) ||
+    left.sourceIndex - right.sourceIndex
+  );
+  const context = {
+    book: {
+      book_id: String(book?.book_id || "").trim(),
+      book_name: String(book?.book_name || "").trim()
+    },
+    character: {
+      canonical_name: String(character?.canonical_name || "").trim(),
+      aliases: normalizeStableStrings(character?.aliases)
+    },
+    stages: preparedStages.map(({ name, type }) => ({ name, type, facts: [] }))
+  };
+  if (JSON.stringify(context).length > CHARACTER_PROFILE_INPUT_MAX_CHARS) {
+    throw new Error(`Dify character profile fixed context exceeds ${CHARACTER_PROFILE_INPUT_MAX_CHARS} characters`);
+  }
+  const representatives = new Map();
+  const collectFact = (fact, stageIndex) => {
+    if (!fact || typeof fact !== "object") return;
+    const normalized = compactCharacterProfileFact(fact);
+    if (!normalized.evidence.length) return;
+    const fingerprint = characterFactFingerprint(fact);
+    normalized.fingerprint = fingerprint;
+    const candidate = { fact: normalized, stageIndex };
+    const current = representatives.get(fingerprint);
+    if (!current || compareCharacterProfileFactCandidates(candidate, current) < 0) {
+      representatives.set(fingerprint, candidate);
+    }
+  };
+  preparedStages.forEach((stage, stageIndex) => {
+    stage.facts.forEach((fact) => collectFact(fact, stageIndex));
+  });
+  const firstStageIndex = 0;
+  for (const fact of Array.isArray(character?.facts) ? character.facts : []) {
+    const fingerprint = characterFactFingerprint(fact);
+    if (!representatives.has(fingerprint)) collectFact(fact, firstStageIndex);
+  }
+
+  const candidates = [...representatives.values()];
+  const signals = candidates.filter(({ fact }) => hasStructuredCharacterProfileSignal(fact))
+    .sort(compareCharacterProfileFactCandidates);
+  const remainingByChapter = new Map();
+  for (const candidate of candidates.filter(({ fact }) => !hasStructuredCharacterProfileSignal(fact))) {
+    const chapterIndex = normalizeCharacterProfileChapterIndex(candidate.fact.chapter_index);
+    const chapterFacts = remainingByChapter.get(chapterIndex) || [];
+    chapterFacts.push(candidate);
+    remainingByChapter.set(chapterIndex, chapterFacts);
+  }
+  for (const facts of remainingByChapter.values()) facts.sort(compareCharacterProfileFactCandidates);
+  const chapters = [...remainingByChapter.keys()].sort((left, right) => left - right);
+  const roundRobin = [];
+  for (let round = 0; ; round += 1) {
+    let added = false;
+    for (const chapter of chapters) {
+      const candidate = remainingByChapter.get(chapter)[round];
+      if (!candidate) continue;
+      roundRobin.push(candidate);
+      added = true;
+    }
+    if (!added) break;
+  }
+
+  for (const candidate of [...signals, ...roundRobin]) {
+    const stage = context.stages[candidate.stageIndex] || context.stages[firstStageIndex];
+    stage.facts.push(candidate.fact);
+    if (JSON.stringify(context).length <= CHARACTER_PROFILE_INPUT_MAX_CHARS) continue;
+    stage.facts.pop();
+  }
+  if (candidates.length && context.stages.every((stage) => stage.facts.length === 0)) {
+    throw new Error(`Dify character profile context has no facts within the ${CHARACTER_PROFILE_INPUT_MAX_CHARS} character budget`);
+  }
+  return context;
+}
+
+async function callCharacterProfile(bookId, character, stages) {
+  const context = buildCharacterProfileContext({ book: getBook(bookId), character, stages });
+  const inputs = buildCharacterProfileInputs({ book: context.book, character: context.character, stages: context.stages });
+  const outputs = await runDifyWorkflow({
+    target: "analysis_summary",
+    apiKey: config.dify.analysisSummaryWorkflowApiKey,
+    inputs: {
+      task_type: "summary",
+      prompt: inputs.prompt,
+      model: analysisSummaryExecutionSignature(),
+      reasoning_effort: "medium",
+      schema_name: "character_profile",
+      schema_json: JSON.stringify(characterProfileSchema()),
+      strict_json_schema: "true",
+      context_json: JSON.stringify(context)
+    }
+  });
+  return normalizeCharacterProfileOutput(outputs);
+}
+
+function compactCharacterProfileFact(fact) {
+  const compact = {
+    chapter_index: normalizeCharacterProfileChapterIndex(fact.chapter_index),
+    entity: String(fact.entity || "").trim(),
+    aliases: normalizeStableStrings(fact.aliases),
+    fact_type: String(fact.fact_type || "").trim(),
+    fact: String(fact.fact || "").trim(),
+    evidence: normalizeStableStrings(fact.evidence)
+  };
+  for (const field of ["alias_relation", "stage_hint", "stage_type", "stage_stability"]) {
+    if (Object.hasOwn(fact, field)) compact[field] = String(fact[field] ?? "").trim();
+  }
+  if (Object.hasOwn(fact, "alias_confidence")) compact.alias_confidence = Number(fact.alias_confidence);
+  if (Object.hasOwn(fact, "stable_difference")) compact.stable_difference = fact.stable_difference === true;
+  return compact;
+}
+
+function normalizeStableStrings(values) {
+  return [...new Set((Array.isArray(values) ? values : [])
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean))]
+    .sort(compareStableText);
+}
+
+function normalizeCharacterProfileChapterIndex(value) {
+  const chapterIndex = Number(value);
+  return Number.isInteger(chapterIndex) && chapterIndex > 0 ? chapterIndex : 0;
+}
+
+function hasStructuredCharacterProfileSignal(fact) {
+  return ["alias_relation", "alias_confidence", "stage_hint", "stage_type", "stage_stability", "stable_difference"]
+    .some((field) => Object.hasOwn(fact, field));
+}
+
+function compareCharacterProfileFactCandidates(left, right) {
+  const leftSignal = hasStructuredCharacterProfileSignal(left.fact) ? 0 : 1;
+  const rightSignal = hasStructuredCharacterProfileSignal(right.fact) ? 0 : 1;
+  return leftSignal - rightSignal ||
+    normalizeCharacterProfileChapterIndex(left.fact.chapter_index) - normalizeCharacterProfileChapterIndex(right.fact.chapter_index) ||
+    characterProfileFactTypePriority(left.fact.fact_type) - characterProfileFactTypePriority(right.fact.fact_type) ||
+    compareStableText(left.fact.fingerprint, right.fact.fingerprint) ||
+    left.stageIndex - right.stageIndex ||
+    compareStableText(JSON.stringify(left.fact), JSON.stringify(right.fact));
+}
+
+function characterProfileFactTypePriority(value) {
+  return CHARACTER_FACT_TYPE_PRIORITY.get(String(value || "").trim()) ?? CHARACTER_FACT_TYPE_PRIORITY.size;
+}
+
+function compareStableText(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+async function waitForCharacterBuildControl(task, buildId) {
+  assertNotCancelled(task);
+  await waitIfPaused(task);
+  while (true) {
+    const build = getCharacterLibraryBuild(buildId);
+    if (build.control_state === "cancel_requested") {
+      closeCancelledCharacterBuildItems(buildId);
+      updateCharacterLibraryBuild(buildId, { status: "cancelled", errorSummary: "cancelled" });
+      throw new Error("character library build cancelled");
+    }
+    if (!["pause_requested", "paused"].includes(build.control_state)) return;
+    if (build.control_state === "pause_requested") updateCharacterLibraryBuildControl(buildId, "paused");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
+function findUnchangedCharacters(candidates, previousCharacters) {
+  const matches = new Map();
+  const previousByName = new Map();
+  for (const character of previousCharacters) {
+    const names = [character.canonical_name, ...(character.aliases || [])];
+    for (const name of names) {
+      const values = previousByName.get(name) || [];
+      values.push(character);
+      previousByName.set(name, values);
+    }
+  }
+  for (const candidate of candidates) {
+    const names = [candidate.canonical_name, ...(candidate.aliases || [])];
+    const possible = [...new Set(names.flatMap((name) => previousByName.get(name) || []))];
+    if (possible.length !== 1) continue;
+    const previous = possible[0];
+    const currentFacts = candidate.facts.map((fact) => fact.fingerprint || characterFactFingerprint(fact)).sort();
+    const previousFacts = previous.stages.flatMap((stage) => stage.facts.map((fact) => fact.fingerprint)).sort();
+    if (currentFacts.length !== previousFacts.length || currentFacts.some((value, index) => value !== previousFacts[index])) continue;
+    matches.set(candidate.candidate_fingerprint, previous);
+  }
+  return matches;
+}
+
+function profileToProjection(candidate, profile) {
+  const aliases = profile.aliases.filter((alias) => alias.alias_relation === "confirmed").map((alias) => alias.name);
+  return {
+    id: candidate.id,
+    canonical_name: candidate.canonical_name,
+    aliases: [...new Set([...candidate.aliases, ...aliases])],
+    gender: profile.gender,
+    first_chapter: Math.min(...candidate.facts.map((fact) => fact.chapter_index)),
+    last_chapter: Math.max(...candidate.facts.map((fact) => fact.chapter_index)),
+    profile_status: "complete",
+    quality_status: candidate.quality_warnings.length ? "warning" : "ok",
+    stages: candidate.stages.map((stage, index) => {
+      const value = profile.stages.find((item) => item.name === stage.name) || profile.stages[index] || {};
+      return {
+        id: stage.id,
+        name: stage.name,
+        stage_type: stage.type,
+        age: value.age,
+        identity_profession: value.identity_profession,
+        stable_appearance: value.stable_appearance,
+        stable_temperament: value.stable_temperament,
+        original_facial_features: value.original_facial_features,
+        designed_facial_features: value.designed_facial_features,
+        design_basis: value.design_basis,
+        source_version: analysisSummaryExecutionSignature(),
+        quality_status: value.quality_warnings?.length ? "warning" : "ok",
+        facts: stage.facts.map((fact) => ({ ...fact, fingerprint: fact.fingerprint || characterFactFingerprint(fact) }))
+      };
+    })
+  };
+}
+
+function shouldRetainForPartialCoverage(character, coverage) {
+  const sourceChapters = [...new Set(character.stages
+    .flatMap((stage) => stage.facts)
+    .map((fact) => Number(fact.chapter_index))
+    .filter((chapter) => Number.isInteger(chapter) && chapter > 0))];
+  if (!sourceChapters.length) return true;
+  const unavailable = new Set(coverage.failed_chapters || []);
+  return sourceChapters.some((chapter) =>
+    chapter < coverage.start_chapter || chapter > coverage.end_chapter || unavailable.has(chapter)
+  );
+}
+
+function findRelatedPreviousCharacters(candidate, previousCharacters) {
+  const names = new Set([candidate.canonical_name, ...(candidate.aliases || [])]);
+  const facts = new Set(candidate.facts.map((fact) => fact.fingerprint || characterFactFingerprint(fact)));
+  return previousCharacters.filter((character) => {
+    if ([character.canonical_name, ...(character.aliases || [])].some((name) => names.has(name))) return true;
+    return character.stages.some((stage) => stage.facts.some((fact) => facts.has(fact.fingerprint)));
+  });
+}
+
+function markFallbackStale(character, warning = "profile_failed") {
+  return {
+    ...character,
+    profile_status: "partial",
+    quality_status: "stale",
+    quality_warnings: [...new Set([...(character.quality_warnings || []), warning])],
+    stages: character.stages.map((stage) => ({ ...stage, quality_status: "stale" }))
+  };
 }
 
 
@@ -3616,4 +4387,3 @@ function inferFieldNameFromPartKey(partKey) {
   const match = String(partKey || "").match(/^json\.([^.]+)\./);
   return match?.[1] || "final";
 }
-

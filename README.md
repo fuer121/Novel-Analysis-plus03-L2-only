@@ -8,6 +8,7 @@
 2. **L1 路由索引** — 章节级"导航信号"：路由实体/别名、关键词、类别分数。回答"这类分析该看哪些章节"。元数据明文，供检索路由；不是深度摘要、不是事实库。
 3. **L2 事实索引** — 章节级"类型化事实库"：按索引组（如人物外貌、法宝、势力）抽取可复用事实（category/entity/fact_type/importance/confidence + fact/evidence），回答"这些章节里有哪些可召回的证据"。一本书可建多个索引组。
 4. **L2 提问（l2_query）** — 唯一的分析模式：输入一个问题并选定索引组与章节范围，后端在本地 L2 事实库中打分召回（纯本地、无 LLM 调用），把召回事实交给 Dify analysis-summary 工作流汇总成回答；事实量超预算时自动分块汇总再合并，Dify 不可用时降级为本地事实摘录。
+5. **角色库** — 在新鲜 L1/L2 角色事实之上构建持久化角色投影，聚合稳定姓名、阶段、外形、气质、五官设计与原文证据，支持部分范围、增量更新和失败恢复
 
 L1/L2 是**可复用的导航与证据层，不是最终分析结果**。索引新鲜度由章节 `content_hash`（sha256）+ 执行签名（`dify:<target>:<工作流版本>`）判定，章节或工作流版本变化后对应索引自动视为过期。
 
@@ -39,6 +40,8 @@ cp .env.example .env
 - `l1-route-index.workflow.yml`、`l2-fact-index.workflow.yml`：索引 prompt 由后端动态传入，不在 Dify 固化
 - `analysis-summary.workflow.yml`：通用 GPT 执行壳，prompt/schema/context 全部由后端传入
 
+角色库构建前需先导入章节，并在目标范围完成当前执行签名下的 L1 和角色 L2 索引组；角色档案两阶段结构化生成复用 `analysis-summary` 工作流与其 API Key，缺失或过期章节会显示为部分覆盖
+
 工作流文件哈希记录在 `dify-workflows/manifest.json`（`npm run dify:manifest` 重新生成，`npm run dify:manifest:check` 校验）。
 
 要求 Node.js ≥ 22.5（使用内置 `node:sqlite`）。
@@ -67,6 +70,7 @@ npm run start:lan
 - `/library`：书籍章节库。导入章节、构建 L1/L2 索引、查看覆盖度与事实、删除本地书籍数据。
 - `/prompts`：索引工作台。管理 L1/L2 索引 Prompt（全局默认 + 书籍级覆盖）与 L2 索引组。
 - `/diagnostics`：运行环境、Dify 各通道配置与数据库诊断。
+- `/#/book/:bookId/characters`：角色库全宽表格、搜索筛选、右侧详情抽屉、阶段档案与事实证据
 
 ## API（主要）
 
@@ -78,6 +82,11 @@ npm run start:lan
 - `POST /api/books/:bookId/l2-indexes`、`GET .../l2-indexes/coverage`、`GET /api/books/:bookId/l2-facts`
 - `POST /api/analyses`：创建 L2 提问任务，请求体 `{ book_id, name?, query, index_group_keys, chapter_indexes? }`
 - `GET /api/analyses`、`GET /api/analyses/:id`、`DELETE /api/analyses/:id`、`POST /api/analyses/:id/resume-run`、`GET /api/analyses/:id/events`（SSE）
+- `GET /api/books/:bookId/character-library`：角色库当前状态、覆盖、质量摘要和数量
+- `GET /api/books/:bookId/characters`、`GET /api/books/:bookId/characters/:characterId`：当前 build 的角色列表与详情
+- `POST /api/books/:bookId/character-library/builds`：启动角色库构建，请求体可指定 `{ index_group_key, start_chapter, end_chapter }`
+- `GET /api/character-library-builds/:id`、`GET /api/character-library-builds/:id/events`（SSE）：构建状态与进度
+- `POST /api/character-library-builds/:id/pause|resume|cancel`：暂停、恢复与取消构建任务
 - `GET/PUT /api/index-prompts`、`GET/PUT /api/books/:bookId/index-prompts`：L1/L2 索引 Prompt
 - `GET /api/config`、`GET /api/health`、`GET /api/diagnostics`、`GET /api/dify/test?target=import|l1|l2|analysis_summary|all`
 
@@ -100,6 +109,9 @@ npm test        # node:test 全量（service + 契约 + manifest + 迁移）
 npm run lint
 npm run build
 npm run verify  # 以上三连
+node --test --test-name-pattern="character library end-to-end build" test/service.test.js
 ```
 
-测试覆盖：Dify 分批与输出解析、明文落库与 content_hash、导入/二次导入跳过、L1/L2 索引与事实准入、l2_query 召回/分块/降级、迁移脚本。
+测试覆盖：Dify 分批与输出解析、明文落库与 content_hash、导入/二次导入跳过、L1/L2 索引与事实准入、l2_query 召回/分块/降级、角色库部分覆盖与 API 读回、迁移脚本
+
+当前角色库只收录有稳定名称的角色，不提供人工归并、拆分、角色图片生成或图片入口；部分覆盖和失败档案会显示质量警告，不应视为全书完整档案

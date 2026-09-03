@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 const { deriveJourney, journeyInputForBook } = await import("../src/utils/journey.js");
+const { parseHash, paths } = await import("../src/router.js");
+const { TASK_TYPES, taskDisplayName } = await import("../src/constants/index.js");
+const { breadcrumbParts } = await import("../src/utils/breadcrumbs.js");
+const { deriveCharacterLibraryPageState, characterListQuery, characterSourceIncomplete } = await import("../src/hooks/useCharacterLibraryData.js");
 
 function liveTask(type, bookId = "book-1") {
   return { id: `${type}-1`, type, status: "running", payload: { bookId } };
@@ -100,4 +105,96 @@ test("journeyInputForBook: 空聚合与空任务等价于刚导入", () => {
   const input = journeyInputForBook({ book: { book_id: "b", chapter_count: 10 } });
   const next = deriveJourney(input);
   assert.equal(next.stage, "构建章节线索");
+});
+
+test("router: 生成并解析角色库书籍路由", () => {
+  assert.equal(paths.characters("book/1"), "/book/book%2F1/characters");
+  assert.deepEqual(parseHash("#/book/book-1/characters"), {
+    route: "characters",
+    bookId: "book-1",
+    query: {}
+  });
+});
+
+test("character library: 注册任务类型与面包屑", () => {
+  assert.equal(TASK_TYPES.CHARACTER_LIBRARY, "character-library");
+  assert.equal(taskDisplayName(TASK_TYPES.CHARACTER_LIBRARY), "角色库");
+  assert.deepEqual(breadcrumbParts({ route: "characters", bookId: "book-1", bookName: "示例书" }), [
+    { label: "工作台", path: "/" },
+    { label: "示例书", path: "/book/book-1" },
+    { label: "角色库" }
+  ]);
+});
+
+test("character library: 任务不改变 L1/L2 旅程优先级", () => {
+  const input = journeyInputForBook({
+    book: { book_id: "book-1", chapter_count: 100 },
+    aggregate: { l1: { completed: 100 }, index_groups: 1 },
+    tasks: [liveTask("character-library")]
+  });
+  assert.equal(deriveJourney(input).stage, "创建事实索引组");
+});
+
+test("character library: App 和书籍入口接入全局任务通道", async () => {
+  const [appSource, bookSource, workbenchSource] = await Promise.all([
+    readFile(new URL("../src/App.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/BookHomePage.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/WorkbenchPage.jsx", import.meta.url), "utf8")
+  ]);
+  assert.match(appSource, /const characterLibraryChannel = useTaskChannel\(/);
+  assert.match(appSource, /activeRoute === "characters"/);
+  assert.match(bookSource, /title="角色库"/);
+  assert.match(bookSource, /paths\.characters\(bookId\)/);
+  assert.match(workbenchSource, /characterLibraryTask/);
+});
+
+test("character library: 页面状态按前置条件和当前投影确定性派生", () => {
+  assert.equal(deriveCharacterLibraryPageState({ chapterCount: 0 }).kind, "no_chapters");
+  assert.equal(deriveCharacterLibraryPageState({ chapterCount: 10, l1Completed: 0 }).kind, "no_l1");
+  assert.equal(deriveCharacterLibraryPageState({ chapterCount: 10, l1Completed: 10, hasCharacterGroup: false }).kind, "no_character_group");
+  assert.equal(deriveCharacterLibraryPageState({ chapterCount: 10, l1Completed: 10, hasCharacterGroup: true, l2Completed: 0 }).kind, "no_character_facts");
+  assert.equal(deriveCharacterLibraryPageState({ chapterCount: 10, l1Completed: 10, hasCharacterGroup: true, l2Completed: 8, sourceIncomplete: true, library: null }).kind, "library_missing");
+  assert.equal(deriveCharacterLibraryPageState({ chapterCount: 10, l1Completed: 10, hasCharacterGroup: true, l2Completed: 8, sourceIncomplete: true, library: { status: "partial" } }).kind, "partial");
+  assert.equal(deriveCharacterLibraryPageState({ chapterCount: 10, l1Completed: 10, hasCharacterGroup: true, l2Completed: 10, library: { status: "completed" } }).kind, "ready");
+});
+
+test("character library: 列表查询只发送锁定的搜索筛选排序参数", () => {
+  assert.deepEqual(characterListQuery({ search: " 沈昭 ", filter: "multi_stage", sort: "updated" }), {
+    search: "沈昭",
+    filter: "multi_stage",
+    sort: "updated"
+  });
+  assert.deepEqual(characterListQuery({ search: "", filter: "unknown", sort: "unknown" }), {
+    search: "",
+    filter: "all",
+    sort: "name"
+  });
+});
+
+test("character library: 来源不完整使用实际 outdated 计数", () => {
+  assert.equal(characterSourceIncomplete({ chapterCount: 10, chapters: { completed: 10, outdated: 1 } }), true);
+  assert.equal(characterSourceIncomplete({ chapterCount: 10, chapters: { completed: 10, outdated: 0 } }), false);
+  assert.equal(characterSourceIncomplete({ chapterCount: 10, chapters: { completed: 10 }, failed: [3] }), true);
+});
+
+test("character library: Task 8 页面接入表格、抽屉与整书更新参数", async () => {
+  const [appSource, pageSource, styleSource] = await Promise.all([
+    readFile(new URL("../src/App.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/CharacterLibraryPage.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/styles/pages/character-library.css", import.meta.url), "utf8")
+  ]);
+  assert.match(appSource, /<CharacterLibraryPage/);
+  assert.match(appSource, /index_group_key: indexGroupKey/);
+  assert.match(pageSource, /character-library-table/);
+  assert.match(pageSource, /character-library-drawer/);
+  assert.match(pageSource, /<details/);
+  assert.match(pageSource, /loading: \["角色库读取中"/);
+  assert.match(pageSource, /"personality"/);
+  assert.match(appSource, /<CharacterLibraryPage/);
+  assert.match(pageSource, /drawerCloseRef\.current\?\.focus/);
+  assert.match(pageSource, /matchMedia\("\(max-width: 899px\)"\)/);
+  const hookSource = await readFile(new URL("../src/hooks/useCharacterLibraryData.js", import.meta.url), "utf8");
+  assert.match(hookSource, /summaryRequestRef/);
+  assert.match(hookSource, /reloadRequestRef/);
+  assert.match(styleSource, /clamp\(560px, 42vw, 640px\)/);
 });

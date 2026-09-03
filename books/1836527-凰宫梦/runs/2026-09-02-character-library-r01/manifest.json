@@ -1,0 +1,44 @@
+{
+  "book_id": "1836527",
+  "book_name": "凰宫梦",
+  "run_id": "2026-09-02-character-library-r01",
+  "task": "character-library-validation",
+  "validated_at": "2026-09-03",
+  "status": "partial",
+  "build_id": "daf2b655-11c4-47d3-97e7-0383fe72c9ef",
+  "requested_range": [1, 2243],
+  "coverage": {
+    "l1_completed": 2242,
+    "l2_completed": 2242,
+    "failed_chapters": [35],
+    "is_partial": true
+  },
+  "projection": {
+    "characters": 790,
+    "stages": 801,
+    "fact_links": 21454,
+    "multi_stage_characters": 3
+  },
+  "build_items": {
+    "succeeded": 800,
+    "reused": 0,
+    "failed": 18,
+    "open": 0,
+    "failure_summary": "Dify character profile has no stages"
+  },
+  "baseline_comparison": {
+    "formal_character_count": 179,
+    "character_library_count": 790,
+    "status": "quality_gap",
+    "conclusion": "当前结果未通过角色召回与别名归并的正式基线一致性验证"
+  },
+  "api_readback": {
+    "status": "passed",
+    "route": "/api/books/1836527/character-library"
+  },
+  "residual_risks": [
+    "790 个投影角色显著高于 179 人正式基线，暴露稳定名称准入、主体分类和别名归并质量风险",
+    "第 35 章缺少新鲜 L1/L2 覆盖",
+    "18 个候选因 Dify 返回空 stages 未进入当前投影"
+  ]
+}

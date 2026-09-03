@@ -4,7 +4,8 @@ export const TASK_TYPES = {
   IMPORT: "import",
   L1_INDEX: "l1-index",
   L2_INDEX: "l2-index",
-  ANALYSIS: "analysis"
+  ANALYSIS: "analysis",
+  CHARACTER_LIBRARY: "character-library"
 };
 
 export const L2_INDEX_MODE_ALL = "all";
@@ -15,6 +16,7 @@ export function taskDisplayName(type) {
     [TASK_TYPES.IMPORT]: "导入",
     [TASK_TYPES.L1_INDEX]: "章节线索",
     [TASK_TYPES.L2_INDEX]: "事实索引",
-    [TASK_TYPES.ANALYSIS]: "提问"
+    [TASK_TYPES.ANALYSIS]: "提问",
+    [TASK_TYPES.CHARACTER_LIBRARY]: "角色库"
   }[type] || type;
 }
